@@ -1,0 +1,11 @@
+{
+ "name": "zlib",
+ "version": "3.46.1",
+ "main": "zlib.min.js",
+ "description": "'zlib' nodejs core module browserify-ied with `--standalone zlib`. Should support all module systems (commonjs, AMD & `window.zlib`) - check browserify docs.",
+ "keywords": [
+  "nodejs",
+  "browserify",
+  "zlib"
+ ]
+}

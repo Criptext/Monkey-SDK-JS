@@ -1,0 +1,17 @@
+{
+  "name": "monkeykit",
+  "version": "0.0.1",
+  "description": "Monkey SDK for web",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "babel-loader": "^6.0.0",
+    "babel-preset-es2015": "*",
+    "jquery": "^2.2.1",
+    "webpack": "^1.12.1"
+  },
+  "author": "Criptext <gianni@criptext.com>",
+  "license": "MIT"
+}

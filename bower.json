@@ -1,0 +1,30 @@
+{
+  "name": "monkeykit",
+  "description": "Monkey SDK for web",
+  "main": "index.js",
+  "authors": [
+    "Criptext <gianni@criptext.com>"
+  ],
+  "license": "MIT",
+  "keywords": [
+    "monkey",
+    "sdk",
+    "js",
+    "secure",
+    "criptext"
+  ],
+  "moduleType": [],
+  "homepage": "https://criptext.com/monkey",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ],
+  "dependencies": {
+    "zlib": "^3.46.1",
+    "cryptojslib": "^3.1.2",
+    "travist/jsencrypt": "jsencrypt#^2.1.0"
+  }
+}
