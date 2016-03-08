@@ -71,6 +71,10 @@ var monkey =
 
 	window.MOKMessage = _MOKMessage2.default;
 
+	var $ = __webpack_require__(9);
+	window.jQuery = $;
+	window.$ = $;
+
 	var STATUS = {
 	    OFFLINE: 0,
 	    HANDSHAKE: 1,
@@ -119,9 +123,6 @@ var monkey =
 	    GROUPS: 2
 	};
 
-	var $ = __webpack_require__(9);
-	window.jQuery = $;
-	window.$ = $;
 	// var jQueryScriptOutputted = false;
 
 	// function initJQuery() {

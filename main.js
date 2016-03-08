@@ -16,6 +16,10 @@ import MOKMessage from './libs/MOKMessage.js';
 
 window.MOKMessage = MOKMessage;
 
+var $ = require('jquery');
+window.jQuery = $;
+window.$ = $;
+
 var STATUS = {
     OFFLINE:0,
     HANDSHAKE:1,
@@ -64,9 +68,6 @@ var MOKSyncType = {
      GROUPS:2
 }
 
-var $ = require('jquery');
-window.jQuery = $;
-window.$ = $;
 // var jQueryScriptOutputted = false;
 
 // function initJQuery() {
