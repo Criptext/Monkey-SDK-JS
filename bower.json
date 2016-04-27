@@ -1,7 +1,7 @@
 {
   "name": "monkeykit",
   "description": "Monkey SDK for web",
-  "main": "index.js",
+  "main": "main.js",
   "authors": [
     "Criptext <gianni@criptext.com>"
   ],
@@ -24,7 +24,9 @@
   ],
   "dependencies": {
     "zlib": "^3.46.1",
-    "cryptojslib": "^3.1.2",
-    "travist/jsencrypt": "jsencrypt#^2.1.0"
+    "isomorphic-fetch": "^2.2.1",
+    "es6-promise": "^3.2.1",
+    "fetch": "^0.11.0",
+    "eventEmitter": "^4.3.0"
   }
 }

@@ -25,7 +25,7 @@
         //parse props
         if (args.props != null && typeof(args.props) != "undefined" && args.props != "") {
             if (typeof(args.props) === "string") {
-                this.props = JSON.parse(args.props);    
+                this.props = JSON.parse(args.props);
             }else{
                 this.props = args.props;
             }
@@ -36,7 +36,7 @@
         //parse params
         if (args.params != null && args.params != "" && typeof(args.params) != "undefined") {
             if (typeof(args.params) === "string") {
-                this.params = JSON.parse(args.params);  
+                this.params = JSON.parse(args.params);
             }else{
                 this.params = args.params;
             }
@@ -53,7 +53,7 @@
             this.oldId = this.props.old_id;
         }
 
-        this.encryptedText = args.msg; 
+        this.encryptedText = args.msg;
         this.text = args.msg;
 
         switch(command){
@@ -85,7 +85,7 @@
     }
     compressionMethod(){
         if (this.isCompressed) {
-            return this.props.cmpr;    
+            return this.props.cmpr;
         }
         return null;
     }

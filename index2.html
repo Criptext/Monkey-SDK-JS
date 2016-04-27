@@ -1,0 +1,315 @@
+<!--
+  This is an example of a simple implementation for sending messages
+  between 2 monkeyIds in an app.
+
+  The simple example is called "plain", because is not using the encryption
+  feature of monkey.
+
+ -->
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+  <meta charset="UTF-8">
+  <meta name="description" content="Monkey App">
+  <meta name="keywords" content="monkey, example">
+  <meta name="author" content="Criptext INC.">
+  <title> Example </title>
+
+
+  <!-- Javascript: JS -->
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
+  <script src="./dist/monkey.js"></script>
+
+
+</head>
+<body>
+  <p>If you don't have a monkey ID you can leave it blank to generate a random id. Check the wiki to understand how it works</p>
+  <div style="text-align:center;">
+    <span>ID FROM: </span>
+    <input id="myMonkeyIdInput" type="text" value=""/>
+    <button onclick="connectWith();">Connect</button>
+    <br>
+    <p>Status: <span id="status">OFFLINE</span></p>
+    <br><br>
+    <span>ID TO: </span>
+    <input id="recipientMonkeyIdInput" type="text" value=""/>
+    <br><br>
+    <span>TEXT TO SEND: </span>
+    <input id="myTextToSend" type="text" value=""/>
+    <button onclick="sendMessage();">Send</button>
+    <br><br>
+
+    <br>
+    <p>Received messages:</p>
+
+  </div>
+
+
+  <div id="messages" style="text-align:center;">
+
+  </div>
+
+<script>
+
+
+
+function getStatus(code){
+
+  switch(code){
+    case 0:
+    return "OFFLINE"; break;
+    case 1:
+    return "HANDSHAKE"; break;
+    case 2:
+    return "CONNECTING"; break;
+    case 3:
+    return "ONLINE"; break;
+  }
+}
+
+
+
+
+function changeStatus(statusString){
+
+  $("#status").text(statusString);
+
+}
+
+
+$( document ).ready(function() {
+
+  //connectWith(userObj);
+
+});
+
+
+function connectWith(){
+  /*
+    Simple creation of a game/conversation entity with a user object
+    This object can save any metadata in the JSON object.
+    userObj attributes that monkey has reserved:
+      -name: You can identify the name of the entity you are talking with
+      - id: You can reuse a monkey ID to use in the system.
+  */
+
+   //userObj = { name:"John Doe"};
+
+  /*
+  To specify a user that already has a monkeyId saved in your system.
+
+  */
+  monkeyId=$("#myMonkeyIdInput").val();
+
+  userObj = { name:"ID: "+monkeyId, monkey_id:monkeyId};
+
+  /*
+    Starting a session with the object with certain metadata of user.
+
+    monkey.init
+    Initialize the monkey connection with the following parameters.
+
+    monkey.init(
+        "<appID>",
+        "<accessToken>",
+        {userObj},
+        true/false, // (optional) expiring the session
+        "myserver.com",  // NULL if you don't have enterprise monkey version
+        true/false // (optional) secure connection or debuging connection
+    )
+
+  */
+
+
+  monkey.init("ikolu1b81v9rgagb8gs0pb9", "c00aa80dbb6ba96096b7cba155c17383",userObj);
+
+  $( monkey ).on( "onNotification", function( event, notification ) {
+
+        console.log("On Notifcation "+JSON.stringify(notification));
+
+  });
+
+  $( monkey ).on( "onAcknowledge", function( event, acknowledge ) {
+
+      /*
+        {"data":{"cmd":205,"args":{"id":"0","sid":"--","rid":"--","props":"{\"status\":\"50\",\"new_id\":\"347474\",\"old_id\":\"-1454693099\"}","type":"1","datetime":"1454693099"}}}
+
+      */
+
+        messageOldId=acknowledge.oldId;
+
+        messageStatus=acknowledge.props.status;
+
+        markMessageAs(messageOldId,messageStatus);
+
+  });
+
+  function markMessageAs(messageOldId,messageStatus){
+
+      if(messages[messageOldId]){
+          // TODO
+      }
+      else{
+        console.log("Message not found "+messageOldId);
+      }
+  }
+
+  $( monkey ).on( "onSession", function( event, eObject ) {
+
+        console.log("On Session ");
+        changeStatus(getStatus(monkey.status));
+  });
+
+  $( monkey ).on( "onConnect", function( event, eObject ) {
+
+        console.log("Connected "+eObject.monkey_id);
+
+      // You can Subscribe and create a temporal channel to listen
+      //monkey.subscribe("discoverychannel");
+
+      // In a simple implementation you just need to start sending a message to the other monkedId once you are connected.
+        changeStatus(getStatus(monkey.status));
+    });
+
+    /*
+      Event listener of channels :
+
+      Channels are used in general to discover other monkeyIds connected
+      and start having a conversation.
+    */
+    $( monkey ).on( "onSubscribe", function( event, eObject ) {
+
+        console.log("Subscribed to the channel ");
+    });
+
+    $(monkey).on( "onMessage", function( event, message ){
+
+        var _messageId = message.id;
+        var _messageDatetime = message.datetimeCreation;
+
+        var _senderId = message.senderId;
+
+        var messageText_ = message.decryptedText;
+        console.log('message arrived '+JSON.stringify(message));
+
+
+        var _messageType = parseInt(message.protocolType);
+
+        switch(_messageType){
+            // Text
+            case 1:
+
+                //var _messageProps = JSON.parse(_messageIn.args.props);
+                //var _messageParams = JSON.parse(_messageIn.args.params);
+
+                addHTMLMessage(_messageId,_senderId,messageText_)
+
+                break;
+            // File
+            case 2:
+
+
+            break;
+        }
+
+    });
+
+    $( monkey ).on( "onDisconnect", function( event, eObject ) {
+        console.log("onDisconnect event");
+        changeStatus(getStatus(monkey.status));
+    });
+
+    $( monkey ).on( "onChannelMessages", function( event, data ) {
+
+        console.log("Message coming from channel subscribed "+JSON.stringify(data));
+    });
+}
+
+
+function addHTMLMessage(messageId_,fromUser,messageText_){
+
+  _mensajeHTML='<div class="message-line" id="'+messageId_+'">'+
+  '<span style="">'+fromUser+'</span> : '+messageText_+'</div>';
+
+  $("#messages").append(_mensajeHTML);
+}
+
+var messages={};
+
+function sendMessage(){
+
+
+    text=$("#myTextToSend").val();
+
+    recipientMonkeyId=$("#recipientMonkeyIdInput").val();
+
+
+    /*
+      You can use this structure to send a chat message, this message
+      could be encrypted if you set that in the props argument.
+    */
+    var messageChat={
+      type:1, // type 1 is a text message
+      rid:recipientMonkeyId,
+      msg:text,
+      props:{encr:'0'} // props for now should specify that is not encrypted
+    }
+
+
+
+    message = monkey.sendMessage(text, recipientMonkeyId, {test: "esto es un test de params"});//the last parameter is for a JSON object that the developer wants to send
+    // the oldId helps the developer to map the acknowledge that returns when the message was delivered to the other user.
+
+    console.log("Sent message with id "+message.oldId);
+
+    messages[message.oldId]=message; // keep track of the message sent so you can update the status of the message when the ack arrives.
+    $("#myTextToSend").val("");
+
+    /*
+      You can use this structure of message to send a notification to the recipient about an action performed by you in the system.
+    */
+/*    var customDevParams={
+      turn:1,
+      currentDeck:"1b,2n",
+      cardSent:"7b"
+    }
+
+    var messageAction={
+      type:4, // type 4 is a notification message that persist
+      rid:recipientMonkeyId,
+      params: customDevParams // params in JSON object are customized
+    }*/
+
+
+    /*
+      This structure enables the user to send a message that will not persist in the conversation. An example could be:
+      Messaging : "is typing" or "is recording"
+      Games : "Está barajando las cartas"
+
+      This is a fast real time notification that could be lost and not saved
+      in the history of the conversation between the 2 monkey users.
+    */
+
+  /*  var customDevParams={
+      text:""
+    }
+
+    var messageNotification={
+      type:3, // type 3 is an ephemeral notifiation that does not persist.
+      rid:recipientMonkeyId,
+      params: customDevParams // params in JSON object are customized
+    }
+    */
+
+
+}
+
+</script>
+
+
+
+</body>
+</html>
