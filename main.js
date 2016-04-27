@@ -170,7 +170,9 @@ function startConnection(monkey_id){
 
   socketConnection.onopen = function () {
     monkey.status=STATUS.ONLINE;
-    monkey.emitter.emitEvent('onConnect', {monkey_id:monkey.session.id});
+    monkey.emitter.emit('onConnect', {monkey_id:monkey.session.id});
+
+    sendCommand(MOKMessageProtocolCommand.SET, {online:1});
     getPendingMessages();
   };
 
@@ -215,7 +217,7 @@ function startConnection(monkey_id){
             //monkeyType = MOKGroupsJoined;
             msg.text = jsonres.args.messages;
 
-            monkey.emitter.emitEvent('onNotification', msg);
+            monkey.emitter.emit('onNotification', msg);
             break;
           }
         }
@@ -237,7 +239,7 @@ function startConnection(monkey_id){
             msg.protocolType = MOKMessageType.NOTIF;
             //monkeyType = MOKGroupsJoined;
             msg.text = jsonres.args.messages;
-            monkey.emitter.emitEvent('onNotification', msg);
+            monkey.emitter.emit('onNotification', msg);
             break;
           }
         }
@@ -246,11 +248,11 @@ function startConnection(monkey_id){
       }
       case MOKMessageProtocolCommand.OPEN:{
         msg.protocolCommand = MOKMessageProtocolCommand.OPEN;
-        monkey.emitter.emitEvent('onNotification', msg);
+        monkey.emitter.emit('onNotification', msg);
         break;
       }
       default:{
-        monkey.emitter.emitEvent('onNotification', msg);
+        monkey.emitter.emit('onNotification', msg);
         break;
       }
     }
@@ -268,7 +270,7 @@ function startConnection(monkey_id){
       monkey.status=STATUS.CONNECTING;
       setTimeout(startConnection(monkey_id), 2000 );
     }
-    monkey.emitter.emitEvent('onDisconnect');
+    monkey.emitter.emit('onDisconnect');
   };
 }
 
@@ -333,7 +335,7 @@ function processMOKProtocolMessage(message){
       break;
     }
     default:{
-      monkey.emitter.emitEvent('onNotification', message);
+      monkey.emitter.emit('onNotification', message);
       break;
     }
   }
@@ -352,7 +354,7 @@ function processMOKProtocolACK(message){
   console.log("===========================");
 
   //Aditional treatment can be done here
-  monkey.emitter.emitEvent('onAcknowledge', message);
+  monkey.emitter.emit('onAcknowledge', message);
 }
 
 function incomingMessage(message){
@@ -393,11 +395,11 @@ function incomingMessage(message){
 
   switch (message.protocolCommand){
     case MOKMessageProtocolCommand.MESSAGE:{
-      monkey.emitter.emitEvent('onMessage', message);
+      monkey.emitter.emit('onMessage', message);
       break;
     }
     case MOKMessageProtocolCommand.PUBLISH:{
-      monkey.emitter.emitEvent('onChannelMessages', message);
+      monkey.emitter.emit('onChannelMessages', message);
       break;
     }
   }
@@ -410,7 +412,7 @@ function fileReceived(message){
     monkey.lastMessageId = message.id;
   }
 
-  monkey.emitter.emitEvent('onMessage', message);
+  monkey.emitter.emit('onMessage', message);
 }
 
 /*
@@ -501,7 +503,7 @@ function startSession(){
 
     monkey.session.serverPublic=respObj.data.publicKey;
 
-    monkey.emitter.emitEvent('onSession', {monkey_id:monkey.session.id});
+    monkey.emitter.emit('onSession', {monkey_id:monkey.session.id});
 
     monkey.status=STATUS.CONNECTING;
 
@@ -543,7 +545,7 @@ function subscribe(channelname, callback) {
     if(err){
       return;
     }
-    monkey.emitter.emitEvent('onSubscribe', respObj);
+    monkey.emitter.emit('onSubscribe', respObj);
   });
 }
 

@@ -231,7 +231,9 @@ var monkey =
 
 	  socketConnection.onopen = function () {
 	    monkey.status = STATUS.ONLINE;
-	    monkey.emitter.emitEvent('onConnect', { monkey_id: monkey.session.id });
+	    monkey.emitter.emit('onConnect', { monkey_id: monkey.session.id });
+
+	    sendCommand(MOKMessageProtocolCommand.SET, { online: 1 });
 	    getPendingMessages();
 	  };
 
@@ -281,7 +283,7 @@ var monkey =
 	                //monkeyType = MOKGroupsJoined;
 	                msg.text = jsonres.args.messages;
 
-	                monkey.emitter.emitEvent('onNotification', msg);
+	                monkey.emitter.emit('onNotification', msg);
 	                break;
 	              }
 	          }
@@ -306,7 +308,7 @@ var monkey =
 	                msg.protocolType = MOKMessageType.NOTIF;
 	                //monkeyType = MOKGroupsJoined;
 	                msg.text = jsonres.args.messages;
-	                monkey.emitter.emitEvent('onNotification', msg);
+	                monkey.emitter.emit('onNotification', msg);
 	                break;
 	              }
 	          }
@@ -316,12 +318,12 @@ var monkey =
 	      case MOKMessageProtocolCommand.OPEN:
 	        {
 	          msg.protocolCommand = MOKMessageProtocolCommand.OPEN;
-	          monkey.emitter.emitEvent('onNotification', msg);
+	          monkey.emitter.emit('onNotification', msg);
 	          break;
 	        }
 	      default:
 	        {
-	          monkey.emitter.emitEvent('onNotification', msg);
+	          monkey.emitter.emit('onNotification', msg);
 	          break;
 	        }
 	    }
@@ -338,7 +340,7 @@ var monkey =
 	      monkey.status = STATUS.CONNECTING;
 	      setTimeout(startConnection(monkey_id), 2000);
 	    }
-	    monkey.emitter.emitEvent('onDisconnect');
+	    monkey.emitter.emit('onDisconnect');
 	  };
 	}
 
@@ -406,7 +408,7 @@ var monkey =
 	      }
 	    default:
 	      {
-	        monkey.emitter.emitEvent('onNotification', message);
+	        monkey.emitter.emit('onNotification', message);
 	        break;
 	      }
 	  }
@@ -425,7 +427,7 @@ var monkey =
 	  console.log("===========================");
 
 	  //Aditional treatment can be done here
-	  monkey.emitter.emitEvent('onAcknowledge', message);
+	  monkey.emitter.emit('onAcknowledge', message);
 	}
 
 	function incomingMessage(message) {
@@ -466,12 +468,12 @@ var monkey =
 	  switch (message.protocolCommand) {
 	    case MOKMessageProtocolCommand.MESSAGE:
 	      {
-	        monkey.emitter.emitEvent('onMessage', message);
+	        monkey.emitter.emit('onMessage', message);
 	        break;
 	      }
 	    case MOKMessageProtocolCommand.PUBLISH:
 	      {
-	        monkey.emitter.emitEvent('onChannelMessages', message);
+	        monkey.emitter.emit('onChannelMessages', message);
 	        break;
 	      }
 	  }
@@ -483,7 +485,7 @@ var monkey =
 	    monkey.lastMessageId = message.id;
 	  }
 
-	  monkey.emitter.emitEvent('onMessage', message);
+	  monkey.emitter.emit('onMessage', message);
 	}
 
 	/*
@@ -572,7 +574,7 @@ var monkey =
 
 	    monkey.session.serverPublic = respObj.data.publicKey;
 
-	    monkey.emitter.emitEvent('onSession', { monkey_id: monkey.session.id });
+	    monkey.emitter.emit('onSession', { monkey_id: monkey.session.id });
 
 	    monkey.status = STATUS.CONNECTING;
 
@@ -613,7 +615,7 @@ var monkey =
 	    if (err) {
 	      return;
 	    }
-	    monkey.emitter.emitEvent('onSubscribe', respObj);
+	    monkey.emitter.emit('onSubscribe', respObj);
 	  });
 	}
 
@@ -1935,7 +1937,7 @@ var monkey =
 	From [node2web](http://github.com/anodynos/node2web) collection,
 	should/will be exposed as 'zlib' to [bower](http://bower.io) for *browser* usage.
 
-	browserify version: '3.46.1', build date 'Wed Oct 08 2014 17:38:46 GMT+0300 (EEST)' 
+	browserify version: '3.46.1', build date 'Wed Oct 08 2014 17:38:46 GMT+0300 (EEST)'
 	**/
 	!function(e){if(true)module.exports=e();else if("function"==typeof define&&define.amd)define(e);else{var f;"undefined"!=typeof window?f=window:"undefined"!=typeof global?f=global:"undefined"!=typeof self&&(f=self),f.zlib=e()}}(function(){var define,module,exports;return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return require(o,!0);if(i)return i(o,!0);throw new Error("Cannot find module '"+o+"'")}var f=n[o]={exports:{}};t[o][0].call(f.exports,function(e){var n=t[o][1][e];return s(n?n:e)},f,f.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(_dereq_,module,exports){
 	// http://wiki.commonjs.org/wiki/Unit_Testing/1.0
@@ -7721,7 +7723,7 @@ var monkey =
 	function Zlib(mode) {
 	  if (mode < exports.DEFLATE || mode > exports.UNZIP)
 	    throw new TypeError("Bad argument");
-	    
+
 	  this.mode = mode;
 	  this.init_done = false;
 	  this.write_in_progress = false;
@@ -7739,18 +7741,18 @@ var monkey =
 	  this.memLevel = memLevel;
 	  this.strategy = strategy;
 	  // dictionary not supported.
-	  
+
 	  if (this.mode === exports.GZIP || this.mode === exports.GUNZIP)
 	    this.windowBits += 16;
-	    
+
 	  if (this.mode === exports.UNZIP)
 	    this.windowBits += 32;
-	    
+
 	  if (this.mode === exports.DEFLATERAW || this.mode === exports.INFLATERAW)
 	    this.windowBits = -this.windowBits;
-	    
+
 	  this.strm = new zstream();
-	  
+
 	  switch (this.mode) {
 	    case exports.DEFLATE:
 	    case exports.GZIP:
@@ -7776,12 +7778,12 @@ var monkey =
 	    default:
 	      throw new Error("Unknown mode " + this.mode);
 	  }
-	  
+
 	  if (status !== exports.Z_OK) {
 	    this._error(status);
 	    return;
 	  }
-	  
+
 	  this.write_in_progress = false;
 	  this.init_done = true;
 	};
@@ -7793,31 +7795,31 @@ var monkey =
 	Zlib.prototype._writeCheck = function() {
 	  if (!this.init_done)
 	    throw new Error("write before init");
-	    
+
 	  if (this.mode === exports.NONE)
 	    throw new Error("already finalized");
-	    
+
 	  if (this.write_in_progress)
 	    throw new Error("write already in progress");
-	    
+
 	  if (this.pending_close)
 	    throw new Error("close is pending");
 	};
 
-	Zlib.prototype.write = function(flush, input, in_off, in_len, out, out_off, out_len) {    
+	Zlib.prototype.write = function(flush, input, in_off, in_len, out, out_off, out_len) {
 	  this._writeCheck();
 	  this.write_in_progress = true;
-	  
+
 	  var self = this;
 	  process.nextTick(function() {
 	    self.write_in_progress = false;
 	    var res = self._write(flush, input, in_off, in_len, out, out_off, out_len);
 	    self.callback(res[0], res[1]);
-	    
+
 	    if (self.pending_close)
 	      self.close();
 	  });
-	  
+
 	  return this;
 	};
 
@@ -7835,7 +7837,7 @@ var monkey =
 
 	Zlib.prototype._write = function(flush, input, in_off, in_len, out, out_off, out_len) {
 	  this.write_in_progress = true;
-	  
+
 	  if (flush !== exports.Z_NO_FLUSH &&
 	      flush !== exports.Z_PARTIAL_FLUSH &&
 	      flush !== exports.Z_SYNC_FLUSH &&
@@ -7844,18 +7846,18 @@ var monkey =
 	      flush !== exports.Z_BLOCK) {
 	    throw new Error("Invalid flush value");
 	  }
-	  
+
 	  if (input == null) {
 	    input = new Buffer(0);
 	    in_len = 0;
 	    in_off = 0;
 	  }
-	  
+
 	  if (out._set)
 	    out.set = out._set;
 	  else
 	    out.set = bufferSet;
-	  
+
 	  var strm = this.strm;
 	  strm.avail_in = in_len;
 	  strm.input = input;
@@ -7863,7 +7865,7 @@ var monkey =
 	  strm.avail_out = out_len;
 	  strm.output = out;
 	  strm.next_out = out_off;
-	  
+
 	  switch (this.mode) {
 	    case exports.DEFLATE:
 	    case exports.GZIP:
@@ -7879,11 +7881,11 @@ var monkey =
 	    default:
 	      throw new Error("Unknown mode " + this.mode);
 	  }
-	  
+
 	  if (status !== exports.Z_STREAM_END && status !== exports.Z_OK) {
 	    this._error(status);
 	  }
-	  
+
 	  this.write_in_progress = false;
 	  return [strm.avail_in, strm.avail_out];
 	};
@@ -7893,15 +7895,15 @@ var monkey =
 	    this.pending_close = true;
 	    return;
 	  }
-	  
+
 	  this.pending_close = false;
-	  
+
 	  if (this.mode === exports.DEFLATE || this.mode === exports.GZIP || this.mode === exports.DEFLATERAW) {
 	    zlib_deflate.deflateEnd(this.strm);
 	  } else {
 	    zlib_inflate.inflateEnd(this.strm);
 	  }
-	  
+
 	  this.mode = exports.NONE;
 	};
 
@@ -7916,7 +7918,7 @@ var monkey =
 	      var status = zlib_inflate.inflateReset(this.strm);
 	      break;
 	  }
-	  
+
 	  if (status !== exports.Z_OK) {
 	    this._error(status);
 	  }
@@ -7924,7 +7926,7 @@ var monkey =
 
 	Zlib.prototype._error = function(status) {
 	  this.onerror(msg[status] + ': ' + this.strm.msg, status);
-	  
+
 	  this.write_in_progress = false;
 	  if (this.pending_close)
 	    this.close();
@@ -11890,7 +11892,7 @@ var monkey =
 	    chunk = new Buffer(chunk);
 	  if (isArrayBuffer(chunk) && typeof Uint8Array !== 'undefined')
 	    chunk = new Buffer(new Uint8Array(chunk));
-	  
+
 	  if (Buffer.isBuffer(chunk))
 	    encoding = 'buffer';
 	  else if (!encoding)
