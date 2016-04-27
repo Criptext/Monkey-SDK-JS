@@ -1,6 +1,6 @@
 {
   "name": "monkeykit",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "Monkey SDK for web",
   "main": "./dist/monkey.js",
   "scripts": {
