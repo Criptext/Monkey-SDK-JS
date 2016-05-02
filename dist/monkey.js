@@ -176,8 +176,40 @@ return /******/ (function(modules) { // webpackBootstrap
 	  };
 
 	  /*
-	  NETWORKING
-	  */
+	   * COMMUNICATION
+	   */
+
+	  proto.prepareMessageArgs = function prepareMessageArgs(recipientMonkeyId, props, optionalParams, optionalPush) {
+	    var args = {
+	      app_id: this.appKey,
+	      sid: this.session.id,
+	      rid: recipientMonkeyId,
+	      props: JSON.stringify(props),
+	      params: JSON.stringify(optionalParams)
+	    };
+
+	    switch (typeof optionalPush === 'undefined' ? 'undefined' : _typeof(optionalPush)) {
+	      case "object":
+	        {
+	          if (optionalPush == null) {
+	            optionalPush = {};
+	          }
+	          break;
+	        }
+	      case "string":
+	        {
+	          optionalPush = this.generateStandardPush(optionalPush);
+	          break;
+	        }
+	      default:
+	        optionalPush = {};
+	        break;
+	    }
+
+	    args["push"] = JSON.stringify(optionalPush);
+
+	    return args;
+	  };
 
 	  proto.sendCommand = function sendCommand(command, args) {
 	    var finalMessage = JSON.stringify({ cmd: command, args: args });
@@ -191,6 +223,170 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	  proto.sendOpenToUser = function sendOpenToUser(monkeyId) {
 	    this.sendCommand(this.enums.MOKMessageProtocolCommand.OPEN, { rid: monkeyId });
+	  };
+
+	  proto.sendMessage = function sendMessage(text, recipientMonkeyId, optionalParams, optionalPush) {
+	    var props = {
+	      device: "web",
+	      encr: 0
+	    };
+
+	    return this.sendText(this.enums.MOKMessageProtocolCommand.MESSAGE, text, recipientMonkeyId, props, optionalParams, optionalPush);
+	  };
+
+	  proto.sendEncryptedMessage = function sendEncryptedMessage(text, recipientMonkeyId, optionalParams, optionalPush) {
+	    var props = {
+	      device: "web",
+	      encr: 1
+	    };
+
+	    return this.sendText(this.enums.MOKMessageProtocolCommand.MESSAGE, text, recipientMonkeyId, props, optionalParams, optionalPush);
+	  };
+
+	  proto.sendText = function sendText(cmd, text, recipientMonkeyId, props, optionalParams, optionalPush) {
+	    var args = this.prepareMessageArgs(recipientMonkeyId, props, optionalParams, optionalPush);
+	    args.msg = text;
+	    args.type = this.enums.MOKMessageType.TEXT;
+
+	    var message = new MOKMessage(cmd, args);
+
+	    args.id = message.id;
+	    args.oldId = message.oldId;
+
+	    if (message.isEncrypted()) {
+	      message.encryptedText = aesEncrypt(text, this.session.id);
+	      args.msg = message.encryptedText;
+	    }
+
+	    this.sendCommand(cmd, args);
+
+	    return message;
+	  };
+
+	  proto.sendNotification = function sendNotification(recipientMonkeyId, optionalParams, optionalPush) {
+	    var props = {
+	      device: "web"
+	    };
+
+	    var args = prepareMessageArgs(recipientMonkeyId, props, optionalParams, optionalPush);
+	    args.type = this.enums.MOKMessageType.NOTIF;
+
+	    var message = new MOKMessage(this.enums.MOKMessageProtocolCommand.MESSAGE, args);
+
+	    args.id = message.id;
+	    args.oldId = message.oldId;
+
+	    this.sendCommand(this.enums.MOKMessageProtocolCommand.MESSAGE, args);
+
+	    return message;
+	  };
+
+	  proto.publish = function publish(text, channelName, optionalParams) {
+	    var props = {
+	      device: "web",
+	      encr: 0
+	    };
+
+	    return this.sendText(this.enums.MOKMessageProtocolCommand.PUBLISH, text, channelName, props, optionalParams);
+	  };
+
+	  proto.sendFile = function sendFile(data, recipientMonkeyId, fileName, mimeType, fileType, shouldCompress, optionalParams, optionalPush, callback) {
+	    var props = {
+	      device: "web",
+	      encr: 0,
+	      file_type: fileType,
+	      ext: this.mok_getFileExtension(fileName),
+	      filename: fileName
+	    };
+
+	    if (shouldCompress) {
+	      props.cmpr = "gzip";
+	    }
+
+	    if (mimeType) {
+	      props.mime_type = mimeType;
+	    }
+
+	    return this.uploadFile(data, recipientMonkeyId, fileName, props, optionalParams, function (error, message) {
+	      if (error) {
+	        callback(error, message);
+	      }
+
+	      callback(null, message);
+	    });
+	  };
+
+	  proto.sendEncryptedFile = function sendEncryptedFile(data, recipientMonkeyId, fileName, mimeType, fileType, shouldCompress, optionalParams, optionalPush, callback) {
+	    var props = {
+	      device: "web",
+	      encr: 1,
+	      file_type: fileType,
+	      ext: this.mok_getFileExtension(fileName),
+	      filename: fileName
+	    };
+
+	    if (shouldCompress) {
+	      props.cmpr = "gzip";
+	    }
+
+	    if (mimeType) {
+	      props.mime_type = mimeType;
+	    }
+
+	    return this.uploadFile(data, recipientMonkeyId, fileName, props, optionalParams, optionalPush, function (error, message) {
+	      if (error) {
+	        callback(error, message);
+	      }
+
+	      callback(null, message);
+	    });
+	  };
+
+	  proto.uploadFile = function uploadFile(fileData, recipientMonkeyId, fileName, props, optionalParams, optionalPush, callback) {
+	    fileData = this.cleanFilePrefix(fileData);
+
+	    var binData = this.mok_convertDataURIToBinary(fileData);
+	    props.size = binData.size;
+
+	    var args = this.prepareMessageArgs(recipientMonkeyId, props, optionalParams, optionalPush);
+	    args.msg = fileName;
+	    args.type = this.enums.MOKMessageType.FILE;
+
+	    var message = new MOKMessage(MOKMessageProtocolCommand.MESSAGE, args);
+
+	    args.id = message.id;
+	    args.oldId = message.oldId;
+	    args.props = message.props;
+	    args.params = message.params;
+
+	    if (message.isCompressed()) {
+	      fileData = this.compress(fileData);
+	    }
+
+	    if (message.isEncrypted()) {
+	      fileData = this.aesEncrypt(fileData, monkey.session.id);
+	    }
+
+	    var fileToSend = new Blob([fileData.toString()], { type: message.props.file_type });
+	    fileToSend.name = fileName;
+
+	    var data = new FormData();
+	    //agrega el archivo y la info al form
+	    data.append('file', fileToSend);
+	    data.append('data', JSON.stringify(args));
+
+	    this.basicRequest('POST', '/file/new/base64', data, true, function (err, respObj) {
+	      if (err) {
+	        console.log('Monkey - upload file Fail');
+	        onComplete(err.toString(), message);
+	        return;
+	      }
+	      console.log('Monkey - upload file OK');
+	      message.id = respObj.data.messageId;
+	      onComplete(null, message);
+	    });
+
+	    return message;
 	  };
 
 	  proto.getPendingMessages = function getPendingMessages() {
@@ -559,6 +755,115 @@ return /******/ (function(modules) { // webpackBootstrap
 	    return encryptedData.toString();
 	  };
 
+	  proto.decryptBulkMessages = function decryptBulkMessages(messages, decryptedMessages, onComplete) {
+	    if (!(typeof messages != "undefined" && messages != null && messages.length > 0)) {
+	      return onComplete(decryptedMessages);
+	    }
+
+	    var message = messages.shift();
+
+	    if (message.isEncrypted() && message.protocolType != MOKMessageType.FILE) {
+	      try {
+	        message.text = this.aesDecryptIncomingMessage(message);
+	      } catch (error) {
+	        console.log("===========================");
+	        console.log("MONKEY - Fail decrypting: " + message.id + " type: " + message.protocolType);
+	        console.log("===========================");
+	        //get keys
+	        this.getAESkeyFromUser(message.senderId, message, function (response) {
+	          if (response != null) {
+	            messages.unshift(message);
+	          }
+
+	          this.decryptBulkMessages(messages, decryptedMessages, onComplete);
+	        });
+	        return;
+	      }
+
+	      if (message.text == null) {
+	        //get keys
+	        this.getAESkeyFromUser(message.senderId, message, function (response) {
+	          if (response != null) {
+	            messages.unshift(message);
+	          }
+
+	          this.decryptBulkMessages(message, decryptedMessages, onComplete);
+	        });
+	        return;
+	      }
+	    } else {
+	      message.text = message.encryptedText;
+	    }
+
+	    decryptedMessages.push(message);
+
+	    this.decryptBulkMessages(messages, decryptedMessages, onComplete);
+	  };
+
+	  proto.decryptDownloadedFile = function decryptDownloadedFile(fileData, message, callback) {
+	    if (message.isEncrypted()) {
+	      var decryptedData = null;
+	      try {
+	        var currentSize = fileData.length;
+	        console.log("Monkey - encrypted file size: " + currentSize);
+
+	        //temporal fix for media sent from web
+	        if (message.props.device == "web") {
+	          decryptedData = this.aesDecrypt(fileData, message.senderId);
+	        } else {
+	          decryptedData = this.decryptFile(fileData, message.senderId);
+	        }
+
+	        var newSize = decryptedData.length;
+	        console.log("Monkey - decrypted file size: " + newSize);
+
+	        if (currentSize == newSize) {
+	          this.getAESkeyFromUser(message.senderId, message, function (response) {
+	            if (response != null) {
+	              this.decryptDownloadedFile(fileData, message, callback);
+	            } else {
+	              callback("Error decrypting downloaded file");
+	            }
+	          });
+	          return;
+	        }
+	      } catch (error) {
+	        console.log("===========================");
+	        console.log("MONKEY - Fail decrypting: " + message.id + " type: " + message.protocolType);
+	        console.log("===========================");
+	        //get keys
+	        this.getAESkeyFromUser(message.senderId, message, function (response) {
+	          if (response != null) {
+	            this.decryptDownloadedFile(fileData, message, callback);
+	          } else {
+	            callback("Error decrypting downloaded file");
+	          }
+	        });
+	        return;
+	      }
+
+	      if (decryptedData == null) {
+	        //get keys
+	        this.getAESkeyFromUser(message.senderId, message, function (response) {
+	          if (response != null) {
+	            this.decryptDownloadedFile(fileData, message, callback);
+	            return;
+	          }
+	          callback("Error decrypting downloaded file");
+	        });
+	        return;
+	      }
+
+	      fileData = decryptedData;
+	    }
+
+	    if (message.isCompressed()) {
+	      fileData = decompress(fileData);
+	    }
+
+	    callback(null, fileData);
+	  };
+
 	  function compress(fileData) {
 	    var binData = this.mok_convertDataURIToBinary(fileData);
 	    var gzip = new Zlib.Gzip(binData);
@@ -674,6 +979,180 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }.bind(this));
 	  }; /// end of function requestSession
 
+	  proto.subscribe = function subscribe(channel, callback) {
+	    this.basicRequest('POST', '/channel/subscribe/' + channel, { monkey_id: this.session.id }, false, function (err, respObj) {
+	      if (err) {
+	        console.log('Monkey - ' + err);
+	        return;
+	      }
+	      this._getEmitter().emit('onSubscribe', respObj);
+	    }.bind(this));
+	  };
+
+	  proto.getAllConversations = function getAllConversations(onComplete) {
+	    this.basicRequest('GET', '/user/' + this.session.id + '/conversations', {}, false, function (err, respObj) {
+	      if (err) {
+	        console.log('Monkey - FAIL TO GET ALL CONVERSATIONS');
+	        onComplete(err.toString());
+	        return;
+	      }
+	      console.log('Monkey - GET ALL CONVERSATIONS');
+	      onComplete(null, respObj);
+	    });
+	  };
+
+	  proto.getConversationMessages = function getConversationMessages(conversationId, numberOfMessages, lastMessageId, onComplete) {
+	    if (lastMessageId == null) {
+	      lastMessageId = '';
+	    }
+
+	    this.basicRequest('GET', '/conversation/messages/' + monkey.session.id + '/' + conversationId + '/' + numberOfMessages + '/' + lastMessageId, {}, false, function (err, respObj) {
+	      if (err) {
+	        console.log('FAIL TO GET CONVERSATION MESSAGES');
+	        onComplete(err.toString());
+	        return;
+	      }
+	      console.log('GET CONVERSATION MESSAGES');
+
+	      var messages = respObj.data.messages;
+
+	      var messagesArray = messages.reduce(function (result, message) {
+	        var msg = new MOKMessage(MOKMessageProtocolCommand.MESSAGE, message);
+	        result.push(msg);
+	        return result;
+	      }, []);
+
+	      this.decryptBulkMessages(messagesArray, [], function (decryptedMessages) {
+	        onComplete(null, decryptedMessages);
+	      });
+	    });
+	  };
+
+	  proto.getMessagesSince = function getMessagesSince(timestamp, onComplete) {
+	    this.basicRequest('GET', '/user/' + this.session.id + '/messages/' + timestamp, {}, false, function (err, respObj) {
+	      if (err) {
+	        console.log('Monkey - FAIL TO GET MESSAGES');
+	        onComplete(err.toString());
+	        return;
+	      }
+	      console.log('Monkey - GET MESSAGES');
+	      onComplete(null, respObj);
+	    });
+	  };
+
+	  proto.downloadFile = function downloadFile(message, onComplete) {
+	    this.basicRequest('GET', '/file/open/' + message.text + '/base64', {}, false, function (err, fileData) {
+	      if (err) {
+	        console.log('Monkey - Download File Fail');
+	        onComplete(err.toString());
+	        return;
+	      }
+	      console.log('Monkey - Download File OK');
+	      this.decryptDownloadedFile(fileData, message, function (error, finalData) {
+	        if (error) {
+	          console.log('Monkey - Fail to decrypt downloaded file');
+	          onComplete(error);
+	          return;
+	        }
+	        onComplete(null, finalData);
+	      });
+	    });
+	  }; /// end of function downloadFile
+
+	  proto.postMessage = function postMessage(messageObj) {
+	    this.basicRequest('POST', '/message/new', messageObj, false, function (err, respObj) {
+	      if (err) {
+	        console.log(err);
+	        return;
+	      }
+
+	      if (parseInt(respObj.status) == 0) {
+	        // now you can start the long polling calls or the websocket connection you are ready.
+	        // we need to do a last validation here with an encrypted data that is sent from the server at this response, to validate keys are correct and the session too.
+	        console.log("Message sent is " + JSON.stringify(respObj));
+	        console.log("Message sent is " + respObj.data.messageId);
+	      } else {
+	        //throw error
+	        console.log("Error in postMessage " + respObj.message);
+	      }
+	    });
+	  };
+
+	  proto.createGroup = function createGroup(members, groupInfo, optionalPush, optionalId, callback) {
+	    //check if I'm already in the proposed members
+	    if (members.indexOf(this.session.id) == -1) {
+	      members.push(this.session.id);
+	    }
+
+	    var params = {
+	      monkey_id: this.session.id,
+	      members: members.join(),
+	      info: groupInfo,
+	      group_id: optionalId,
+	      push_all_members: optionalPush
+	    };
+
+	    this.basicRequest('POST', '/group/create', params, false, function (err, respObj) {
+	      if (err) {
+	        console.log("Monkey - error creating group: " + err);
+	        return callback(err);
+	      }
+	      console.log("Monkey - Success creating group" + respObj.data.group_id);
+
+	      return callback(null, respObj.data);
+	    });
+	  };
+
+	  proto.addMemberToGroup = function addMemberToGroup(groupId, newMemberId, optionalPushNewMember, optionalPushExistingMembers, callback) {
+	    var params = {
+	      monkey_id: this.session.id,
+	      new_member: newMemberId,
+	      group_id: groupId,
+	      push_new_member: optionalPushNewMember,
+	      push_all_members: optionalPushExistingMembers
+	    };
+
+	    this.basicRequest('POST', '/group/addmember', params, false, function (err, respObj) {
+	      if (err) {
+	        console.log('Monkey - error adding member: ' + err);
+	        return callback(err);
+	      }
+
+	      return callback(null, respObj.data);
+	    });
+	  };
+
+	  proto.removeMemberFromGroup = function removeMemberFromGroup(groupId, memberId, callback) {
+	    this.basicRequest('POST', '/group/delete', { monkey_id: memberId, group_id: groupId }, false, function (err, respObj) {
+	      if (err) {
+	        console.log('Monkey - error removing member: ' + err);
+	        return callback(err);
+	      }
+
+	      return callback(null, respObj.data);
+	    });
+	  };
+
+	  proto.getInfoById = function getInfoById(monkeyId, callback) {
+	    var endpoint = '/info/' + monkeyId;
+
+	    //check if it's a group
+	    if (monkeyId.indexOf("G:") > -1) {
+	      endpoint = '/group' + endpoint;
+	    } else {
+	      endpoint = '/user' + endpoint;
+	    }
+
+	    this.basicRequest('GET', endpoint, {}, false, function (err, respObj) {
+	      if (err) {
+	        console.log('Monkey - error get info: ' + err);
+	        return callback(err);
+	      }
+
+	      return callback(null, respObj.data);
+	    });
+	  };
+
 	  proto.basicRequest = function basicRequest(method, endpoint, params, isFile, callback) {
 
 	    var basic = this.getAuthParamsBtoA(this.appKey + ":" + this.appSecret);
@@ -714,6 +1193,41 @@ return /******/ (function(modules) { // webpackBootstrap
 	  * Utils
 	  */
 
+	  proto.generateStandardPush = function generateStandardPush(stringMessage) {
+	    return {
+	      "text": stringMessage,
+	      "iosData": {
+	        "alert": stringMessage,
+	        "sound": "default"
+	      },
+	      "andData": {
+	        "alert": stringMessage
+	      }
+	    };
+	  };
+
+	  proto.generateLocalizedPush = function generateLocalizedPush(locKey, locArgs, defaultText, sound) {
+	    var localizedPush = {
+	      "iosData": {
+	        "alert": {
+	          "loc-key": locKey,
+	          "loc-args": locArgs
+	        },
+	        "sound": sound ? sound : "default"
+	      },
+	      "andData": {
+	        "loc-key": locKey,
+	        "loc-args": locArgs
+	      }
+	    };
+
+	    if (defaultText) {
+	      localizedPush.text = defaultText;
+	    }
+
+	    return localizedPush;
+	  };
+
 	  proto.checkStatus = function checkStatus(response) {
 	    if (response.status >= 200 && response.status < 300) {
 	      return response;
@@ -747,6 +1261,24 @@ return /******/ (function(modules) { // webpackBootstrap
 	      binary += String.fromCharCode(bytes[i]);
 	    }
 	    return window.btoa(binary);
+	  };
+
+	  proto.cleanFilePrefix = function cleanFilePrefix(fileData) {
+	    var cleanFileData = fileData;
+
+	    //check for possible ;base64,
+	    if (fileData.indexOf(",") > -1) {
+	      cleanFileData = fileData.slice(fileData.indexOf(",") + 1);
+	    }
+
+	    return cleanFileData;
+	  };
+
+	  proto.mok_getFileExtension = function mok_getFileExtension(fileName) {
+	    var arr = fileName.split('.');
+	    var extension = arr[arr.length - 1];
+
+	    return extension;
 	  };
 
 	  proto.getAuthParamsBtoA = function getAuthParamsBtoA(connectAuthParamsString) {
