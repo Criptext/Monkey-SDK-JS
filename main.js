@@ -473,10 +473,10 @@ require('isomorphic-fetch');
     var token=this.appKey+":"+this.appSecret;
 
     if(this.session.debuggingMode){ //no ssl
-      this.socketConnection = new WebSocket('ws://'+this.domainUrl+'/websockets?monkey_id='+monkey_id+'&p='+token,'criptext-protocol').bind(this);
+      this.socketConnection = new WebSocket('ws://'+this.domainUrl+'/websockets?monkey_id='+monkey_id+'&p='+token,'criptext-protocol');
     }
     else{
-      this.socketConnection = new WebSocket('wss://'+this.domainUrl+'/websockets?monkey_id='+monkey_id+'&p='+token,'criptext-protocol').bind(this);
+      this.socketConnection = new WebSocket('wss://'+this.domainUrl+'/websockets?monkey_id='+monkey_id+'&p='+token,'criptext-protocol');
     }
 
     this.socketConnection.onopen = function () {
@@ -485,7 +485,7 @@ require('isomorphic-fetch');
 
       this.sendCommand(this.enums.MOKMessageProtocolCommand.SET, {online:1});
       this.getPendingMessages();
-    };
+    }.bind(this);
 
     this.socketConnection.onmessage = function (evt)
     {
@@ -567,7 +567,7 @@ require('isomorphic-fetch');
           break;
         }
       }
-    };
+    }.bind(this);
 
     this.socketConnection.onclose = function(evt)
     {
@@ -582,7 +582,7 @@ require('isomorphic-fetch');
         setTimeout(this.startConnection(monkey_id), 2000 );
       }
       this._getEmitter().emit('onDisconnect');
-    };
+    }.bind(this);
   }
 
   /*
