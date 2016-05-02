@@ -840,7 +840,7 @@ require('isomorphic-fetch');
   */
 
   proto.requestSession = function requestSession(){
-    this.session.exchangeKeys = new NodeRSA({b: 2048});
+    this.session.exchangeKeys = new NodeRSA({ b: 2048 }, {encryptionScheme: 'pkcs1'});
     var isSync = false;
     var endpoint = '/user/session';
     var params={ user_info:this.session.user,monkey_id:this.session.id,expiring:this.session.expireSession};
@@ -891,7 +891,7 @@ require('isomorphic-fetch');
 
       var myKeyParams=this.generateAndStoreAES();// generates local AES KEY
 
-      var key = new NodeRSA(respObj.data.publicKey, 'public');
+      var key = new NodeRSA(respObj.data.publicKey, 'public', {encryptionScheme: 'pkcs1'});
       var encryptedAES = key.encrypt(myKeyParams, 'base64');
 
       connectParams['usk'] = encryptedAES;
