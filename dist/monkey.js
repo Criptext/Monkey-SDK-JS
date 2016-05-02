@@ -154,6 +154,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    //setup session
 	    if (userObj != null) {
 	      this.session.user = userObj;
+	      this.session.id = userObj.monkeyId;
 	    }
 
 	    if (shouldExpireSession) {
