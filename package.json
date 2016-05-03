@@ -1,6 +1,6 @@
 {
   "name": "monkeykit",
-  "version": "0.0.22",
+  "version": "0.0.24",
   "description": "Monkey SDK for web",
   "main": "./dist/monkey.js",
   "scripts": {
@@ -27,6 +27,13 @@
   },
   "author": "Criptext <gianni@criptext.com>",
   "license": "Apache 2.0",
+  "keywords": [
+    "monkey",
+    "sdk",
+    "js",
+    "secure",
+    "criptext"
+  ],
   "repository": {
     "type" : "git",
     "url" : "https://github.com/Criptext/MonkeyKit-JS"

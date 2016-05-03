@@ -60,8 +60,8 @@ To send a file:
 
 `monkey.sendFile(<data>, <recipient monkey id>, <file name>, <file type>, <bool compressionFlag>, optionalParams, optionalPush, callback);`
 
-- <file type> is of type `MOKMessageFileType` (See end of document for reference).
-- <bool compressionFlag> boolean that determines if the data should be compressed or not.
+- `<file type>` is of type `MOKMessageFileType` (See end of document for reference).
+- `<bool compressionFlag>` boolean that determines if the data should be compressed or not.
 - The optionalParams is a JSON object representing extra params that the developer wants to send.
 - The optionalPush could be a String or if you want to send a localized push, then it could be a JSON object.
 
