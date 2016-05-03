@@ -1,11 +1,33 @@
-# Initializing
-Download from Bower
+# Installing
+## NPM
+
+`npm install monkeykit --save`
+
+`import Monkey from 'monkeykit'`
+
+## Bower
 
 `bower install monkeykit --save`
 
-Then initialize Monkey:
+`<script src="./bower_components/dist/monkey.js"></script>`
 
-`monkey.init(<app key>, <app secret>, userObj);`
+# Initializing Monkey
+
+```javascript
+var monkey = new Monkey();
+//look in the admin for your App's credentials
+var appKey = 'token';
+var appSecret = 'placeholder';
+
+var userMetaData = {
+  name: 'Bob'
+};
+
+var isTemporalId = false;
+var isDebugging = false;
+
+monkey.init(appKey, appSecret, userMetaData, isTemporalId, isDebugging);
+```
 
 The userObj is a JSON object representing the user metadata (e.g. name, country, etc) in which can be included a `monkey_id` to reuse an existing monkey id.
 
@@ -62,6 +84,12 @@ The events to listen to are:
 - `onConnect` - Triggered when there's a connection established to the socket server
 - `onDisconnect` - Triggered when there's a disconnection to the socket server
 
+```javascript
+monkey.on('onMessage', function(message){
+  console.log(message.text);
+});
+```
+
 # Creating groups
 To create a group you can do it with a given `id` or you can let monkey generate an `id` for you:
 ```javascript
@@ -85,7 +113,7 @@ monkey.createGroup(members, groupInfo, optionalPush, optionalId, function(error,
   console.log(JSON.stringify(groupInfo));
 });
 ```
-`groupInfo` will contain a JSON Object with: 
+`groupInfo` will contain a JSON Object with:
 - `group_id` all group ids start with prefix `G:`, if the id provided doesn't have the prefix, the group will still be created with the `G:` prefix and messages should be sent using this id. If you don't provide an id, then Monkey will provide the id (e.g. `G:1`, `G:2`, and so on).
 - `members` -> array of Monkey ids
 - `members_info` -> dictionary of {<Monkey id>:<user metadata>}

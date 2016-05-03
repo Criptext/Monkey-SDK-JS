@@ -385,7 +385,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	      console.log('Monkey - upload file OK');
 	      message.id = respObj.data.messageId;
 	      onComplete(null, message);
-	    });
+	    }.bind(this));
 
 	    return message;
 	  };
@@ -414,7 +414,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    messages.map(function (message) {
 	      var msg = new MOKMessage(this.enums.MOKMessageProtocolCommand.MESSAGE, message);
 	      this.processMOKProtocolMessage(msg);
-	    });
+	    }.bind(this));
 	  };
 
 	  proto.processMOKProtocolMessage = function processMOKProtocolMessage(message) {
@@ -430,7 +430,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        }
 	      case this.enums.MOKMessageType.FILE:
 	        {
-	          fileReceived(message);
+	          this.fileReceived(message);
 	          break;
 	        }
 	      default:
@@ -454,7 +454,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	          if (response != null) {
 	            this.incomingMessage(message);
 	          }
-	        });
+	        }.bind(this));
 	        return;
 	      }
 
@@ -464,13 +464,12 @@ return /******/ (function(modules) { // webpackBootstrap
 	          if (response != null) {
 	            this.incomingMessage(message);
 	          }
-	        });
+	        }.bind(this));
+	        return;
 	      }
-
-	      return;
+	    } else {
+	      message.text = message.encryptedText;
 	    }
-
-	    message.text = message.encryptedText;
 
 	    if (message.id > 0) {
 	      this.session.lastTimestamp = message.datetimeCreation;
@@ -548,7 +547,12 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	    this.socketConnection.onopen = function () {
 	      this.status = this.enums.Status.ONLINE;
-	      this._getEmitter().emit('onConnect', { monkey_id: this.session.id });
+
+	      if (this.session.user == null) {
+	        this.session.user = {};
+	      }
+	      this.session.user.monkeyId = this.session.id;
+	      this._getEmitter().emit('onConnect', this.session.user);
 
 	      this.sendCommand(this.enums.MOKMessageProtocolCommand.SET, { online: 1 });
 	      this.getPendingMessages();
@@ -694,7 +698,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	      }
 	      //it's a new key
 	      callback(pendingMessage);
-	    });
+	    }.bind(this));
 	  };
 
 	  proto.requestEncryptedTextForMessage = function requestEncryptedTextForMessage(message, callback) {
@@ -704,8 +708,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	        return callback(null);
 	      }
 
-	      console.log(respObj);
 	      message.encryptedText = respObj.data.message;
+	      message.text = message.encryptedText;
 	      message.encryptedText = this.aesDecrypt(message.encryptedText, this.session.id);
 	      if (message.encryptedText == null) {
 	        if (message.id > 0) {
@@ -714,10 +718,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	        }
 	        return callback(null);
 	      }
-	      message.encryptedText = message.text;
+	      message.text = message.encryptedText;
 	      message.setEncrypted(false);
 	      return callback(message);
-	    });
+	    }.bind(this));
 	  };
 
 	  proto.aesDecryptIncomingMessage = function aesDecryptIncomingMessage(message) {
@@ -932,11 +936,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	        return;
 	      }
 
-	      if (respObj.data.monkeyId == null) {
-	        console.log('Monkey - no Monkey ID returned');
-	        return;
-	      }
-
 	      if (isSync) {
 	        console.log('Monkey - reusing Monkey ID : ' + this.session.id);
 
@@ -949,9 +948,14 @@ return /******/ (function(modules) { // webpackBootstrap
 	        this.session.myKey = myAesKeys[0];
 	        this.session.myIv = myAesKeys[1];
 	        //var myKeyParams=generateSessionKey();// generates local AES KEY
-	        this.keyStore[monkeyId] = { key: this.session.myKey, iv: this.session.myIv };
+	        this.keyStore[this.session.id] = { key: this.session.myKey, iv: this.session.myIv };
 
-	        this.startConnection(monkeyId);
+	        this.startConnection(this.session.id);
+	        return;
+	      }
+
+	      if (respObj.data.monkeyId == null) {
+	        console.log('Monkey - no Monkey ID returned');
 	        return;
 	      }
 
@@ -999,7 +1003,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	      }
 	      console.log('Monkey - GET ALL CONVERSATIONS');
 	      onComplete(null, respObj);
-	    });
+	    }.bind(this));
 	  };
 
 	  proto.getConversationMessages = function getConversationMessages(conversationId, numberOfMessages, lastMessageId, onComplete) {
@@ -1007,7 +1011,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	      lastMessageId = '';
 	    }
 
-	    this.basicRequest('GET', '/conversation/messages/' + monkey.session.id + '/' + conversationId + '/' + numberOfMessages + '/' + lastMessageId, {}, false, function (err, respObj) {
+	    this.basicRequest('GET', '/conversation/messages/' + this.session.id + '/' + conversationId + '/' + numberOfMessages + '/' + lastMessageId, {}, false, function (err, respObj) {
 	      if (err) {
 	        console.log('FAIL TO GET CONVERSATION MESSAGES');
 	        onComplete(err.toString());
@@ -1025,8 +1029,8 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	      this.decryptBulkMessages(messagesArray, [], function (decryptedMessages) {
 	        onComplete(null, decryptedMessages);
-	      });
-	    });
+	      }.bind(this));
+	    }.bind(this));
 	  };
 
 	  proto.getMessagesSince = function getMessagesSince(timestamp, onComplete) {
@@ -1038,7 +1042,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	      }
 	      console.log('Monkey - GET MESSAGES');
 	      onComplete(null, respObj);
-	    });
+	    }.bind(this));
 	  };
 
 	  proto.downloadFile = function downloadFile(message, onComplete) {
@@ -1057,7 +1061,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        }
 	        onComplete(null, finalData);
 	      });
-	    });
+	    }.bind(this));
 	  }; /// end of function downloadFile
 
 	  proto.postMessage = function postMessage(messageObj) {
@@ -1076,7 +1080,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        //throw error
 	        console.log("Error in postMessage " + respObj.message);
 	      }
-	    });
+	    }.bind(this));
 	  };
 
 	  proto.createGroup = function createGroup(members, groupInfo, optionalPush, optionalId, callback) {
@@ -1101,7 +1105,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	      console.log("Monkey - Success creating group" + respObj.data.group_id);
 
 	      return callback(null, respObj.data);
-	    });
+	    }.bind(this));
 	  };
 
 	  proto.addMemberToGroup = function addMemberToGroup(groupId, newMemberId, optionalPushNewMember, optionalPushExistingMembers, callback) {
@@ -1120,7 +1124,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	      }
 
 	      return callback(null, respObj.data);
-	    });
+	    }.bind(this));
 	  };
 
 	  proto.removeMemberFromGroup = function removeMemberFromGroup(groupId, memberId, callback) {
@@ -1131,7 +1135,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	      }
 
 	      return callback(null, respObj.data);
-	    });
+	    }.bind(this));
 	  };
 
 	  proto.getInfoById = function getInfoById(monkeyId, callback) {
@@ -1151,7 +1155,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	      }
 
 	      return callback(null, respObj.data);
-	    });
+	    }.bind(this));
 	  };
 
 	  proto.basicRequest = function basicRequest(method, endpoint, params, isFile, callback) {
@@ -1178,12 +1182,17 @@ return /******/ (function(modules) { // webpackBootstrap
 	      data = JSON.stringify({ data: JSON.stringify(params) });
 	    }
 
-	    fetch(reqUrl, {
+	    var bodyReq = {
 	      method: method,
 	      credentials: 'include',
-	      headers: headersReq,
-	      body: data
-	    }).then(this.checkStatus).then(this.parseJSON).then(function (respObj) {
+	      headers: headersReq
+	    };
+
+	    if (method != 'GET') {
+	      bodyReq['body'] = data;
+	    }
+
+	    fetch(reqUrl, bodyReq).then(this.checkStatus).then(this.parseJSON).then(function (respObj) {
 	      callback(null, respObj);
 	    }).catch(function (error) {
 	      callback(error);
@@ -1425,7 +1434,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	  /**
 	  * Alias of addListener
 	  */
-	  // proto.on = alias('addListener');
+	  proto.on = alias('addListener');
 
 	  /**
 	  * Reverts the global {@link Monkey} to its previous value and returns a reference to this version.
@@ -2384,6 +2393,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	                return false;
 	            }
 	            return this.props.encr == 1 ? true : false;
+	        }
+	    }, {
+	        key: "setEncrypted",
+	        value: function setEncrypted(flag) {
+	            this.props.encr = flag ? 1 : 0;
 	        }
 	    }]);
 

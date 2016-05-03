@@ -105,4 +105,7 @@
         }
         return this.props.encr == 1? true : false;
     };
+    setEncrypted(flag){
+      this.props.encr = flag? 1 : 0;
+    }
 }
