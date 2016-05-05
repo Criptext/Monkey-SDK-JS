@@ -12,11 +12,12 @@ var MonkeyEnums = require('./libs/MonkeyEnums.js');
 var MOKMessage = require('./libs/MOKMessage.js');
 var monkeyKeystore = require('./libs/MonkeyKeystore.js');
 var watchdog = require('./libs/watchdog.js');
+var apiconnector = require('./libs/ApiConnector.js');
+var Log = require('./libs/Log.js');
 var NodeRSA = require('node-rsa');
 var CryptoJS = require('node-cryptojs-aes').CryptoJS;
 
 require('es6-promise').polyfill();
-require('isomorphic-fetch');
 
 ;(function () {
   'use strict';
@@ -108,6 +109,7 @@ require('isomorphic-fetch');
     }
 
     //this.keyStore={};
+    apiconnector.init(this);
 
     this.domainUrl = 'monkey.criptext.com';
     //setup socketConnection
@@ -154,9 +156,9 @@ require('isomorphic-fetch');
 
   proto.sendCommand = function sendCommand(command, args){
     var finalMessage = JSON.stringify({cmd:command,args:args});
-    console.log("================");
-    console.log("Monkey - sending message: "+finalMessage);
-    console.log("================");
+    Log.m(this.session.debuggingMode, "================");
+    Log.m(this.session.debuggingMode, "Monkey - sending message: "+finalMessage);
+    Log.m(this.session.debuggingMode, "================");
     this.socketConnection.send(finalMessage);
 
     return this;
@@ -321,13 +323,13 @@ require('isomorphic-fetch');
     data.append('file', fileToSend);
     data.append('data', JSON.stringify(args) );
 
-    this.basicRequest('POST', '/file/new/base64',data, true, function(err,respObj){
+    apiconnector.basicRequest('POST', '/file/new/base64',data, true, function(err,respObj){
       if (err) {
-        console.log('Monkey - upload file Fail');
+        Log.m(this.session.debuggingMode, 'Monkey - upload file Fail');
         onComplete(err.toString(), message);
         return;
       }
-      console.log('Monkey - upload file OK');
+      Log.m(this.session.debuggingMode, 'Monkey - upload file OK');
       message.id = respObj.data.messageId;
       onComplete(null, message);
 
@@ -364,9 +366,9 @@ require('isomorphic-fetch');
   }
 
   proto.processMOKProtocolMessage = function processMOKProtocolMessage(message){
-    console.log("===========================");
-    console.log("MONKEY - Message in process: "+message.id+" type: "+message.protocolType);
-    console.log("===========================");
+    Log.m(this.session.debuggingMode, "===========================");
+    Log.m(this.session.debuggingMode, "MONKEY - Message in process: "+message.id+" type: "+message.protocolType);
+    Log.m(this.session.debuggingMode, "===========================");
 
     switch(message.protocolType){
       case this.enums.MOKMessageType.TEXT:{
@@ -390,9 +392,9 @@ require('isomorphic-fetch');
         message.text = this.aesDecryptIncomingMessage(message);
       }
       catch(error){
-        console.log("===========================");
-        console.log("MONKEY - Fail decrypting: "+message.id+" type: "+message.protocolType);
-        console.log("===========================");
+        Log.m(this.session.debuggingMode, "===========================");
+        Log.m(this.session.debuggingMode, "MONKEY - Fail decrypting: "+message.id+" type: "+message.protocolType);
+        Log.m(this.session.debuggingMode, "===========================");
         //get keys
         this.getAESkeyFromUser(message.senderId, message, function(response){
           if (response != null) {
@@ -442,9 +444,9 @@ require('isomorphic-fetch');
   }
 
   proto.processMOKProtocolACK = function processMOKProtocolACK(message){
-    console.log("===========================");
-    console.log("MONKEY - ACK in process");
-    console.log("===========================");
+    Log.m(this.session.debuggingMode, "===========================");
+    Log.m(this.session.debuggingMode, "MONKEY - ACK in process");
+    Log.m(this.session.debuggingMode, "===========================");
 
     //Aditional treatment can be done here
     this._getEmitter().emit('onAcknowledge', message);
@@ -516,7 +518,7 @@ require('isomorphic-fetch');
 
     this.socketConnection.onmessage = function (evt)
     {
-      console.log('Monkey - incoming message: '+evt.data);
+      Log.m(this.session.debuggingMode, 'Monkey - incoming message: '+evt.data);
       var jsonres=JSON.parse(evt.data);
 
       if (jsonres.args.app_id == null) {
@@ -606,11 +608,11 @@ require('isomorphic-fetch');
     {
       //check if the web server disconnected me
       if (evt.wasClean) {
-        console.log('Monkey - Websocket closed - Connection closed... '+ evt);
+        Log.m(this.session.debuggingMode, 'Monkey - Websocket closed - Connection closed... '+ evt);
         this.status=this.enums.Status.OFFLINE;
       }else{
         //web server crashed, reconnect
-        console.log('Monkey - Websocket closed - Reconnecting... '+ evt);
+        Log.m(this.session.debuggingMode, 'Monkey - Websocket closed - Reconnecting... '+ evt);
         this.status=this.enums.Status.CONNECTING;
         setTimeout(this.startConnection(monkey_id), 2000 );
       }
@@ -623,13 +625,13 @@ require('isomorphic-fetch');
   */
 
   proto.getAESkeyFromUser = function getAESkeyFromUser(monkeyId, pendingMessage, callback){
-    this.basicRequest('POST', '/user/key/exchange',{ monkey_id:this.session.id, user_to:monkeyId}, false, function(err,respObj){
+    apiconnector.basicRequest('POST', '/user/key/exchange',{ monkey_id:this.session.id, user_to:monkeyId}, false, function(err,respObj){
       if(err){
-        console.log('Monkey - error on getting aes keys '+err);
+        Log.m(this.session.debuggingMode, 'Monkey - error on getting aes keys '+err);
         return;
       }
 
-      console.log('Monkey - Received new aes keys');
+      Log.m(this.session.debuggingMode, 'Monkey - Received new aes keys');
       var newParamKeys = this.aesDecrypt(respObj.data.convKey, this.session.id).split(":");
       var newAESkey = newParamKeys[0];
       var newIv = newParamKeys[1];
@@ -658,9 +660,9 @@ require('isomorphic-fetch');
   }
 
   proto.requestEncryptedTextForMessage = function requestEncryptedTextForMessage(message, callback){
-    this.basicRequest('GET', '/message/'+message.id+'/open/secure',{}, false, function(err,respObj){
+    apiconnector.basicRequest('GET', '/message/'+message.id+'/open/secure',{}, false, function(err,respObj){
       if(err){
-        console.log('Monkey - error on requestEncryptedTextForMessage: '+err);
+        Log.m(this.session.debuggingMode, 'Monkey - error on requestEncryptedTextForMessage: '+err);
         return callback(null);
       }
 
@@ -704,7 +706,7 @@ require('isomorphic-fetch');
 
     var decrypted = CryptoJS.AES.decrypt(fileToDecrypt, aesKey, { iv: initV }).toString(CryptoJS.enc.Base64);
 
-    // console.log('el tipo del archivo decriptado: '+ typeof(decrypted));
+    // Log.m(this.session.debuggingMode, 'el tipo del archivo decriptado: '+ typeof(decrypted));
     return decrypted;
   }
 
@@ -731,9 +733,9 @@ require('isomorphic-fetch');
         message.text = this.aesDecryptIncomingMessage(message);
       }
       catch(error){
-        console.log("===========================");
-        console.log("MONKEY - Fail decrypting: "+message.id+" type: "+message.protocolType);
-        console.log("===========================");
+        Log.m(this.session.debuggingMode, "===========================");
+        Log.m(this.session.debuggingMode, "MONKEY - Fail decrypting: "+message.id+" type: "+message.protocolType);
+        Log.m(this.session.debuggingMode, "===========================");
         //get keys
         this.getAESkeyFromUser(message.senderId, message, function(response){
           if (response != null) {
@@ -770,7 +772,7 @@ require('isomorphic-fetch');
       var decryptedData = null;
       try{
         var currentSize = fileData.length;
-        console.log("Monkey - encrypted file size: "+currentSize);
+        Log.m(this.session.debuggingMode, "Monkey - encrypted file size: "+currentSize);
 
         //temporal fix for media sent from web
         if (message.props.device == "web") {
@@ -780,7 +782,7 @@ require('isomorphic-fetch');
         }
 
         var newSize = decryptedData.length;
-        console.log("Monkey - decrypted file size: "+newSize);
+        Log.m(this.session.debuggingMode, "Monkey - decrypted file size: "+newSize);
 
         if (currentSize == newSize) {
           this.getAESkeyFromUser(message.senderId, message, function(response){
@@ -794,9 +796,9 @@ require('isomorphic-fetch');
         }
       }
       catch(error){
-        console.log("===========================");
-        console.log("MONKEY - Fail decrypting: "+message.id+" type: "+message.protocolType);
-        console.log("===========================");
+        Log.m(this.session.debuggingMode, "===========================");
+        Log.m(this.session.debuggingMode, "MONKEY - Fail decrypting: "+message.id+" type: "+message.protocolType);
+        Log.m(this.session.debuggingMode, "===========================");
         //get keys
         this.getAESkeyFromUser(message.senderId, message, function(response){
           if (response != null) {
@@ -890,15 +892,15 @@ require('isomorphic-fetch');
 
     this.status = this.enums.Status.HANDSHAKE;
 
-    this.basicRequest('POST', endpoint, params, false, function(err,respObj){
+    apiconnector.basicRequest('POST', endpoint, params, false, function(err,respObj){
 
       if(err){
-        console.log('Monkey - '+err);
+        Log.m(this.session.debuggingMode, 'Monkey - '+err);
         return;
       }
 
       if (isSync) {
-        console.log('Monkey - reusing Monkey ID : '+this.session.id);
+        Log.m(this.session.debuggingMode, 'Monkey - reusing Monkey ID : '+this.session.id);
 
         this.session.lastTimestamp = respObj.data.last_time_synced;
         this.session.lastMessageId = respObj.data.last_message_id;
@@ -918,7 +920,7 @@ require('isomorphic-fetch');
       }
 
       if (respObj.data.monkeyId == null) {
-        console.log('Monkey - no Monkey ID returned');
+        Log.m(this.session.debuggingMode, 'Monkey - no Monkey ID returned');
         return;
       }
 
@@ -938,9 +940,9 @@ require('isomorphic-fetch');
       //this.keyStore[this.session.id]={key:this.session.myKey, iv:this.session.myIv};
       monkeyKeystore.storeData(this.session.id, this.session.myKey+":"+this.session.myIv, this.session.myKey, this.session.myIv);
 
-      this.basicRequest('POST', '/user/connect', connectParams, false, function(error, response){
+      apiconnector.basicRequest('POST', '/user/connect', connectParams, false, function(error, response){
         if(error){
-          console.log('Monkey - '+error);
+          Log.m(this.session.debuggingMode, 'Monkey - '+error);
           return;
         }
         this.startConnection(this.session.id);
@@ -949,9 +951,9 @@ require('isomorphic-fetch');
   }/// end of function requestSession
 
   proto.subscribe = function subscribe(channel, callback){
-    this.basicRequest('POST', '/channel/subscribe/'+channel ,{ monkey_id:this.session.id}, false, function(err,respObj){
+    apiconnector.basicRequest('POST', '/channel/subscribe/'+channel ,{ monkey_id:this.session.id}, false, function(err,respObj){
       if(err){
-        console.log('Monkey - '+err);
+        Log.m(this.session.debuggingMode, 'Monkey - '+err);
         return;
       }
       this._getEmitter().emit('onSubscribe', respObj);
@@ -959,13 +961,13 @@ require('isomorphic-fetch');
   }
 
   proto.getAllConversations = function getAllConversations (onComplete) {
-    this.basicRequest('GET', '/user/'+this.session.id+'/conversations',{}, false, function(err,respObj){
+    apiconnector.basicRequest('GET', '/user/'+this.session.id+'/conversations',{}, false, function(err,respObj){
       if (err) {
-        console.log('Monkey - FAIL TO GET ALL CONVERSATIONS');
+        Log.m(this.session.debuggingMode, 'Monkey - FAIL TO GET ALL CONVERSATIONS');
         onComplete(err.toString());
         return;
       }
-      console.log('Monkey - GET ALL CONVERSATIONS');
+      Log.m(this.session.debuggingMode, 'Monkey - GET ALL CONVERSATIONS');
       onComplete(null, respObj);
 
     }.bind(this));
@@ -976,13 +978,13 @@ require('isomorphic-fetch');
       lastMessageId = '';
     }
 
-    this.basicRequest('GET', '/conversation/messages/'+this.session.id+'/'+conversationId+'/'+numberOfMessages+'/'+lastMessageId,{}, false, function(err,respObj){
+    apiconnector.basicRequest('GET', '/conversation/messages/'+this.session.id+'/'+conversationId+'/'+numberOfMessages+'/'+lastMessageId,{}, false, function(err,respObj){
       if (err) {
-        console.log('FAIL TO GET CONVERSATION MESSAGES');
+        Log.m(this.session.debuggingMode, 'FAIL TO GET CONVERSATION MESSAGES');
         onComplete(err.toString());
         return;
       }
-      console.log('GET CONVERSATION MESSAGES');
+      Log.m(this.session.debuggingMode, 'GET CONVERSATION MESSAGES');
 
       var messages = respObj.data.messages;
 
@@ -999,28 +1001,28 @@ require('isomorphic-fetch');
   }
 
   proto.getMessagesSince = function getMessagesSince (timestamp, onComplete) {
-    this.basicRequest('GET', '/user/'+this.session.id+'/messages/'+timestamp,{}, false, function(err,respObj){
+    apiconnector.basicRequest('GET', '/user/'+this.session.id+'/messages/'+timestamp,{}, false, function(err,respObj){
       if (err) {
-        console.log('Monkey - FAIL TO GET MESSAGES');
+        Log.m(this.session.debuggingMode, 'Monkey - FAIL TO GET MESSAGES');
         onComplete(err.toString());
         return;
       }
-      console.log('Monkey - GET MESSAGES');
+      Log.m(this.session.debuggingMode, 'Monkey - GET MESSAGES');
       onComplete(null, respObj);
     }.bind(this));
   }
 
   proto.downloadFile = function downloadFile(message, onComplete){
-    this.basicRequest('GET', '/file/open/'+message.text+'/base64',{}, false, function(err,fileData){
+    apiconnector.basicRequest('GET', '/file/open/'+message.text+'/base64',{}, false, function(err,fileData){
       if (err) {
-        console.log('Monkey - Download File Fail');
+        Log.m(this.session.debuggingMode, 'Monkey - Download File Fail');
         onComplete(err.toString());
         return;
       }
-      console.log('Monkey - Download File OK');
+      Log.m(this.session.debuggingMode, 'Monkey - Download File OK');
       this.decryptDownloadedFile(fileData, message, function(error, finalData){
         if (error) {
-          console.log('Monkey - Fail to decrypt downloaded file');
+          Log.m(this.session.debuggingMode, 'Monkey - Fail to decrypt downloaded file');
           onComplete(error);
           return;
         }
@@ -1030,21 +1032,21 @@ require('isomorphic-fetch');
   }/// end of function downloadFile
 
   proto.postMessage = function postMessage(messageObj){
-    this.basicRequest('POST', '/message/new',messageObj, false, function(err,respObj){
+    apiconnector.basicRequest('POST', '/message/new',messageObj, false, function(err,respObj){
       if(err){
-        console.log(err);
+        Log.m(this.session.debuggingMode, err);
         return;
       }
 
       if(parseInt(respObj.status)==0){
         // now you can start the long polling calls or the websocket connection you are ready.
         // we need to do a last validation here with an encrypted data that is sent from the server at this response, to validate keys are correct and the session too.
-        console.log("Message sent is "+JSON.stringify(respObj));
-        console.log("Message sent is "+respObj.data.messageId);
+        Log.m(this.session.debuggingMode, "Message sent is "+JSON.stringify(respObj));
+        Log.m(this.session.debuggingMode, "Message sent is "+respObj.data.messageId);
       }
       else{
         //throw error
-        console.log("Error in postMessage "+respObj.message);
+        Log.m(this.session.debuggingMode, "Error in postMessage "+respObj.message);
       }
     }.bind(this));
   }
@@ -1063,12 +1065,12 @@ require('isomorphic-fetch');
     push_all_members: optionalPush
   };
 
-  this.basicRequest('POST', '/group/create',params, false, function(err,respObj){
+  apiconnector.basicRequest('POST', '/group/create',params, false, function(err,respObj){
       if(err){
-        console.log("Monkey - error creating group: "+err);
+        Log.m(this.session.debuggingMode, "Monkey - error creating group: "+err);
         return callback(err);
       }
-      console.log("Monkey - Success creating group"+ respObj.data.group_id);
+      Log.m(this.session.debuggingMode, "Monkey - Success creating group"+ respObj.data.group_id);
 
       return callback(null, respObj.data);
     }.bind(this));
@@ -1083,9 +1085,9 @@ require('isomorphic-fetch');
       push_all_members: optionalPushExistingMembers
     };
 
-    this.basicRequest('POST', '/group/addmember', params, false, function(err,respObj){
+    apiconnector.basicRequest('POST', '/group/addmember', params, false, function(err,respObj){
         if(err){
-          console.log('Monkey - error adding member: '+err);
+          Log.m(this.session.debuggingMode, 'Monkey - error adding member: '+err);
           return callback(err);
         }
 
@@ -1094,9 +1096,9 @@ require('isomorphic-fetch');
   }
 
   proto.removeMemberFromGroup = function removeMemberFromGroup(groupId, memberId, callback){
-    this.basicRequest('POST', '/group/delete',{ monkey_id:memberId, group_id:groupId }, false, function(err,respObj){
+    apiconnector.basicRequest('POST', '/group/delete',{ monkey_id:memberId, group_id:groupId }, false, function(err,respObj){
       if(err){
-        console.log('Monkey - error removing member: '+err);
+        Log.m(this.session.debuggingMode, 'Monkey - error removing member: '+err);
         return callback(err);
       }
 
@@ -1114,59 +1116,15 @@ require('isomorphic-fetch');
       endpoint = '/user'+endpoint;
     }
 
-    this.basicRequest('GET', endpoint ,{}, false, function(err,respObj){
+    apiconnector.basicRequest('GET', endpoint ,{}, false, function(err,respObj){
       if(err){
-        console.log('Monkey - error get info: '+err);
+        Log.m(this.session.debuggingMode, 'Monkey - error get info: '+err);
         return callback(err);
       }
 
       return callback(null, respObj.data);
     }.bind(this));
   }
-
-  proto.basicRequest = function basicRequest(method, endpoint, params, isFile, callback){
-
-    var basic= this.getAuthParamsBtoA(this.appKey+":"+this.appSecret);
-
-    var reqUrl = this.domainUrl+endpoint;
-
-    if (this.session.debuggingMode) {
-      reqUrl = 'http://'+reqUrl;
-    }else{
-      reqUrl = 'https://'+reqUrl;
-    }
-
-    var headersReq = {
-      'Accept': '*/*',
-      'Authorization': 'Basic '+ basic
-    };
-
-    var data = params;
-    //check if it's not file
-    if (!isFile) {
-      headersReq['Content-Type'] = 'application/json';
-      data = JSON.stringify({ data: JSON.stringify(params) });
-    }
-
-    var bodyReq = {
-      method: method,
-      credentials: 'include',
-      headers: headersReq
-    };
-
-    if (method != 'GET') {
-      bodyReq['body'] = data
-    }
-
-    fetch(reqUrl, bodyReq).then(this.checkStatus)
-    .then(this.parseJSON)
-    .then(function(respObj) {
-      callback(null,respObj);
-    }).catch(function(error) {
-      callback(error);
-    });// end of AJAX CALL
-  }
-
 
   /*
   * Utils
@@ -1260,148 +1218,6 @@ require('isomorphic-fetch');
     return extension;
   }
 
-  proto.getAuthParamsBtoA = function getAuthParamsBtoA(connectAuthParamsString){
-
-    //window.btoa not supported in <=IE9
-    if (window.btoa) {
-      var basic = window.btoa(connectAuthParamsString);
-    }
-    else{
-      //for <= IE9
-      var base64 = {};
-      base64.PADCHAR = '=';
-      base64.ALPHA = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
-
-      base64.makeDOMException = function() {
-        // sadly in FF,Safari,Chrome you can't make a DOMException
-        var e, tmp;
-
-        try {
-          return new DOMException(DOMException.INVALID_CHARACTER_ERR);
-        } catch (tmp) {
-          // not available, just passback a duck-typed equiv
-          // https://developer.mozilla.org/en/Core_JavaScript_1.5_Reference/Global_Objects/Error
-          // https://developer.mozilla.org/en/Core_JavaScript_1.5_Reference/Global_Objects/Error/prototype
-          var ex = new Error("DOM Exception 5");
-
-          // ex.number and ex.description is IE-specific.
-          ex.code = ex.number = 5;
-          ex.name = ex.description = "INVALID_CHARACTER_ERR";
-
-          // Safari/Chrome output format
-          ex.toString = function() { return 'Error: ' + ex.name + ': ' + ex.message; };
-          return ex;
-        }
-      }
-
-      base64.getbyte64 = function(s,i) {
-        // This is oddly fast, except on Chrome/V8.
-        //  Minimal or no improvement in performance by using a
-        //   object with properties mapping chars to value (eg. 'A': 0)
-        var idx = base64.ALPHA.indexOf(s.charAt(i));
-        if (idx === -1) {
-          throw base64.makeDOMException();
-        }
-        return idx;
-      }
-
-      base64.decode = function(s) {
-        // convert to string
-        s = '' + s;
-        var getbyte64 = base64.getbyte64;
-        var pads, i, b10;
-        var imax = s.length
-        if (imax === 0) {
-          return s;
-        }
-
-        if (imax % 4 !== 0) {
-          throw base64.makeDOMException();
-        }
-
-        pads = 0
-        if (s.charAt(imax - 1) === base64.PADCHAR) {
-          pads = 1;
-          if (s.charAt(imax - 2) === base64.PADCHAR) {
-            pads = 2;
-          }
-          // either way, we want to ignore this last block
-          imax -= 4;
-        }
-
-        var x = [];
-        for (i = 0; i < imax; i += 4) {
-          b10 = (getbyte64(s,i) << 18) | (getbyte64(s,i+1) << 12) |
-          (getbyte64(s,i+2) << 6) | getbyte64(s,i+3);
-          x.push(String.fromCharCode(b10 >> 16, (b10 >> 8) & 0xff, b10 & 0xff));
-        }
-
-        switch (pads) {
-          case 1:
-          b10 = (getbyte64(s,i) << 18) | (getbyte64(s,i+1) << 12) | (getbyte64(s,i+2) << 6);
-          x.push(String.fromCharCode(b10 >> 16, (b10 >> 8) & 0xff));
-          break;
-          case 2:
-          b10 = (getbyte64(s,i) << 18) | (getbyte64(s,i+1) << 12);
-          x.push(String.fromCharCode(b10 >> 16));
-          break;
-        }
-        return x.join('');
-      }
-
-      base64.getbyte = function(s,i) {
-        var x = s.charCodeAt(i);
-        if (x > 255) {
-          throw base64.makeDOMException();
-        }
-        return x;
-      }
-
-      base64.encode = function(s) {
-        if (arguments.length !== 1) {
-          throw new SyntaxError("Not enough arguments");
-        }
-        var padchar = base64.PADCHAR;
-        var alpha   = base64.ALPHA;
-        var getbyte = base64.getbyte;
-
-        var i, b10;
-        var x = [];
-
-        // convert to string
-        s = '' + s;
-
-        var imax = s.length - s.length % 3;
-
-        if (s.length === 0) {
-          return s;
-        }
-        for (i = 0; i < imax; i += 3) {
-          b10 = (getbyte(s,i) << 16) | (getbyte(s,i+1) << 8) | getbyte(s,i+2);
-          x.push(alpha.charAt(b10 >> 18));
-          x.push(alpha.charAt((b10 >> 12) & 0x3F));
-          x.push(alpha.charAt((b10 >> 6) & 0x3f));
-          x.push(alpha.charAt(b10 & 0x3f));
-        }
-        switch (s.length - imax) {
-          case 1:
-          b10 = getbyte(s,i) << 16;
-          x.push(alpha.charAt(b10 >> 18) + alpha.charAt((b10 >> 12) & 0x3F) +
-          padchar + padchar);
-          break;
-          case 2:
-          b10 = (getbyte(s,i) << 16) | (getbyte(s,i+1) << 8);
-          x.push(alpha.charAt(b10 >> 18) + alpha.charAt((b10 >> 12) & 0x3F) +
-          alpha.charAt((b10 >> 6) & 0x3f) + padchar);
-          break;
-        }
-        return x.join('');
-      }
-      basic = base64.encode(connectAuthParamsString);
-    }
-
-    return basic;
-  }
   /**
   * Alias of addListener
   */

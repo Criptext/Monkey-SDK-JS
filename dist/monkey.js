@@ -54,7 +54,7 @@ return /******/ (function(modules) { // webpackBootstrap
 /* 0 */
 /***/ function(module, exports, __webpack_require__) {
 
-	var __WEBPACK_AMD_DEFINE_RESULT__;/* WEBPACK VAR INJECTION */(function(fetch) {'use strict';
+	var __WEBPACK_AMD_DEFINE_RESULT__;'use strict';
 
 	var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol" ? function (obj) { return typeof obj; } : function (obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol ? "symbol" : typeof obj; };
 
@@ -67,16 +67,17 @@ return /******/ (function(modules) { // webpackBootstrap
 	* @preserve
 	*/
 
-	var EventEmitter = __webpack_require__(2);
-	var MonkeyEnums = __webpack_require__(3);
-	var MOKMessage = __webpack_require__(4);
-	var monkeyKeystore = __webpack_require__(5);
-	var watchdog = __webpack_require__(15);
-	var NodeRSA = __webpack_require__(16);
-	var CryptoJS = __webpack_require__(7).CryptoJS;
+	var EventEmitter = __webpack_require__(1);
+	var MonkeyEnums = __webpack_require__(2);
+	var MOKMessage = __webpack_require__(3);
+	var monkeyKeystore = __webpack_require__(4);
+	var watchdog = __webpack_require__(14);
+	var apiconnector = __webpack_require__(15);
+	var Log = __webpack_require__(19);
+	var NodeRSA = __webpack_require__(20);
+	var CryptoJS = __webpack_require__(6).CryptoJS;
 
-	__webpack_require__(60).polyfill();
-	__webpack_require__(64);
+	__webpack_require__(64).polyfill();
 
 	;(function () {
 	  'use strict';
@@ -168,6 +169,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }
 
 	    //this.keyStore={};
+	    apiconnector.init(this);
 
 	    this.domainUrl = 'monkey.criptext.com';
 	    //setup socketConnection
@@ -216,9 +218,9 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	  proto.sendCommand = function sendCommand(command, args) {
 	    var finalMessage = JSON.stringify({ cmd: command, args: args });
-	    console.log("================");
-	    console.log("Monkey - sending message: " + finalMessage);
-	    console.log("================");
+	    Log.m(this.session.debuggingMode, "================");
+	    Log.m(this.session.debuggingMode, "Monkey - sending message: " + finalMessage);
+	    Log.m(this.session.debuggingMode, "================");
 	    this.socketConnection.send(finalMessage);
 
 	    return this;
@@ -383,13 +385,13 @@ return /******/ (function(modules) { // webpackBootstrap
 	    data.append('file', fileToSend);
 	    data.append('data', JSON.stringify(args));
 
-	    this.basicRequest('POST', '/file/new/base64', data, true, function (err, respObj) {
+	    apiconnector.basicRequest('POST', '/file/new/base64', data, true, function (err, respObj) {
 	      if (err) {
-	        console.log('Monkey - upload file Fail');
+	        Log.m(this.session.debuggingMode, 'Monkey - upload file Fail');
 	        onComplete(err.toString(), message);
 	        return;
 	      }
-	      console.log('Monkey - upload file OK');
+	      Log.m(this.session.debuggingMode, 'Monkey - upload file OK');
 	      message.id = respObj.data.messageId;
 	      onComplete(null, message);
 	    }.bind(this));
@@ -425,9 +427,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	  };
 
 	  proto.processMOKProtocolMessage = function processMOKProtocolMessage(message) {
-	    console.log("===========================");
-	    console.log("MONKEY - Message in process: " + message.id + " type: " + message.protocolType);
-	    console.log("===========================");
+	    Log.m(this.session.debuggingMode, "===========================");
+	    Log.m(this.session.debuggingMode, "MONKEY - Message in process: " + message.id + " type: " + message.protocolType);
+	    Log.m(this.session.debuggingMode, "===========================");
 
 	    switch (message.protocolType) {
 	      case this.enums.MOKMessageType.TEXT:
@@ -453,9 +455,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	      try {
 	        message.text = this.aesDecryptIncomingMessage(message);
 	      } catch (error) {
-	        console.log("===========================");
-	        console.log("MONKEY - Fail decrypting: " + message.id + " type: " + message.protocolType);
-	        console.log("===========================");
+	        Log.m(this.session.debuggingMode, "===========================");
+	        Log.m(this.session.debuggingMode, "MONKEY - Fail decrypting: " + message.id + " type: " + message.protocolType);
+	        Log.m(this.session.debuggingMode, "===========================");
 	        //get keys
 	        this.getAESkeyFromUser(message.senderId, message, function (response) {
 	          if (response != null) {
@@ -507,9 +509,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	  };
 
 	  proto.processMOKProtocolACK = function processMOKProtocolACK(message) {
-	    console.log("===========================");
-	    console.log("MONKEY - ACK in process");
-	    console.log("===========================");
+	    Log.m(this.session.debuggingMode, "===========================");
+	    Log.m(this.session.debuggingMode, "MONKEY - ACK in process");
+	    Log.m(this.session.debuggingMode, "===========================");
 
 	    //Aditional treatment can be done here
 	    this._getEmitter().emit('onAcknowledge', message);
@@ -579,7 +581,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }.bind(this);
 
 	    this.socketConnection.onmessage = function (evt) {
-	      console.log('Monkey - incoming message: ' + evt.data);
+	      Log.m(this.session.debuggingMode, 'Monkey - incoming message: ' + evt.data);
 	      var jsonres = JSON.parse(evt.data);
 
 	      if (jsonres.args.app_id == null) {
@@ -679,11 +681,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	    this.socketConnection.onclose = function (evt) {
 	      //check if the web server disconnected me
 	      if (evt.wasClean) {
-	        console.log('Monkey - Websocket closed - Connection closed... ' + evt);
+	        Log.m(this.session.debuggingMode, 'Monkey - Websocket closed - Connection closed... ' + evt);
 	        this.status = this.enums.Status.OFFLINE;
 	      } else {
 	        //web server crashed, reconnect
-	        console.log('Monkey - Websocket closed - Reconnecting... ' + evt);
+	        Log.m(this.session.debuggingMode, 'Monkey - Websocket closed - Reconnecting... ' + evt);
 	        this.status = this.enums.Status.CONNECTING;
 	        setTimeout(this.startConnection(monkey_id), 2000);
 	      }
@@ -696,13 +698,13 @@ return /******/ (function(modules) { // webpackBootstrap
 	  */
 
 	  proto.getAESkeyFromUser = function getAESkeyFromUser(monkeyId, pendingMessage, callback) {
-	    this.basicRequest('POST', '/user/key/exchange', { monkey_id: this.session.id, user_to: monkeyId }, false, function (err, respObj) {
+	    apiconnector.basicRequest('POST', '/user/key/exchange', { monkey_id: this.session.id, user_to: monkeyId }, false, function (err, respObj) {
 	      if (err) {
-	        console.log('Monkey - error on getting aes keys ' + err);
+	        Log.m(this.session.debuggingMode, 'Monkey - error on getting aes keys ' + err);
 	        return;
 	      }
 
-	      console.log('Monkey - Received new aes keys');
+	      Log.m(this.session.debuggingMode, 'Monkey - Received new aes keys');
 	      var newParamKeys = this.aesDecrypt(respObj.data.convKey, this.session.id).split(":");
 	      var newAESkey = newParamKeys[0];
 	      var newIv = newParamKeys[1];
@@ -730,9 +732,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	  };
 
 	  proto.requestEncryptedTextForMessage = function requestEncryptedTextForMessage(message, callback) {
-	    this.basicRequest('GET', '/message/' + message.id + '/open/secure', {}, false, function (err, respObj) {
+	    apiconnector.basicRequest('GET', '/message/' + message.id + '/open/secure', {}, false, function (err, respObj) {
 	      if (err) {
-	        console.log('Monkey - error on requestEncryptedTextForMessage: ' + err);
+	        Log.m(this.session.debuggingMode, 'Monkey - error on requestEncryptedTextForMessage: ' + err);
 	        return callback(null);
 	      }
 
@@ -776,7 +778,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	    var decrypted = CryptoJS.AES.decrypt(fileToDecrypt, aesKey, { iv: initV }).toString(CryptoJS.enc.Base64);
 
-	    // console.log('el tipo del archivo decriptado: '+ typeof(decrypted));
+	    // Log.m(this.session.debuggingMode, 'el tipo del archivo decriptado: '+ typeof(decrypted));
 	    return decrypted;
 	  };
 
@@ -802,9 +804,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	      try {
 	        message.text = this.aesDecryptIncomingMessage(message);
 	      } catch (error) {
-	        console.log("===========================");
-	        console.log("MONKEY - Fail decrypting: " + message.id + " type: " + message.protocolType);
-	        console.log("===========================");
+	        Log.m(this.session.debuggingMode, "===========================");
+	        Log.m(this.session.debuggingMode, "MONKEY - Fail decrypting: " + message.id + " type: " + message.protocolType);
+	        Log.m(this.session.debuggingMode, "===========================");
 	        //get keys
 	        this.getAESkeyFromUser(message.senderId, message, function (response) {
 	          if (response != null) {
@@ -841,7 +843,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	      var decryptedData = null;
 	      try {
 	        var currentSize = fileData.length;
-	        console.log("Monkey - encrypted file size: " + currentSize);
+	        Log.m(this.session.debuggingMode, "Monkey - encrypted file size: " + currentSize);
 
 	        //temporal fix for media sent from web
 	        if (message.props.device == "web") {
@@ -851,7 +853,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        }
 
 	        var newSize = decryptedData.length;
-	        console.log("Monkey - decrypted file size: " + newSize);
+	        Log.m(this.session.debuggingMode, "Monkey - decrypted file size: " + newSize);
 
 	        if (currentSize == newSize) {
 	          this.getAESkeyFromUser(message.senderId, message, function (response) {
@@ -864,9 +866,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	          return;
 	        }
 	      } catch (error) {
-	        console.log("===========================");
-	        console.log("MONKEY - Fail decrypting: " + message.id + " type: " + message.protocolType);
-	        console.log("===========================");
+	        Log.m(this.session.debuggingMode, "===========================");
+	        Log.m(this.session.debuggingMode, "MONKEY - Fail decrypting: " + message.id + " type: " + message.protocolType);
+	        Log.m(this.session.debuggingMode, "===========================");
 	        //get keys
 	        this.getAESkeyFromUser(message.senderId, message, function (response) {
 	          if (response != null) {
@@ -960,15 +962,15 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	    this.status = this.enums.Status.HANDSHAKE;
 
-	    this.basicRequest('POST', endpoint, params, false, function (err, respObj) {
+	    apiconnector.basicRequest('POST', endpoint, params, false, function (err, respObj) {
 
 	      if (err) {
-	        console.log('Monkey - ' + err);
+	        Log.m(this.session.debuggingMode, 'Monkey - ' + err);
 	        return;
 	      }
 
 	      if (isSync) {
-	        console.log('Monkey - reusing Monkey ID : ' + this.session.id);
+	        Log.m(this.session.debuggingMode, 'Monkey - reusing Monkey ID : ' + this.session.id);
 
 	        this.session.lastTimestamp = respObj.data.last_time_synced;
 	        this.session.lastMessageId = respObj.data.last_message_id;
@@ -988,7 +990,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	      }
 
 	      if (respObj.data.monkeyId == null) {
-	        console.log('Monkey - no Monkey ID returned');
+	        Log.m(this.session.debuggingMode, 'Monkey - no Monkey ID returned');
 	        return;
 	      }
 
@@ -1008,9 +1010,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	      //this.keyStore[this.session.id]={key:this.session.myKey, iv:this.session.myIv};
 	      monkeyKeystore.storeData(this.session.id, this.session.myKey + ":" + this.session.myIv, this.session.myKey, this.session.myIv);
 
-	      this.basicRequest('POST', '/user/connect', connectParams, false, function (error, response) {
+	      apiconnector.basicRequest('POST', '/user/connect', connectParams, false, function (error, response) {
 	        if (error) {
-	          console.log('Monkey - ' + error);
+	          Log.m(this.session.debuggingMode, 'Monkey - ' + error);
 	          return;
 	        }
 	        this.startConnection(this.session.id);
@@ -1019,9 +1021,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	  }; /// end of function requestSession
 
 	  proto.subscribe = function subscribe(channel, callback) {
-	    this.basicRequest('POST', '/channel/subscribe/' + channel, { monkey_id: this.session.id }, false, function (err, respObj) {
+	    apiconnector.basicRequest('POST', '/channel/subscribe/' + channel, { monkey_id: this.session.id }, false, function (err, respObj) {
 	      if (err) {
-	        console.log('Monkey - ' + err);
+	        Log.m(this.session.debuggingMode, 'Monkey - ' + err);
 	        return;
 	      }
 	      this._getEmitter().emit('onSubscribe', respObj);
@@ -1029,13 +1031,13 @@ return /******/ (function(modules) { // webpackBootstrap
 	  };
 
 	  proto.getAllConversations = function getAllConversations(onComplete) {
-	    this.basicRequest('GET', '/user/' + this.session.id + '/conversations', {}, false, function (err, respObj) {
+	    apiconnector.basicRequest('GET', '/user/' + this.session.id + '/conversations', {}, false, function (err, respObj) {
 	      if (err) {
-	        console.log('Monkey - FAIL TO GET ALL CONVERSATIONS');
+	        Log.m(this.session.debuggingMode, 'Monkey - FAIL TO GET ALL CONVERSATIONS');
 	        onComplete(err.toString());
 	        return;
 	      }
-	      console.log('Monkey - GET ALL CONVERSATIONS');
+	      Log.m(this.session.debuggingMode, 'Monkey - GET ALL CONVERSATIONS');
 	      onComplete(null, respObj);
 	    }.bind(this));
 	  };
@@ -1045,13 +1047,13 @@ return /******/ (function(modules) { // webpackBootstrap
 	      lastMessageId = '';
 	    }
 
-	    this.basicRequest('GET', '/conversation/messages/' + this.session.id + '/' + conversationId + '/' + numberOfMessages + '/' + lastMessageId, {}, false, function (err, respObj) {
+	    apiconnector.basicRequest('GET', '/conversation/messages/' + this.session.id + '/' + conversationId + '/' + numberOfMessages + '/' + lastMessageId, {}, false, function (err, respObj) {
 	      if (err) {
-	        console.log('FAIL TO GET CONVERSATION MESSAGES');
+	        Log.m(this.session.debuggingMode, 'FAIL TO GET CONVERSATION MESSAGES');
 	        onComplete(err.toString());
 	        return;
 	      }
-	      console.log('GET CONVERSATION MESSAGES');
+	      Log.m(this.session.debuggingMode, 'GET CONVERSATION MESSAGES');
 
 	      var messages = respObj.data.messages;
 
@@ -1068,28 +1070,28 @@ return /******/ (function(modules) { // webpackBootstrap
 	  };
 
 	  proto.getMessagesSince = function getMessagesSince(timestamp, onComplete) {
-	    this.basicRequest('GET', '/user/' + this.session.id + '/messages/' + timestamp, {}, false, function (err, respObj) {
+	    apiconnector.basicRequest('GET', '/user/' + this.session.id + '/messages/' + timestamp, {}, false, function (err, respObj) {
 	      if (err) {
-	        console.log('Monkey - FAIL TO GET MESSAGES');
+	        Log.m(this.session.debuggingMode, 'Monkey - FAIL TO GET MESSAGES');
 	        onComplete(err.toString());
 	        return;
 	      }
-	      console.log('Monkey - GET MESSAGES');
+	      Log.m(this.session.debuggingMode, 'Monkey - GET MESSAGES');
 	      onComplete(null, respObj);
 	    }.bind(this));
 	  };
 
 	  proto.downloadFile = function downloadFile(message, onComplete) {
-	    this.basicRequest('GET', '/file/open/' + message.text + '/base64', {}, false, function (err, fileData) {
+	    apiconnector.basicRequest('GET', '/file/open/' + message.text + '/base64', {}, false, function (err, fileData) {
 	      if (err) {
-	        console.log('Monkey - Download File Fail');
+	        Log.m(this.session.debuggingMode, 'Monkey - Download File Fail');
 	        onComplete(err.toString());
 	        return;
 	      }
-	      console.log('Monkey - Download File OK');
+	      Log.m(this.session.debuggingMode, 'Monkey - Download File OK');
 	      this.decryptDownloadedFile(fileData, message, function (error, finalData) {
 	        if (error) {
-	          console.log('Monkey - Fail to decrypt downloaded file');
+	          Log.m(this.session.debuggingMode, 'Monkey - Fail to decrypt downloaded file');
 	          onComplete(error);
 	          return;
 	        }
@@ -1099,20 +1101,20 @@ return /******/ (function(modules) { // webpackBootstrap
 	  }; /// end of function downloadFile
 
 	  proto.postMessage = function postMessage(messageObj) {
-	    this.basicRequest('POST', '/message/new', messageObj, false, function (err, respObj) {
+	    apiconnector.basicRequest('POST', '/message/new', messageObj, false, function (err, respObj) {
 	      if (err) {
-	        console.log(err);
+	        Log.m(this.session.debuggingMode, err);
 	        return;
 	      }
 
 	      if (parseInt(respObj.status) == 0) {
 	        // now you can start the long polling calls or the websocket connection you are ready.
 	        // we need to do a last validation here with an encrypted data that is sent from the server at this response, to validate keys are correct and the session too.
-	        console.log("Message sent is " + JSON.stringify(respObj));
-	        console.log("Message sent is " + respObj.data.messageId);
+	        Log.m(this.session.debuggingMode, "Message sent is " + JSON.stringify(respObj));
+	        Log.m(this.session.debuggingMode, "Message sent is " + respObj.data.messageId);
 	      } else {
 	        //throw error
-	        console.log("Error in postMessage " + respObj.message);
+	        Log.m(this.session.debuggingMode, "Error in postMessage " + respObj.message);
 	      }
 	    }.bind(this));
 	  };
@@ -1131,12 +1133,12 @@ return /******/ (function(modules) { // webpackBootstrap
 	      push_all_members: optionalPush
 	    };
 
-	    this.basicRequest('POST', '/group/create', params, false, function (err, respObj) {
+	    apiconnector.basicRequest('POST', '/group/create', params, false, function (err, respObj) {
 	      if (err) {
-	        console.log("Monkey - error creating group: " + err);
+	        Log.m(this.session.debuggingMode, "Monkey - error creating group: " + err);
 	        return callback(err);
 	      }
-	      console.log("Monkey - Success creating group" + respObj.data.group_id);
+	      Log.m(this.session.debuggingMode, "Monkey - Success creating group" + respObj.data.group_id);
 
 	      return callback(null, respObj.data);
 	    }.bind(this));
@@ -1151,9 +1153,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	      push_all_members: optionalPushExistingMembers
 	    };
 
-	    this.basicRequest('POST', '/group/addmember', params, false, function (err, respObj) {
+	    apiconnector.basicRequest('POST', '/group/addmember', params, false, function (err, respObj) {
 	      if (err) {
-	        console.log('Monkey - error adding member: ' + err);
+	        Log.m(this.session.debuggingMode, 'Monkey - error adding member: ' + err);
 	        return callback(err);
 	      }
 
@@ -1162,9 +1164,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	  };
 
 	  proto.removeMemberFromGroup = function removeMemberFromGroup(groupId, memberId, callback) {
-	    this.basicRequest('POST', '/group/delete', { monkey_id: memberId, group_id: groupId }, false, function (err, respObj) {
+	    apiconnector.basicRequest('POST', '/group/delete', { monkey_id: memberId, group_id: groupId }, false, function (err, respObj) {
 	      if (err) {
-	        console.log('Monkey - error removing member: ' + err);
+	        Log.m(this.session.debuggingMode, 'Monkey - error removing member: ' + err);
 	        return callback(err);
 	      }
 
@@ -1182,55 +1184,14 @@ return /******/ (function(modules) { // webpackBootstrap
 	      endpoint = '/user' + endpoint;
 	    }
 
-	    this.basicRequest('GET', endpoint, {}, false, function (err, respObj) {
+	    apiconnector.basicRequest('GET', endpoint, {}, false, function (err, respObj) {
 	      if (err) {
-	        console.log('Monkey - error get info: ' + err);
+	        Log.m(this.session.debuggingMode, 'Monkey - error get info: ' + err);
 	        return callback(err);
 	      }
 
 	      return callback(null, respObj.data);
 	    }.bind(this));
-	  };
-
-	  proto.basicRequest = function basicRequest(method, endpoint, params, isFile, callback) {
-
-	    var basic = this.getAuthParamsBtoA(this.appKey + ":" + this.appSecret);
-
-	    var reqUrl = this.domainUrl + endpoint;
-
-	    if (this.session.debuggingMode) {
-	      reqUrl = 'http://' + reqUrl;
-	    } else {
-	      reqUrl = 'https://' + reqUrl;
-	    }
-
-	    var headersReq = {
-	      'Accept': '*/*',
-	      'Authorization': 'Basic ' + basic
-	    };
-
-	    var data = params;
-	    //check if it's not file
-	    if (!isFile) {
-	      headersReq['Content-Type'] = 'application/json';
-	      data = JSON.stringify({ data: JSON.stringify(params) });
-	    }
-
-	    var bodyReq = {
-	      method: method,
-	      credentials: 'include',
-	      headers: headersReq
-	    };
-
-	    if (method != 'GET') {
-	      bodyReq['body'] = data;
-	    }
-
-	    fetch(reqUrl, bodyReq).then(this.checkStatus).then(this.parseJSON).then(function (respObj) {
-	      callback(null, respObj);
-	    }).catch(function (error) {
-	      callback(error);
-	    }); // end of AJAX CALL
 	  };
 
 	  /*
@@ -1325,146 +1286,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	    return extension;
 	  };
 
-	  proto.getAuthParamsBtoA = function getAuthParamsBtoA(connectAuthParamsString) {
-
-	    //window.btoa not supported in <=IE9
-	    if (window.btoa) {
-	      var basic = window.btoa(connectAuthParamsString);
-	    } else {
-	      //for <= IE9
-	      var base64 = {};
-	      base64.PADCHAR = '=';
-	      base64.ALPHA = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
-
-	      base64.makeDOMException = function () {
-	        // sadly in FF,Safari,Chrome you can't make a DOMException
-	        var e, tmp;
-
-	        try {
-	          return new DOMException(DOMException.INVALID_CHARACTER_ERR);
-	        } catch (tmp) {
-	          // not available, just passback a duck-typed equiv
-	          // https://developer.mozilla.org/en/Core_JavaScript_1.5_Reference/Global_Objects/Error
-	          // https://developer.mozilla.org/en/Core_JavaScript_1.5_Reference/Global_Objects/Error/prototype
-	          var ex = new Error("DOM Exception 5");
-
-	          // ex.number and ex.description is IE-specific.
-	          ex.code = ex.number = 5;
-	          ex.name = ex.description = "INVALID_CHARACTER_ERR";
-
-	          // Safari/Chrome output format
-	          ex.toString = function () {
-	            return 'Error: ' + ex.name + ': ' + ex.message;
-	          };
-	          return ex;
-	        }
-	      };
-
-	      base64.getbyte64 = function (s, i) {
-	        // This is oddly fast, except on Chrome/V8.
-	        //  Minimal or no improvement in performance by using a
-	        //   object with properties mapping chars to value (eg. 'A': 0)
-	        var idx = base64.ALPHA.indexOf(s.charAt(i));
-	        if (idx === -1) {
-	          throw base64.makeDOMException();
-	        }
-	        return idx;
-	      };
-
-	      base64.decode = function (s) {
-	        // convert to string
-	        s = '' + s;
-	        var getbyte64 = base64.getbyte64;
-	        var pads, i, b10;
-	        var imax = s.length;
-	        if (imax === 0) {
-	          return s;
-	        }
-
-	        if (imax % 4 !== 0) {
-	          throw base64.makeDOMException();
-	        }
-
-	        pads = 0;
-	        if (s.charAt(imax - 1) === base64.PADCHAR) {
-	          pads = 1;
-	          if (s.charAt(imax - 2) === base64.PADCHAR) {
-	            pads = 2;
-	          }
-	          // either way, we want to ignore this last block
-	          imax -= 4;
-	        }
-
-	        var x = [];
-	        for (i = 0; i < imax; i += 4) {
-	          b10 = getbyte64(s, i) << 18 | getbyte64(s, i + 1) << 12 | getbyte64(s, i + 2) << 6 | getbyte64(s, i + 3);
-	          x.push(String.fromCharCode(b10 >> 16, b10 >> 8 & 0xff, b10 & 0xff));
-	        }
-
-	        switch (pads) {
-	          case 1:
-	            b10 = getbyte64(s, i) << 18 | getbyte64(s, i + 1) << 12 | getbyte64(s, i + 2) << 6;
-	            x.push(String.fromCharCode(b10 >> 16, b10 >> 8 & 0xff));
-	            break;
-	          case 2:
-	            b10 = getbyte64(s, i) << 18 | getbyte64(s, i + 1) << 12;
-	            x.push(String.fromCharCode(b10 >> 16));
-	            break;
-	        }
-	        return x.join('');
-	      };
-
-	      base64.getbyte = function (s, i) {
-	        var x = s.charCodeAt(i);
-	        if (x > 255) {
-	          throw base64.makeDOMException();
-	        }
-	        return x;
-	      };
-
-	      base64.encode = function (s) {
-	        if (arguments.length !== 1) {
-	          throw new SyntaxError("Not enough arguments");
-	        }
-	        var padchar = base64.PADCHAR;
-	        var alpha = base64.ALPHA;
-	        var getbyte = base64.getbyte;
-
-	        var i, b10;
-	        var x = [];
-
-	        // convert to string
-	        s = '' + s;
-
-	        var imax = s.length - s.length % 3;
-
-	        if (s.length === 0) {
-	          return s;
-	        }
-	        for (i = 0; i < imax; i += 3) {
-	          b10 = getbyte(s, i) << 16 | getbyte(s, i + 1) << 8 | getbyte(s, i + 2);
-	          x.push(alpha.charAt(b10 >> 18));
-	          x.push(alpha.charAt(b10 >> 12 & 0x3F));
-	          x.push(alpha.charAt(b10 >> 6 & 0x3f));
-	          x.push(alpha.charAt(b10 & 0x3f));
-	        }
-	        switch (s.length - imax) {
-	          case 1:
-	            b10 = getbyte(s, i) << 16;
-	            x.push(alpha.charAt(b10 >> 18) + alpha.charAt(b10 >> 12 & 0x3F) + padchar + padchar);
-	            break;
-	          case 2:
-	            b10 = getbyte(s, i) << 16 | getbyte(s, i + 1) << 8;
-	            x.push(alpha.charAt(b10 >> 18) + alpha.charAt(b10 >> 12 & 0x3F) + alpha.charAt(b10 >> 6 & 0x3f) + padchar);
-	            break;
-	        }
-	        return x.join('');
-	      };
-	      basic = base64.encode(connectAuthParamsString);
-	    }
-
-	    return basic;
-	  };
 	  /**
 	  * Alias of addListener
 	  */
@@ -1491,413 +1312,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	    exports.Monkey = Monkey;
 	  }
 	})();
-	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(1)))
 
 /***/ },
 /* 1 */
-/***/ function(module, exports) {
-
-	/* WEBPACK VAR INJECTION */(function(global) {/*** IMPORTS FROM imports-loader ***/
-	(function() {
-
-	(function(self) {
-	  'use strict';
-
-	  if (self.fetch) {
-	    return
-	  }
-
-	  function normalizeName(name) {
-	    if (typeof name !== 'string') {
-	      name = String(name)
-	    }
-	    if (/[^a-z0-9\-#$%&'*+.\^_`|~]/i.test(name)) {
-	      throw new TypeError('Invalid character in header field name')
-	    }
-	    return name.toLowerCase()
-	  }
-
-	  function normalizeValue(value) {
-	    if (typeof value !== 'string') {
-	      value = String(value)
-	    }
-	    return value
-	  }
-
-	  function Headers(headers) {
-	    this.map = {}
-
-	    if (headers instanceof Headers) {
-	      headers.forEach(function(value, name) {
-	        this.append(name, value)
-	      }, this)
-
-	    } else if (headers) {
-	      Object.getOwnPropertyNames(headers).forEach(function(name) {
-	        this.append(name, headers[name])
-	      }, this)
-	    }
-	  }
-
-	  Headers.prototype.append = function(name, value) {
-	    name = normalizeName(name)
-	    value = normalizeValue(value)
-	    var list = this.map[name]
-	    if (!list) {
-	      list = []
-	      this.map[name] = list
-	    }
-	    list.push(value)
-	  }
-
-	  Headers.prototype['delete'] = function(name) {
-	    delete this.map[normalizeName(name)]
-	  }
-
-	  Headers.prototype.get = function(name) {
-	    var values = this.map[normalizeName(name)]
-	    return values ? values[0] : null
-	  }
-
-	  Headers.prototype.getAll = function(name) {
-	    return this.map[normalizeName(name)] || []
-	  }
-
-	  Headers.prototype.has = function(name) {
-	    return this.map.hasOwnProperty(normalizeName(name))
-	  }
-
-	  Headers.prototype.set = function(name, value) {
-	    this.map[normalizeName(name)] = [normalizeValue(value)]
-	  }
-
-	  Headers.prototype.forEach = function(callback, thisArg) {
-	    Object.getOwnPropertyNames(this.map).forEach(function(name) {
-	      this.map[name].forEach(function(value) {
-	        callback.call(thisArg, value, name, this)
-	      }, this)
-	    }, this)
-	  }
-
-	  function consumed(body) {
-	    if (body.bodyUsed) {
-	      return Promise.reject(new TypeError('Already read'))
-	    }
-	    body.bodyUsed = true
-	  }
-
-	  function fileReaderReady(reader) {
-	    return new Promise(function(resolve, reject) {
-	      reader.onload = function() {
-	        resolve(reader.result)
-	      }
-	      reader.onerror = function() {
-	        reject(reader.error)
-	      }
-	    })
-	  }
-
-	  function readBlobAsArrayBuffer(blob) {
-	    var reader = new FileReader()
-	    reader.readAsArrayBuffer(blob)
-	    return fileReaderReady(reader)
-	  }
-
-	  function readBlobAsText(blob) {
-	    var reader = new FileReader()
-	    reader.readAsText(blob)
-	    return fileReaderReady(reader)
-	  }
-
-	  var support = {
-	    blob: 'FileReader' in self && 'Blob' in self && (function() {
-	      try {
-	        new Blob();
-	        return true
-	      } catch(e) {
-	        return false
-	      }
-	    })(),
-	    formData: 'FormData' in self,
-	    arrayBuffer: 'ArrayBuffer' in self
-	  }
-
-	  function Body() {
-	    this.bodyUsed = false
-
-
-	    this._initBody = function(body) {
-	      this._bodyInit = body
-	      if (typeof body === 'string') {
-	        this._bodyText = body
-	      } else if (support.blob && Blob.prototype.isPrototypeOf(body)) {
-	        this._bodyBlob = body
-	      } else if (support.formData && FormData.prototype.isPrototypeOf(body)) {
-	        this._bodyFormData = body
-	      } else if (!body) {
-	        this._bodyText = ''
-	      } else if (support.arrayBuffer && ArrayBuffer.prototype.isPrototypeOf(body)) {
-	        // Only support ArrayBuffers for POST method.
-	        // Receiving ArrayBuffers happens via Blobs, instead.
-	      } else {
-	        throw new Error('unsupported BodyInit type')
-	      }
-
-	      if (!this.headers.get('content-type')) {
-	        if (typeof body === 'string') {
-	          this.headers.set('content-type', 'text/plain;charset=UTF-8')
-	        } else if (this._bodyBlob && this._bodyBlob.type) {
-	          this.headers.set('content-type', this._bodyBlob.type)
-	        }
-	      }
-	    }
-
-	    if (support.blob) {
-	      this.blob = function() {
-	        var rejected = consumed(this)
-	        if (rejected) {
-	          return rejected
-	        }
-
-	        if (this._bodyBlob) {
-	          return Promise.resolve(this._bodyBlob)
-	        } else if (this._bodyFormData) {
-	          throw new Error('could not read FormData body as blob')
-	        } else {
-	          return Promise.resolve(new Blob([this._bodyText]))
-	        }
-	      }
-
-	      this.arrayBuffer = function() {
-	        return this.blob().then(readBlobAsArrayBuffer)
-	      }
-
-	      this.text = function() {
-	        var rejected = consumed(this)
-	        if (rejected) {
-	          return rejected
-	        }
-
-	        if (this._bodyBlob) {
-	          return readBlobAsText(this._bodyBlob)
-	        } else if (this._bodyFormData) {
-	          throw new Error('could not read FormData body as text')
-	        } else {
-	          return Promise.resolve(this._bodyText)
-	        }
-	      }
-	    } else {
-	      this.text = function() {
-	        var rejected = consumed(this)
-	        return rejected ? rejected : Promise.resolve(this._bodyText)
-	      }
-	    }
-
-	    if (support.formData) {
-	      this.formData = function() {
-	        return this.text().then(decode)
-	      }
-	    }
-
-	    this.json = function() {
-	      return this.text().then(JSON.parse)
-	    }
-
-	    return this
-	  }
-
-	  // HTTP methods whose capitalization should be normalized
-	  var methods = ['DELETE', 'GET', 'HEAD', 'OPTIONS', 'POST', 'PUT']
-
-	  function normalizeMethod(method) {
-	    var upcased = method.toUpperCase()
-	    return (methods.indexOf(upcased) > -1) ? upcased : method
-	  }
-
-	  function Request(input, options) {
-	    options = options || {}
-	    var body = options.body
-	    if (Request.prototype.isPrototypeOf(input)) {
-	      if (input.bodyUsed) {
-	        throw new TypeError('Already read')
-	      }
-	      this.url = input.url
-	      this.credentials = input.credentials
-	      if (!options.headers) {
-	        this.headers = new Headers(input.headers)
-	      }
-	      this.method = input.method
-	      this.mode = input.mode
-	      if (!body) {
-	        body = input._bodyInit
-	        input.bodyUsed = true
-	      }
-	    } else {
-	      this.url = input
-	    }
-
-	    this.credentials = options.credentials || this.credentials || 'omit'
-	    if (options.headers || !this.headers) {
-	      this.headers = new Headers(options.headers)
-	    }
-	    this.method = normalizeMethod(options.method || this.method || 'GET')
-	    this.mode = options.mode || this.mode || null
-	    this.referrer = null
-
-	    if ((this.method === 'GET' || this.method === 'HEAD') && body) {
-	      throw new TypeError('Body not allowed for GET or HEAD requests')
-	    }
-	    this._initBody(body)
-	  }
-
-	  Request.prototype.clone = function() {
-	    return new Request(this)
-	  }
-
-	  function decode(body) {
-	    var form = new FormData()
-	    body.trim().split('&').forEach(function(bytes) {
-	      if (bytes) {
-	        var split = bytes.split('=')
-	        var name = split.shift().replace(/\+/g, ' ')
-	        var value = split.join('=').replace(/\+/g, ' ')
-	        form.append(decodeURIComponent(name), decodeURIComponent(value))
-	      }
-	    })
-	    return form
-	  }
-
-	  function headers(xhr) {
-	    var head = new Headers()
-	    var pairs = xhr.getAllResponseHeaders().trim().split('\n')
-	    pairs.forEach(function(header) {
-	      var split = header.trim().split(':')
-	      var key = split.shift().trim()
-	      var value = split.join(':').trim()
-	      head.append(key, value)
-	    })
-	    return head
-	  }
-
-	  Body.call(Request.prototype)
-
-	  function Response(bodyInit, options) {
-	    if (!options) {
-	      options = {}
-	    }
-
-	    this.type = 'default'
-	    this.status = options.status
-	    this.ok = this.status >= 200 && this.status < 300
-	    this.statusText = options.statusText
-	    this.headers = options.headers instanceof Headers ? options.headers : new Headers(options.headers)
-	    this.url = options.url || ''
-	    this._initBody(bodyInit)
-	  }
-
-	  Body.call(Response.prototype)
-
-	  Response.prototype.clone = function() {
-	    return new Response(this._bodyInit, {
-	      status: this.status,
-	      statusText: this.statusText,
-	      headers: new Headers(this.headers),
-	      url: this.url
-	    })
-	  }
-
-	  Response.error = function() {
-	    var response = new Response(null, {status: 0, statusText: ''})
-	    response.type = 'error'
-	    return response
-	  }
-
-	  var redirectStatuses = [301, 302, 303, 307, 308]
-
-	  Response.redirect = function(url, status) {
-	    if (redirectStatuses.indexOf(status) === -1) {
-	      throw new RangeError('Invalid status code')
-	    }
-
-	    return new Response(null, {status: status, headers: {location: url}})
-	  }
-
-	  self.Headers = Headers;
-	  self.Request = Request;
-	  self.Response = Response;
-
-	  self.fetch = function(input, init) {
-	    return new Promise(function(resolve, reject) {
-	      var request
-	      if (Request.prototype.isPrototypeOf(input) && !init) {
-	        request = input
-	      } else {
-	        request = new Request(input, init)
-	      }
-
-	      var xhr = new XMLHttpRequest()
-
-	      function responseURL() {
-	        if ('responseURL' in xhr) {
-	          return xhr.responseURL
-	        }
-
-	        // Avoid security warnings on getResponseHeader when not allowed by CORS
-	        if (/^X-Request-URL:/m.test(xhr.getAllResponseHeaders())) {
-	          return xhr.getResponseHeader('X-Request-URL')
-	        }
-
-	        return;
-	      }
-
-	      xhr.onload = function() {
-	        var status = (xhr.status === 1223) ? 204 : xhr.status
-	        if (status < 100 || status > 599) {
-	          reject(new TypeError('Network request failed'))
-	          return
-	        }
-	        var options = {
-	          status: status,
-	          statusText: xhr.statusText,
-	          headers: headers(xhr),
-	          url: responseURL()
-	        }
-	        var body = 'response' in xhr ? xhr.response : xhr.responseText;
-	        resolve(new Response(body, options))
-	      }
-
-	      xhr.onerror = function() {
-	        reject(new TypeError('Network request failed'))
-	      }
-
-	      xhr.open(request.method, request.url, true)
-
-	      if (request.credentials === 'include') {
-	        xhr.withCredentials = true
-	      }
-
-	      if ('responseType' in xhr && support.blob) {
-	        xhr.responseType = 'blob'
-	      }
-
-	      request.headers.forEach(function(value, name) {
-	        xhr.setRequestHeader(name, value)
-	      })
-
-	      xhr.send(typeof request._bodyInit === 'undefined' ? null : request._bodyInit)
-	    })
-	  }
-	  self.fetch.polyfill = true
-	})(typeof self !== 'undefined' ? self : this);
-
-
-	/*** EXPORTS FROM exports-loader ***/
-	module.exports = global.fetch;
-	}.call(global));
-	/* WEBPACK VAR INJECTION */}.call(exports, (function() { return this; }())))
-
-/***/ },
-/* 2 */
 /***/ function(module, exports) {
 
 	// Copyright Joyent, Inc. and other Node contributors.
@@ -2201,7 +1618,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 
 /***/ },
-/* 3 */
+/* 2 */
 /***/ function(module, exports, __webpack_require__) {
 
 	var __WEBPACK_AMD_DEFINE_RESULT__;(function () {
@@ -2295,7 +1712,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 
 /***/ },
-/* 4 */
+/* 3 */
 /***/ function(module, exports) {
 
 	"use strict";
@@ -2439,7 +1856,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	}();
 
 /***/ },
-/* 5 */
+/* 4 */
 /***/ function(module, exports, __webpack_require__) {
 
 	
@@ -2449,8 +1866,8 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	  var monkeyKeystore = {};
 
-	  var store = __webpack_require__(6);
-	  var CryptoJS = __webpack_require__(7).CryptoJS;
+	  var store = __webpack_require__(5);
+	  var CryptoJS = __webpack_require__(6).CryptoJS;
 
 	  monkeyKeystore.storeData = function(key, value, myaeskey, myaesiv){
 	    store.set(key, this.aesEncrypt(value, myaeskey, myaesiv));
@@ -2491,7 +1908,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	}())
 
 /***/ },
-/* 6 */
+/* 5 */
 /***/ function(module, exports) {
 
 	/* WEBPACK VAR INJECTION */(function(global) {"use strict"
@@ -2665,22 +2082,22 @@ return /******/ (function(modules) { // webpackBootstrap
 	/* WEBPACK VAR INJECTION */}.call(exports, (function() { return this; }())))
 
 /***/ },
-/* 7 */
+/* 6 */
 /***/ function(module, exports, __webpack_require__) {
 
-	var CryptoJS = __webpack_require__(8).CryptoJS;
+	var CryptoJS = __webpack_require__(7).CryptoJS;
+	__webpack_require__(8);
 	__webpack_require__(9);
 	__webpack_require__(10);
 	__webpack_require__(11);
 	__webpack_require__(12);
-	__webpack_require__(13);
-	var JsonFormatter = __webpack_require__(14).JsonFormatter;
+	var JsonFormatter = __webpack_require__(13).JsonFormatter;
 
 	exports.CryptoJS = CryptoJS;
 	exports.JsonFormatter = JsonFormatter;
 
 /***/ },
-/* 8 */
+/* 7 */
 /***/ function(module, exports) {
 
 	/*
@@ -3400,10 +2817,10 @@ return /******/ (function(modules) { // webpackBootstrap
 
 
 /***/ },
-/* 9 */
+/* 8 */
 /***/ function(module, exports, __webpack_require__) {
 
-	var CryptoJS = __webpack_require__(8).CryptoJS;
+	var CryptoJS = __webpack_require__(7).CryptoJS;
 
 	/*
 	CryptoJS v3.1.2
@@ -3517,10 +2934,10 @@ return /******/ (function(modules) { // webpackBootstrap
 
 
 /***/ },
-/* 10 */
+/* 9 */
 /***/ function(module, exports, __webpack_require__) {
 
-	var CryptoJS = __webpack_require__(8).CryptoJS;
+	var CryptoJS = __webpack_require__(7).CryptoJS;
 
 	/*
 	CryptoJS v3.1.2
@@ -3779,10 +3196,10 @@ return /******/ (function(modules) { // webpackBootstrap
 
 
 /***/ },
-/* 11 */
+/* 10 */
 /***/ function(module, exports, __webpack_require__) {
 
-	var CryptoJS = __webpack_require__(8).CryptoJS;
+	var CryptoJS = __webpack_require__(7).CryptoJS;
 
 	/*
 	CryptoJS v3.1.2
@@ -3905,10 +3322,10 @@ return /******/ (function(modules) { // webpackBootstrap
 
 
 /***/ },
-/* 12 */
+/* 11 */
 /***/ function(module, exports, __webpack_require__) {
 
-	var CryptoJS = __webpack_require__(8).CryptoJS;
+	var CryptoJS = __webpack_require__(7).CryptoJS;
 
 	/*
 	CryptoJS v3.1.2
@@ -4776,10 +4193,10 @@ return /******/ (function(modules) { // webpackBootstrap
 
 
 /***/ },
-/* 13 */
+/* 12 */
 /***/ function(module, exports, __webpack_require__) {
 
-	var CryptoJS = __webpack_require__(8).CryptoJS;
+	var CryptoJS = __webpack_require__(7).CryptoJS;
 
 	/*
 	CryptoJS v3.1.2
@@ -4997,10 +4414,10 @@ return /******/ (function(modules) { // webpackBootstrap
 
 
 /***/ },
-/* 14 */
+/* 13 */
 /***/ function(module, exports, __webpack_require__) {
 
-	var CryptoJS = __webpack_require__(8).CryptoJS;
+	var CryptoJS = __webpack_require__(7).CryptoJS;
 
 	// create custom json serialization format
 	var JsonFormatter = {
@@ -5048,7 +4465,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	exports.JsonFormatter = JsonFormatter;
 
 /***/ },
-/* 15 */
+/* 14 */
 /***/ function(module, exports, __webpack_require__) {
 
 	
@@ -5056,7 +4473,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	module.exports = (function() {
 
-	  var store = __webpack_require__(6);
+	  var store = __webpack_require__(5);
 	  var watchdog = {};
 	  var working = false;
 	  var TIMEOUT = 5000;
@@ -5138,7 +4555,1046 @@ return /******/ (function(modules) { // webpackBootstrap
 	}())
 
 /***/ },
+/* 15 */
+/***/ function(module, exports, __webpack_require__) {
+
+	/* WEBPACK VAR INJECTION */(function(fetch) {
+	'use strict';
+
+	module.exports = (function() {
+
+	  __webpack_require__(17);
+	  var apiconnector = {};
+	  var main;
+
+	  apiconnector.init = function(mainObject){
+	    main = mainObject;
+	  }
+
+	  apiconnector.basicRequest = function(method, endpoint, params, isFile, callback){
+	    
+	    var basic= this.getAuthParamsBtoA(main.appKey+":"+main.appSecret);
+
+	    var reqUrl = main.domainUrl+endpoint;
+
+	    if (main.session.debuggingMode) {
+	      reqUrl = 'http://'+reqUrl;
+	    }else{
+	      reqUrl = 'https://'+reqUrl;
+	    }
+
+	    var headersReq = {
+	      'Accept': '*/*',
+	      'Authorization': 'Basic '+ basic
+	    };
+
+	    var data = params;
+	    //check if it's not file
+	    if (!isFile) {
+	      headersReq['Content-Type'] = 'application/json';
+	      data = JSON.stringify({ data: JSON.stringify(params) });
+	    }
+
+	    var bodyReq = {
+	      method: method,
+	      credentials: 'include',
+	      headers: headersReq
+	    };
+
+	    if (method != 'GET') {
+	      bodyReq['body'] = data
+	    }
+
+	    fetch(reqUrl, bodyReq).then(main.checkStatus)
+	    .then(main.parseJSON)
+	    .then(function(respObj) {
+	      callback(null,respObj);
+	    }).catch(function(error) {
+	      callback(error);
+	    });// end of AJAX CALL
+
+	  }
+
+	  apiconnector.getAuthParamsBtoA = function(connectAuthParamsString){
+
+	    //window.btoa not supported in <=IE9
+	    if (window.btoa) {
+	      var basic = window.btoa(connectAuthParamsString);
+	    }
+	    else{
+	      //for <= IE9
+	      var base64 = {};
+	      base64.PADCHAR = '=';
+	      base64.ALPHA = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+
+	      base64.makeDOMException = function() {
+	        // sadly in FF,Safari,Chrome you can't make a DOMException
+	        var e, tmp;
+
+	        try {
+	          return new DOMException(DOMException.INVALID_CHARACTER_ERR);
+	        } catch (tmp) {
+	          // not available, just passback a duck-typed equiv
+	          // https://developer.mozilla.org/en/Core_JavaScript_1.5_Reference/Global_Objects/Error
+	          // https://developer.mozilla.org/en/Core_JavaScript_1.5_Reference/Global_Objects/Error/prototype
+	          var ex = new Error("DOM Exception 5");
+
+	          // ex.number and ex.description is IE-specific.
+	          ex.code = ex.number = 5;
+	          ex.name = ex.description = "INVALID_CHARACTER_ERR";
+
+	          // Safari/Chrome output format
+	          ex.toString = function() { return 'Error: ' + ex.name + ': ' + ex.message; };
+	          return ex;
+	        }
+	      }
+
+	      base64.getbyte64 = function(s,i) {
+	        // This is oddly fast, except on Chrome/V8.
+	        //  Minimal or no improvement in performance by using a
+	        //   object with properties mapping chars to value (eg. 'A': 0)
+	        var idx = base64.ALPHA.indexOf(s.charAt(i));
+	        if (idx === -1) {
+	          throw base64.makeDOMException();
+	        }
+	        return idx;
+	      }
+
+	      base64.decode = function(s) {
+	        // convert to string
+	        s = '' + s;
+	        var getbyte64 = base64.getbyte64;
+	        var pads, i, b10;
+	        var imax = s.length
+	        if (imax === 0) {
+	          return s;
+	        }
+
+	        if (imax % 4 !== 0) {
+	          throw base64.makeDOMException();
+	        }
+
+	        pads = 0
+	        if (s.charAt(imax - 1) === base64.PADCHAR) {
+	          pads = 1;
+	          if (s.charAt(imax - 2) === base64.PADCHAR) {
+	            pads = 2;
+	          }
+	          // either way, we want to ignore this last block
+	          imax -= 4;
+	        }
+
+	        var x = [];
+	        for (i = 0; i < imax; i += 4) {
+	          b10 = (getbyte64(s,i) << 18) | (getbyte64(s,i+1) << 12) |
+	          (getbyte64(s,i+2) << 6) | getbyte64(s,i+3);
+	          x.push(String.fromCharCode(b10 >> 16, (b10 >> 8) & 0xff, b10 & 0xff));
+	        }
+
+	        switch (pads) {
+	          case 1:
+	          b10 = (getbyte64(s,i) << 18) | (getbyte64(s,i+1) << 12) | (getbyte64(s,i+2) << 6);
+	          x.push(String.fromCharCode(b10 >> 16, (b10 >> 8) & 0xff));
+	          break;
+	          case 2:
+	          b10 = (getbyte64(s,i) << 18) | (getbyte64(s,i+1) << 12);
+	          x.push(String.fromCharCode(b10 >> 16));
+	          break;
+	        }
+	        return x.join('');
+	      }
+
+	      base64.getbyte = function(s,i) {
+	        var x = s.charCodeAt(i);
+	        if (x > 255) {
+	          throw base64.makeDOMException();
+	        }
+	        return x;
+	      }
+
+	      base64.encode = function(s) {
+	        if (arguments.length !== 1) {
+	          throw new SyntaxError("Not enough arguments");
+	        }
+	        var padchar = base64.PADCHAR;
+	        var alpha   = base64.ALPHA;
+	        var getbyte = base64.getbyte;
+
+	        var i, b10;
+	        var x = [];
+
+	        // convert to string
+	        s = '' + s;
+
+	        var imax = s.length - s.length % 3;
+
+	        if (s.length === 0) {
+	          return s;
+	        }
+	        for (i = 0; i < imax; i += 3) {
+	          b10 = (getbyte(s,i) << 16) | (getbyte(s,i+1) << 8) | getbyte(s,i+2);
+	          x.push(alpha.charAt(b10 >> 18));
+	          x.push(alpha.charAt((b10 >> 12) & 0x3F));
+	          x.push(alpha.charAt((b10 >> 6) & 0x3f));
+	          x.push(alpha.charAt(b10 & 0x3f));
+	        }
+	        switch (s.length - imax) {
+	          case 1:
+	          b10 = getbyte(s,i) << 16;
+	          x.push(alpha.charAt(b10 >> 18) + alpha.charAt((b10 >> 12) & 0x3F) +
+	          padchar + padchar);
+	          break;
+	          case 2:
+	          b10 = (getbyte(s,i) << 16) | (getbyte(s,i+1) << 8);
+	          x.push(alpha.charAt(b10 >> 18) + alpha.charAt((b10 >> 12) & 0x3F) +
+	          alpha.charAt((b10 >> 6) & 0x3f) + padchar);
+	          break;
+	        }
+	        return x.join('');
+	      }
+	      basic = base64.encode(connectAuthParamsString);
+	    }
+
+	    return basic;
+	  }
+
+	  return apiconnector;
+
+	}())
+	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(16)))
+
+/***/ },
 /* 16 */
+/***/ function(module, exports) {
+
+	/* WEBPACK VAR INJECTION */(function(global) {/*** IMPORTS FROM imports-loader ***/
+	(function() {
+
+	(function(self) {
+	  'use strict';
+
+	  if (self.fetch) {
+	    return
+	  }
+
+	  function normalizeName(name) {
+	    if (typeof name !== 'string') {
+	      name = String(name)
+	    }
+	    if (/[^a-z0-9\-#$%&'*+.\^_`|~]/i.test(name)) {
+	      throw new TypeError('Invalid character in header field name')
+	    }
+	    return name.toLowerCase()
+	  }
+
+	  function normalizeValue(value) {
+	    if (typeof value !== 'string') {
+	      value = String(value)
+	    }
+	    return value
+	  }
+
+	  function Headers(headers) {
+	    this.map = {}
+
+	    if (headers instanceof Headers) {
+	      headers.forEach(function(value, name) {
+	        this.append(name, value)
+	      }, this)
+
+	    } else if (headers) {
+	      Object.getOwnPropertyNames(headers).forEach(function(name) {
+	        this.append(name, headers[name])
+	      }, this)
+	    }
+	  }
+
+	  Headers.prototype.append = function(name, value) {
+	    name = normalizeName(name)
+	    value = normalizeValue(value)
+	    var list = this.map[name]
+	    if (!list) {
+	      list = []
+	      this.map[name] = list
+	    }
+	    list.push(value)
+	  }
+
+	  Headers.prototype['delete'] = function(name) {
+	    delete this.map[normalizeName(name)]
+	  }
+
+	  Headers.prototype.get = function(name) {
+	    var values = this.map[normalizeName(name)]
+	    return values ? values[0] : null
+	  }
+
+	  Headers.prototype.getAll = function(name) {
+	    return this.map[normalizeName(name)] || []
+	  }
+
+	  Headers.prototype.has = function(name) {
+	    return this.map.hasOwnProperty(normalizeName(name))
+	  }
+
+	  Headers.prototype.set = function(name, value) {
+	    this.map[normalizeName(name)] = [normalizeValue(value)]
+	  }
+
+	  Headers.prototype.forEach = function(callback, thisArg) {
+	    Object.getOwnPropertyNames(this.map).forEach(function(name) {
+	      this.map[name].forEach(function(value) {
+	        callback.call(thisArg, value, name, this)
+	      }, this)
+	    }, this)
+	  }
+
+	  function consumed(body) {
+	    if (body.bodyUsed) {
+	      return Promise.reject(new TypeError('Already read'))
+	    }
+	    body.bodyUsed = true
+	  }
+
+	  function fileReaderReady(reader) {
+	    return new Promise(function(resolve, reject) {
+	      reader.onload = function() {
+	        resolve(reader.result)
+	      }
+	      reader.onerror = function() {
+	        reject(reader.error)
+	      }
+	    })
+	  }
+
+	  function readBlobAsArrayBuffer(blob) {
+	    var reader = new FileReader()
+	    reader.readAsArrayBuffer(blob)
+	    return fileReaderReady(reader)
+	  }
+
+	  function readBlobAsText(blob) {
+	    var reader = new FileReader()
+	    reader.readAsText(blob)
+	    return fileReaderReady(reader)
+	  }
+
+	  var support = {
+	    blob: 'FileReader' in self && 'Blob' in self && (function() {
+	      try {
+	        new Blob();
+	        return true
+	      } catch(e) {
+	        return false
+	      }
+	    })(),
+	    formData: 'FormData' in self,
+	    arrayBuffer: 'ArrayBuffer' in self
+	  }
+
+	  function Body() {
+	    this.bodyUsed = false
+
+
+	    this._initBody = function(body) {
+	      this._bodyInit = body
+	      if (typeof body === 'string') {
+	        this._bodyText = body
+	      } else if (support.blob && Blob.prototype.isPrototypeOf(body)) {
+	        this._bodyBlob = body
+	      } else if (support.formData && FormData.prototype.isPrototypeOf(body)) {
+	        this._bodyFormData = body
+	      } else if (!body) {
+	        this._bodyText = ''
+	      } else if (support.arrayBuffer && ArrayBuffer.prototype.isPrototypeOf(body)) {
+	        // Only support ArrayBuffers for POST method.
+	        // Receiving ArrayBuffers happens via Blobs, instead.
+	      } else {
+	        throw new Error('unsupported BodyInit type')
+	      }
+
+	      if (!this.headers.get('content-type')) {
+	        if (typeof body === 'string') {
+	          this.headers.set('content-type', 'text/plain;charset=UTF-8')
+	        } else if (this._bodyBlob && this._bodyBlob.type) {
+	          this.headers.set('content-type', this._bodyBlob.type)
+	        }
+	      }
+	    }
+
+	    if (support.blob) {
+	      this.blob = function() {
+	        var rejected = consumed(this)
+	        if (rejected) {
+	          return rejected
+	        }
+
+	        if (this._bodyBlob) {
+	          return Promise.resolve(this._bodyBlob)
+	        } else if (this._bodyFormData) {
+	          throw new Error('could not read FormData body as blob')
+	        } else {
+	          return Promise.resolve(new Blob([this._bodyText]))
+	        }
+	      }
+
+	      this.arrayBuffer = function() {
+	        return this.blob().then(readBlobAsArrayBuffer)
+	      }
+
+	      this.text = function() {
+	        var rejected = consumed(this)
+	        if (rejected) {
+	          return rejected
+	        }
+
+	        if (this._bodyBlob) {
+	          return readBlobAsText(this._bodyBlob)
+	        } else if (this._bodyFormData) {
+	          throw new Error('could not read FormData body as text')
+	        } else {
+	          return Promise.resolve(this._bodyText)
+	        }
+	      }
+	    } else {
+	      this.text = function() {
+	        var rejected = consumed(this)
+	        return rejected ? rejected : Promise.resolve(this._bodyText)
+	      }
+	    }
+
+	    if (support.formData) {
+	      this.formData = function() {
+	        return this.text().then(decode)
+	      }
+	    }
+
+	    this.json = function() {
+	      return this.text().then(JSON.parse)
+	    }
+
+	    return this
+	  }
+
+	  // HTTP methods whose capitalization should be normalized
+	  var methods = ['DELETE', 'GET', 'HEAD', 'OPTIONS', 'POST', 'PUT']
+
+	  function normalizeMethod(method) {
+	    var upcased = method.toUpperCase()
+	    return (methods.indexOf(upcased) > -1) ? upcased : method
+	  }
+
+	  function Request(input, options) {
+	    options = options || {}
+	    var body = options.body
+	    if (Request.prototype.isPrototypeOf(input)) {
+	      if (input.bodyUsed) {
+	        throw new TypeError('Already read')
+	      }
+	      this.url = input.url
+	      this.credentials = input.credentials
+	      if (!options.headers) {
+	        this.headers = new Headers(input.headers)
+	      }
+	      this.method = input.method
+	      this.mode = input.mode
+	      if (!body) {
+	        body = input._bodyInit
+	        input.bodyUsed = true
+	      }
+	    } else {
+	      this.url = input
+	    }
+
+	    this.credentials = options.credentials || this.credentials || 'omit'
+	    if (options.headers || !this.headers) {
+	      this.headers = new Headers(options.headers)
+	    }
+	    this.method = normalizeMethod(options.method || this.method || 'GET')
+	    this.mode = options.mode || this.mode || null
+	    this.referrer = null
+
+	    if ((this.method === 'GET' || this.method === 'HEAD') && body) {
+	      throw new TypeError('Body not allowed for GET or HEAD requests')
+	    }
+	    this._initBody(body)
+	  }
+
+	  Request.prototype.clone = function() {
+	    return new Request(this)
+	  }
+
+	  function decode(body) {
+	    var form = new FormData()
+	    body.trim().split('&').forEach(function(bytes) {
+	      if (bytes) {
+	        var split = bytes.split('=')
+	        var name = split.shift().replace(/\+/g, ' ')
+	        var value = split.join('=').replace(/\+/g, ' ')
+	        form.append(decodeURIComponent(name), decodeURIComponent(value))
+	      }
+	    })
+	    return form
+	  }
+
+	  function headers(xhr) {
+	    var head = new Headers()
+	    var pairs = xhr.getAllResponseHeaders().trim().split('\n')
+	    pairs.forEach(function(header) {
+	      var split = header.trim().split(':')
+	      var key = split.shift().trim()
+	      var value = split.join(':').trim()
+	      head.append(key, value)
+	    })
+	    return head
+	  }
+
+	  Body.call(Request.prototype)
+
+	  function Response(bodyInit, options) {
+	    if (!options) {
+	      options = {}
+	    }
+
+	    this.type = 'default'
+	    this.status = options.status
+	    this.ok = this.status >= 200 && this.status < 300
+	    this.statusText = options.statusText
+	    this.headers = options.headers instanceof Headers ? options.headers : new Headers(options.headers)
+	    this.url = options.url || ''
+	    this._initBody(bodyInit)
+	  }
+
+	  Body.call(Response.prototype)
+
+	  Response.prototype.clone = function() {
+	    return new Response(this._bodyInit, {
+	      status: this.status,
+	      statusText: this.statusText,
+	      headers: new Headers(this.headers),
+	      url: this.url
+	    })
+	  }
+
+	  Response.error = function() {
+	    var response = new Response(null, {status: 0, statusText: ''})
+	    response.type = 'error'
+	    return response
+	  }
+
+	  var redirectStatuses = [301, 302, 303, 307, 308]
+
+	  Response.redirect = function(url, status) {
+	    if (redirectStatuses.indexOf(status) === -1) {
+	      throw new RangeError('Invalid status code')
+	    }
+
+	    return new Response(null, {status: status, headers: {location: url}})
+	  }
+
+	  self.Headers = Headers;
+	  self.Request = Request;
+	  self.Response = Response;
+
+	  self.fetch = function(input, init) {
+	    return new Promise(function(resolve, reject) {
+	      var request
+	      if (Request.prototype.isPrototypeOf(input) && !init) {
+	        request = input
+	      } else {
+	        request = new Request(input, init)
+	      }
+
+	      var xhr = new XMLHttpRequest()
+
+	      function responseURL() {
+	        if ('responseURL' in xhr) {
+	          return xhr.responseURL
+	        }
+
+	        // Avoid security warnings on getResponseHeader when not allowed by CORS
+	        if (/^X-Request-URL:/m.test(xhr.getAllResponseHeaders())) {
+	          return xhr.getResponseHeader('X-Request-URL')
+	        }
+
+	        return;
+	      }
+
+	      xhr.onload = function() {
+	        var status = (xhr.status === 1223) ? 204 : xhr.status
+	        if (status < 100 || status > 599) {
+	          reject(new TypeError('Network request failed'))
+	          return
+	        }
+	        var options = {
+	          status: status,
+	          statusText: xhr.statusText,
+	          headers: headers(xhr),
+	          url: responseURL()
+	        }
+	        var body = 'response' in xhr ? xhr.response : xhr.responseText;
+	        resolve(new Response(body, options))
+	      }
+
+	      xhr.onerror = function() {
+	        reject(new TypeError('Network request failed'))
+	      }
+
+	      xhr.open(request.method, request.url, true)
+
+	      if (request.credentials === 'include') {
+	        xhr.withCredentials = true
+	      }
+
+	      if ('responseType' in xhr && support.blob) {
+	        xhr.responseType = 'blob'
+	      }
+
+	      request.headers.forEach(function(value, name) {
+	        xhr.setRequestHeader(name, value)
+	      })
+
+	      xhr.send(typeof request._bodyInit === 'undefined' ? null : request._bodyInit)
+	    })
+	  }
+	  self.fetch.polyfill = true
+	})(typeof self !== 'undefined' ? self : this);
+
+
+	/*** EXPORTS FROM exports-loader ***/
+	module.exports = global.fetch;
+	}.call(global));
+	/* WEBPACK VAR INJECTION */}.call(exports, (function() { return this; }())))
+
+/***/ },
+/* 17 */
+/***/ function(module, exports, __webpack_require__) {
+
+	// the whatwg-fetch polyfill installs the fetch() function
+	// on the global object (window or self)
+	//
+	// Return that as the export for use in Webpack, Browserify etc.
+	__webpack_require__(18);
+	module.exports = self.fetch.bind(self);
+
+
+/***/ },
+/* 18 */
+/***/ function(module, exports) {
+
+	(function(self) {
+	  'use strict';
+
+	  if (self.fetch) {
+	    return
+	  }
+
+	  function normalizeName(name) {
+	    if (typeof name !== 'string') {
+	      name = String(name)
+	    }
+	    if (/[^a-z0-9\-#$%&'*+.\^_`|~]/i.test(name)) {
+	      throw new TypeError('Invalid character in header field name')
+	    }
+	    return name.toLowerCase()
+	  }
+
+	  function normalizeValue(value) {
+	    if (typeof value !== 'string') {
+	      value = String(value)
+	    }
+	    return value
+	  }
+
+	  function Headers(headers) {
+	    this.map = {}
+
+	    if (headers instanceof Headers) {
+	      headers.forEach(function(value, name) {
+	        this.append(name, value)
+	      }, this)
+
+	    } else if (headers) {
+	      Object.getOwnPropertyNames(headers).forEach(function(name) {
+	        this.append(name, headers[name])
+	      }, this)
+	    }
+	  }
+
+	  Headers.prototype.append = function(name, value) {
+	    name = normalizeName(name)
+	    value = normalizeValue(value)
+	    var list = this.map[name]
+	    if (!list) {
+	      list = []
+	      this.map[name] = list
+	    }
+	    list.push(value)
+	  }
+
+	  Headers.prototype['delete'] = function(name) {
+	    delete this.map[normalizeName(name)]
+	  }
+
+	  Headers.prototype.get = function(name) {
+	    var values = this.map[normalizeName(name)]
+	    return values ? values[0] : null
+	  }
+
+	  Headers.prototype.getAll = function(name) {
+	    return this.map[normalizeName(name)] || []
+	  }
+
+	  Headers.prototype.has = function(name) {
+	    return this.map.hasOwnProperty(normalizeName(name))
+	  }
+
+	  Headers.prototype.set = function(name, value) {
+	    this.map[normalizeName(name)] = [normalizeValue(value)]
+	  }
+
+	  Headers.prototype.forEach = function(callback, thisArg) {
+	    Object.getOwnPropertyNames(this.map).forEach(function(name) {
+	      this.map[name].forEach(function(value) {
+	        callback.call(thisArg, value, name, this)
+	      }, this)
+	    }, this)
+	  }
+
+	  function consumed(body) {
+	    if (body.bodyUsed) {
+	      return Promise.reject(new TypeError('Already read'))
+	    }
+	    body.bodyUsed = true
+	  }
+
+	  function fileReaderReady(reader) {
+	    return new Promise(function(resolve, reject) {
+	      reader.onload = function() {
+	        resolve(reader.result)
+	      }
+	      reader.onerror = function() {
+	        reject(reader.error)
+	      }
+	    })
+	  }
+
+	  function readBlobAsArrayBuffer(blob) {
+	    var reader = new FileReader()
+	    reader.readAsArrayBuffer(blob)
+	    return fileReaderReady(reader)
+	  }
+
+	  function readBlobAsText(blob) {
+	    var reader = new FileReader()
+	    reader.readAsText(blob)
+	    return fileReaderReady(reader)
+	  }
+
+	  var support = {
+	    blob: 'FileReader' in self && 'Blob' in self && (function() {
+	      try {
+	        new Blob();
+	        return true
+	      } catch(e) {
+	        return false
+	      }
+	    })(),
+	    formData: 'FormData' in self,
+	    arrayBuffer: 'ArrayBuffer' in self
+	  }
+
+	  function Body() {
+	    this.bodyUsed = false
+
+
+	    this._initBody = function(body) {
+	      this._bodyInit = body
+	      if (typeof body === 'string') {
+	        this._bodyText = body
+	      } else if (support.blob && Blob.prototype.isPrototypeOf(body)) {
+	        this._bodyBlob = body
+	      } else if (support.formData && FormData.prototype.isPrototypeOf(body)) {
+	        this._bodyFormData = body
+	      } else if (!body) {
+	        this._bodyText = ''
+	      } else if (support.arrayBuffer && ArrayBuffer.prototype.isPrototypeOf(body)) {
+	        // Only support ArrayBuffers for POST method.
+	        // Receiving ArrayBuffers happens via Blobs, instead.
+	      } else {
+	        throw new Error('unsupported BodyInit type')
+	      }
+
+	      if (!this.headers.get('content-type')) {
+	        if (typeof body === 'string') {
+	          this.headers.set('content-type', 'text/plain;charset=UTF-8')
+	        } else if (this._bodyBlob && this._bodyBlob.type) {
+	          this.headers.set('content-type', this._bodyBlob.type)
+	        }
+	      }
+	    }
+
+	    if (support.blob) {
+	      this.blob = function() {
+	        var rejected = consumed(this)
+	        if (rejected) {
+	          return rejected
+	        }
+
+	        if (this._bodyBlob) {
+	          return Promise.resolve(this._bodyBlob)
+	        } else if (this._bodyFormData) {
+	          throw new Error('could not read FormData body as blob')
+	        } else {
+	          return Promise.resolve(new Blob([this._bodyText]))
+	        }
+	      }
+
+	      this.arrayBuffer = function() {
+	        return this.blob().then(readBlobAsArrayBuffer)
+	      }
+
+	      this.text = function() {
+	        var rejected = consumed(this)
+	        if (rejected) {
+	          return rejected
+	        }
+
+	        if (this._bodyBlob) {
+	          return readBlobAsText(this._bodyBlob)
+	        } else if (this._bodyFormData) {
+	          throw new Error('could not read FormData body as text')
+	        } else {
+	          return Promise.resolve(this._bodyText)
+	        }
+	      }
+	    } else {
+	      this.text = function() {
+	        var rejected = consumed(this)
+	        return rejected ? rejected : Promise.resolve(this._bodyText)
+	      }
+	    }
+
+	    if (support.formData) {
+	      this.formData = function() {
+	        return this.text().then(decode)
+	      }
+	    }
+
+	    this.json = function() {
+	      return this.text().then(JSON.parse)
+	    }
+
+	    return this
+	  }
+
+	  // HTTP methods whose capitalization should be normalized
+	  var methods = ['DELETE', 'GET', 'HEAD', 'OPTIONS', 'POST', 'PUT']
+
+	  function normalizeMethod(method) {
+	    var upcased = method.toUpperCase()
+	    return (methods.indexOf(upcased) > -1) ? upcased : method
+	  }
+
+	  function Request(input, options) {
+	    options = options || {}
+	    var body = options.body
+	    if (Request.prototype.isPrototypeOf(input)) {
+	      if (input.bodyUsed) {
+	        throw new TypeError('Already read')
+	      }
+	      this.url = input.url
+	      this.credentials = input.credentials
+	      if (!options.headers) {
+	        this.headers = new Headers(input.headers)
+	      }
+	      this.method = input.method
+	      this.mode = input.mode
+	      if (!body) {
+	        body = input._bodyInit
+	        input.bodyUsed = true
+	      }
+	    } else {
+	      this.url = input
+	    }
+
+	    this.credentials = options.credentials || this.credentials || 'omit'
+	    if (options.headers || !this.headers) {
+	      this.headers = new Headers(options.headers)
+	    }
+	    this.method = normalizeMethod(options.method || this.method || 'GET')
+	    this.mode = options.mode || this.mode || null
+	    this.referrer = null
+
+	    if ((this.method === 'GET' || this.method === 'HEAD') && body) {
+	      throw new TypeError('Body not allowed for GET or HEAD requests')
+	    }
+	    this._initBody(body)
+	  }
+
+	  Request.prototype.clone = function() {
+	    return new Request(this)
+	  }
+
+	  function decode(body) {
+	    var form = new FormData()
+	    body.trim().split('&').forEach(function(bytes) {
+	      if (bytes) {
+	        var split = bytes.split('=')
+	        var name = split.shift().replace(/\+/g, ' ')
+	        var value = split.join('=').replace(/\+/g, ' ')
+	        form.append(decodeURIComponent(name), decodeURIComponent(value))
+	      }
+	    })
+	    return form
+	  }
+
+	  function headers(xhr) {
+	    var head = new Headers()
+	    var pairs = xhr.getAllResponseHeaders().trim().split('\n')
+	    pairs.forEach(function(header) {
+	      var split = header.trim().split(':')
+	      var key = split.shift().trim()
+	      var value = split.join(':').trim()
+	      head.append(key, value)
+	    })
+	    return head
+	  }
+
+	  Body.call(Request.prototype)
+
+	  function Response(bodyInit, options) {
+	    if (!options) {
+	      options = {}
+	    }
+
+	    this.type = 'default'
+	    this.status = options.status
+	    this.ok = this.status >= 200 && this.status < 300
+	    this.statusText = options.statusText
+	    this.headers = options.headers instanceof Headers ? options.headers : new Headers(options.headers)
+	    this.url = options.url || ''
+	    this._initBody(bodyInit)
+	  }
+
+	  Body.call(Response.prototype)
+
+	  Response.prototype.clone = function() {
+	    return new Response(this._bodyInit, {
+	      status: this.status,
+	      statusText: this.statusText,
+	      headers: new Headers(this.headers),
+	      url: this.url
+	    })
+	  }
+
+	  Response.error = function() {
+	    var response = new Response(null, {status: 0, statusText: ''})
+	    response.type = 'error'
+	    return response
+	  }
+
+	  var redirectStatuses = [301, 302, 303, 307, 308]
+
+	  Response.redirect = function(url, status) {
+	    if (redirectStatuses.indexOf(status) === -1) {
+	      throw new RangeError('Invalid status code')
+	    }
+
+	    return new Response(null, {status: status, headers: {location: url}})
+	  }
+
+	  self.Headers = Headers;
+	  self.Request = Request;
+	  self.Response = Response;
+
+	  self.fetch = function(input, init) {
+	    return new Promise(function(resolve, reject) {
+	      var request
+	      if (Request.prototype.isPrototypeOf(input) && !init) {
+	        request = input
+	      } else {
+	        request = new Request(input, init)
+	      }
+
+	      var xhr = new XMLHttpRequest()
+
+	      function responseURL() {
+	        if ('responseURL' in xhr) {
+	          return xhr.responseURL
+	        }
+
+	        // Avoid security warnings on getResponseHeader when not allowed by CORS
+	        if (/^X-Request-URL:/m.test(xhr.getAllResponseHeaders())) {
+	          return xhr.getResponseHeader('X-Request-URL')
+	        }
+
+	        return;
+	      }
+
+	      xhr.onload = function() {
+	        var status = (xhr.status === 1223) ? 204 : xhr.status
+	        if (status < 100 || status > 599) {
+	          reject(new TypeError('Network request failed'))
+	          return
+	        }
+	        var options = {
+	          status: status,
+	          statusText: xhr.statusText,
+	          headers: headers(xhr),
+	          url: responseURL()
+	        }
+	        var body = 'response' in xhr ? xhr.response : xhr.responseText;
+	        resolve(new Response(body, options))
+	      }
+
+	      xhr.onerror = function() {
+	        reject(new TypeError('Network request failed'))
+	      }
+
+	      xhr.open(request.method, request.url, true)
+
+	      if (request.credentials === 'include') {
+	        xhr.withCredentials = true
+	      }
+
+	      if ('responseType' in xhr && support.blob) {
+	        xhr.responseType = 'blob'
+	      }
+
+	      request.headers.forEach(function(value, name) {
+	        xhr.setRequestHeader(name, value)
+	      })
+
+	      xhr.send(typeof request._bodyInit === 'undefined' ? null : request._bodyInit)
+	    })
+	  }
+	  self.fetch.polyfill = true
+	})(typeof self !== 'undefined' ? self : this);
+
+
+/***/ },
+/* 19 */
+/***/ function(module, exports) {
+
+	
+	'use strict';
+
+	module.exports = (function() {
+
+	  var Log = {};
+	  
+	  Log.m = function(debugmode, message){
+	    if(debugmode)
+	      console.log(message);
+	  }
+
+	  return Log;
+
+	}())
+
+/***/ },
+/* 20 */
 /***/ function(module, exports, __webpack_require__) {
 
 	/* WEBPACK VAR INJECTION */(function(Buffer) {/*!
@@ -5150,13 +5606,13 @@ return /******/ (function(modules) { // webpackBootstrap
 	 * License BSD
 	 */
 
-	var rsa = __webpack_require__(21);
-	var crypt = __webpack_require__(24);
-	var ber = __webpack_require__(49).Ber;
-	var _ = __webpack_require__(22)._;
-	var utils = __webpack_require__(22);
-	var schemes = __webpack_require__(43);
-	var formats = __webpack_require__(56);
+	var rsa = __webpack_require__(25);
+	var crypt = __webpack_require__(28);
+	var ber = __webpack_require__(53).Ber;
+	var _ = __webpack_require__(26)._;
+	var utils = __webpack_require__(26);
+	var schemes = __webpack_require__(47);
+	var formats = __webpack_require__(60);
 
 	module.exports = (function () {
 	    var SUPPORTED_HASH_ALGORITHMS = {
@@ -5534,10 +5990,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	    return NodeRSA;
 	})();
 
-	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(17).Buffer))
+	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(21).Buffer))
 
 /***/ },
-/* 17 */
+/* 21 */
 /***/ function(module, exports, __webpack_require__) {
 
 	/* WEBPACK VAR INJECTION */(function(Buffer, global) {/*!
@@ -5550,9 +6006,9 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	'use strict'
 
-	var base64 = __webpack_require__(18)
-	var ieee754 = __webpack_require__(19)
-	var isArray = __webpack_require__(20)
+	var base64 = __webpack_require__(22)
+	var ieee754 = __webpack_require__(23)
+	var isArray = __webpack_require__(24)
 
 	exports.Buffer = Buffer
 	exports.SlowBuffer = SlowBuffer
@@ -7089,10 +7545,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	  return i
 	}
 
-	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(17).Buffer, (function() { return this; }())))
+	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(21).Buffer, (function() { return this; }())))
 
 /***/ },
-/* 18 */
+/* 22 */
 /***/ function(module, exports, __webpack_require__) {
 
 	var lookup = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
@@ -7222,7 +7678,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 
 /***/ },
-/* 19 */
+/* 23 */
 /***/ function(module, exports) {
 
 	exports.read = function (buffer, offset, isLE, mLen, nBytes) {
@@ -7312,7 +7768,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 
 /***/ },
-/* 20 */
+/* 24 */
 /***/ function(module, exports) {
 
 	var toString = {}.toString;
@@ -7323,7 +7779,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 
 /***/ },
-/* 21 */
+/* 25 */
 /***/ function(module, exports, __webpack_require__) {
 
 	/* WEBPACK VAR INJECTION */(function(Buffer) {/*
@@ -7367,12 +7823,12 @@ return /******/ (function(modules) { // webpackBootstrap
 	 * 2014 rzcoder
 	 */
 
-	var _ = __webpack_require__(22)._;
-	var crypt = __webpack_require__(24);
-	var BigInteger = __webpack_require__(42);
-	var utils = __webpack_require__(22);
-	var schemes = __webpack_require__(43);
-	var encryptEngines = __webpack_require__(47);
+	var _ = __webpack_require__(26)._;
+	var crypt = __webpack_require__(28);
+	var BigInteger = __webpack_require__(46);
+	var utils = __webpack_require__(26);
+	var schemes = __webpack_require__(47);
+	var encryptEngines = __webpack_require__(51);
 
 	exports.BigInteger = BigInteger;
 	module.exports.Key = (function () {
@@ -7643,10 +8099,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	})();
 
 
-	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(17).Buffer))
+	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(21).Buffer))
 
 /***/ },
-/* 22 */
+/* 26 */
 /***/ function(module, exports, __webpack_require__) {
 
 	/* WEBPACK VAR INJECTION */(function(process) {/*
@@ -7654,7 +8110,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	 *
 	 */
 
-	var crypt = __webpack_require__(24);
+	var crypt = __webpack_require__(28);
 
 	/**
 	 * Break string str each maxLen symbols
@@ -7736,10 +8192,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	        return newObj;
 	    }
 	};
-	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(23)))
+	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(27)))
 
 /***/ },
-/* 23 */
+/* 27 */
 /***/ function(module, exports) {
 
 	// shim for using process in browser
@@ -7836,10 +8292,10 @@ return /******/ (function(modules) { // webpackBootstrap
 
 
 /***/ },
-/* 24 */
+/* 28 */
 /***/ function(module, exports, __webpack_require__) {
 
-	/* WEBPACK VAR INJECTION */(function(Buffer) {var rng = __webpack_require__(25)
+	/* WEBPACK VAR INJECTION */(function(Buffer) {var rng = __webpack_require__(29)
 
 	function error () {
 	  var m = [].slice.call(arguments).join(' ')
@@ -7850,9 +8306,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	    ].join('\n'))
 	}
 
-	exports.createHash = __webpack_require__(27)
+	exports.createHash = __webpack_require__(31)
 
-	exports.createHmac = __webpack_require__(39)
+	exports.createHmac = __webpack_require__(43)
 
 	exports.randomBytes = function(size, callback) {
 	  if (callback && callback.call) {
@@ -7873,7 +8329,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	  return ['sha1', 'sha256', 'sha512', 'md5', 'rmd160']
 	}
 
-	var p = __webpack_require__(40)(exports)
+	var p = __webpack_require__(44)(exports)
 	exports.pbkdf2 = p.pbkdf2
 	exports.pbkdf2Sync = p.pbkdf2Sync
 
@@ -7893,16 +8349,16 @@ return /******/ (function(modules) { // webpackBootstrap
 	  }
 	})
 
-	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(17).Buffer))
+	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(21).Buffer))
 
 /***/ },
-/* 25 */
+/* 29 */
 /***/ function(module, exports, __webpack_require__) {
 
 	/* WEBPACK VAR INJECTION */(function(global, Buffer) {(function() {
 	  var g = ('undefined' === typeof window ? global : window) || {}
 	  _crypto = (
-	    g.crypto || g.msCrypto || __webpack_require__(26)
+	    g.crypto || g.msCrypto || __webpack_require__(30)
 	  )
 	  module.exports = function(size) {
 	    // Modern Browsers
@@ -7926,22 +8382,22 @@ return /******/ (function(modules) { // webpackBootstrap
 	  }
 	}())
 
-	/* WEBPACK VAR INJECTION */}.call(exports, (function() { return this; }()), __webpack_require__(17).Buffer))
+	/* WEBPACK VAR INJECTION */}.call(exports, (function() { return this; }()), __webpack_require__(21).Buffer))
 
 /***/ },
-/* 26 */
+/* 30 */
 /***/ function(module, exports) {
 
 	/* (ignored) */
 
 /***/ },
-/* 27 */
+/* 31 */
 /***/ function(module, exports, __webpack_require__) {
 
-	/* WEBPACK VAR INJECTION */(function(Buffer) {var createHash = __webpack_require__(28)
+	/* WEBPACK VAR INJECTION */(function(Buffer) {var createHash = __webpack_require__(32)
 
-	var md5 = toConstructor(__webpack_require__(36))
-	var rmd160 = toConstructor(__webpack_require__(38))
+	var md5 = toConstructor(__webpack_require__(40))
+	var rmd160 = toConstructor(__webpack_require__(42))
 
 	function toConstructor (fn) {
 	  return function () {
@@ -7969,10 +8425,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	  return createHash(alg)
 	}
 
-	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(17).Buffer))
+	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(21).Buffer))
 
 /***/ },
-/* 28 */
+/* 32 */
 /***/ function(module, exports, __webpack_require__) {
 
 	var exports = module.exports = function (alg) {
@@ -7981,16 +8437,16 @@ return /******/ (function(modules) { // webpackBootstrap
 	  return new Alg()
 	}
 
-	var Buffer = __webpack_require__(17).Buffer
-	var Hash   = __webpack_require__(29)(Buffer)
+	var Buffer = __webpack_require__(21).Buffer
+	var Hash   = __webpack_require__(33)(Buffer)
 
-	exports.sha1 = __webpack_require__(30)(Buffer, Hash)
-	exports.sha256 = __webpack_require__(34)(Buffer, Hash)
-	exports.sha512 = __webpack_require__(35)(Buffer, Hash)
+	exports.sha1 = __webpack_require__(34)(Buffer, Hash)
+	exports.sha256 = __webpack_require__(38)(Buffer, Hash)
+	exports.sha512 = __webpack_require__(39)(Buffer, Hash)
 
 
 /***/ },
-/* 29 */
+/* 33 */
 /***/ function(module, exports) {
 
 	module.exports = function (Buffer) {
@@ -8073,7 +8529,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 
 /***/ },
-/* 30 */
+/* 34 */
 /***/ function(module, exports, __webpack_require__) {
 
 	/*
@@ -8085,7 +8541,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	 * See http://pajhome.org.uk/crypt/md5 for details.
 	 */
 
-	var inherits = __webpack_require__(31).inherits
+	var inherits = __webpack_require__(35).inherits
 
 	module.exports = function (Buffer, Hash) {
 
@@ -8217,7 +8673,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 
 /***/ },
-/* 31 */
+/* 35 */
 /***/ function(module, exports, __webpack_require__) {
 
 	/* WEBPACK VAR INJECTION */(function(global, process) {// Copyright Joyent, Inc. and other Node contributors.
@@ -8745,7 +9201,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	}
 	exports.isPrimitive = isPrimitive;
 
-	exports.isBuffer = __webpack_require__(32);
+	exports.isBuffer = __webpack_require__(36);
 
 	function objectToString(o) {
 	  return Object.prototype.toString.call(o);
@@ -8789,7 +9245,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	 *     prototype.
 	 * @param {function} superCtor Constructor function to inherit prototype from.
 	 */
-	exports.inherits = __webpack_require__(33);
+	exports.inherits = __webpack_require__(37);
 
 	exports._extend = function(origin, add) {
 	  // Don't do anything if add isn't an object
@@ -8807,10 +9263,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	  return Object.prototype.hasOwnProperty.call(obj, prop);
 	}
 
-	/* WEBPACK VAR INJECTION */}.call(exports, (function() { return this; }()), __webpack_require__(23)))
+	/* WEBPACK VAR INJECTION */}.call(exports, (function() { return this; }()), __webpack_require__(27)))
 
 /***/ },
-/* 32 */
+/* 36 */
 /***/ function(module, exports) {
 
 	module.exports = function isBuffer(arg) {
@@ -8821,7 +9277,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	}
 
 /***/ },
-/* 33 */
+/* 37 */
 /***/ function(module, exports) {
 
 	if (typeof Object.create === 'function') {
@@ -8850,7 +9306,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 
 /***/ },
-/* 34 */
+/* 38 */
 /***/ function(module, exports, __webpack_require__) {
 
 	
@@ -8862,7 +9318,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	 *
 	 */
 
-	var inherits = __webpack_require__(31).inherits
+	var inherits = __webpack_require__(35).inherits
 
 	module.exports = function (Buffer, Hash) {
 
@@ -9003,10 +9459,10 @@ return /******/ (function(modules) { // webpackBootstrap
 
 
 /***/ },
-/* 35 */
+/* 39 */
 /***/ function(module, exports, __webpack_require__) {
 
-	var inherits = __webpack_require__(31).inherits
+	var inherits = __webpack_require__(35).inherits
 
 	module.exports = function (Buffer, Hash) {
 	  var K = [
@@ -9253,7 +9709,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 
 /***/ },
-/* 36 */
+/* 40 */
 /***/ function(module, exports, __webpack_require__) {
 
 	/*
@@ -9265,7 +9721,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	 * See http://pajhome.org.uk/crypt/md5 for more info.
 	 */
 
-	var helpers = __webpack_require__(37);
+	var helpers = __webpack_require__(41);
 
 	/*
 	 * Calculate the MD5 of an array of little-endian words, and a bit length
@@ -9414,7 +9870,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 
 /***/ },
-/* 37 */
+/* 41 */
 /***/ function(module, exports, __webpack_require__) {
 
 	/* WEBPACK VAR INJECTION */(function(Buffer) {var intSize = 4;
@@ -9452,10 +9908,10 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	module.exports = { hash: hash };
 
-	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(17).Buffer))
+	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(21).Buffer))
 
 /***/ },
-/* 38 */
+/* 42 */
 /***/ function(module, exports, __webpack_require__) {
 
 	/* WEBPACK VAR INJECTION */(function(Buffer) {
@@ -9664,13 +10120,13 @@ return /******/ (function(modules) { // webpackBootstrap
 
 
 
-	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(17).Buffer))
+	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(21).Buffer))
 
 /***/ },
-/* 39 */
+/* 43 */
 /***/ function(module, exports, __webpack_require__) {
 
-	/* WEBPACK VAR INJECTION */(function(Buffer) {var createHash = __webpack_require__(27)
+	/* WEBPACK VAR INJECTION */(function(Buffer) {var createHash = __webpack_require__(31)
 
 	var zeroBuffer = new Buffer(128)
 	zeroBuffer.fill(0)
@@ -9714,13 +10170,13 @@ return /******/ (function(modules) { // webpackBootstrap
 	}
 
 
-	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(17).Buffer))
+	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(21).Buffer))
 
 /***/ },
-/* 40 */
+/* 44 */
 /***/ function(module, exports, __webpack_require__) {
 
-	var pbkdf2Export = __webpack_require__(41)
+	var pbkdf2Export = __webpack_require__(45)
 
 	module.exports = function (crypto, exports) {
 	  exports = exports || {}
@@ -9735,7 +10191,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 
 /***/ },
-/* 41 */
+/* 45 */
 /***/ function(module, exports, __webpack_require__) {
 
 	/* WEBPACK VAR INJECTION */(function(Buffer) {module.exports = function(crypto) {
@@ -9823,10 +10279,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	  }
 	}
 
-	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(17).Buffer))
+	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(21).Buffer))
 
 /***/ },
-/* 42 */
+/* 46 */
 /***/ function(module, exports, __webpack_require__) {
 
 	/* WEBPACK VAR INJECTION */(function(Buffer) {/*
@@ -9867,8 +10323,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	 * 2014 rzcoder
 	 */
 
-	var crypt = __webpack_require__(24);
-	var _ = __webpack_require__(22)._;
+	var crypt = __webpack_require__(28);
+	var _ = __webpack_require__(26)._;
 
 	// Bits per digit
 	var dbits;
@@ -11369,16 +11825,16 @@ return /******/ (function(modules) { // webpackBootstrap
 	//static BigInteger valueOf(long val)
 
 	module.exports = BigInteger;
-	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(17).Buffer))
+	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(21).Buffer))
 
 /***/ },
-/* 43 */
+/* 47 */
 /***/ function(module, exports, __webpack_require__) {
 
 	module.exports = {
-	    pkcs1: __webpack_require__(44),
-	    pkcs1_oaep: __webpack_require__(45),
-	    pss: __webpack_require__(46),
+	    pkcs1: __webpack_require__(48),
+	    pkcs1_oaep: __webpack_require__(49),
+	    pss: __webpack_require__(50),
 
 	    /**
 	     * Check if scheme has padding methods
@@ -11400,15 +11856,15 @@ return /******/ (function(modules) { // webpackBootstrap
 	};
 
 /***/ },
-/* 44 */
+/* 48 */
 /***/ function(module, exports, __webpack_require__) {
 
 	/* WEBPACK VAR INJECTION */(function(Buffer) {/**
 	 * PKCS1 padding and signature scheme
 	 */
 
-	var BigInteger = __webpack_require__(42);
-	var crypt = __webpack_require__(24);
+	var BigInteger = __webpack_require__(46);
+	var crypt = __webpack_require__(28);
 	var SIGN_INFO_HEAD = {
 	    md2: new Buffer('3020300c06082a864886f70d020205000410', 'hex'),
 	    md5: new Buffer('3020300c06082a864886f70d020505000410', 'hex'),
@@ -11590,18 +12046,18 @@ return /******/ (function(modules) { // webpackBootstrap
 
 
 
-	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(17).Buffer))
+	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(21).Buffer))
 
 /***/ },
-/* 45 */
+/* 49 */
 /***/ function(module, exports, __webpack_require__) {
 
 	/* WEBPACK VAR INJECTION */(function(Buffer) {/**
 	 * PKCS_OAEP signature scheme
 	 */
 
-	var BigInteger = __webpack_require__(42);
-	var crypt = __webpack_require__(24);
+	var BigInteger = __webpack_require__(46);
+	var crypt = __webpack_require__(28);
 
 	module.exports = {
 	    isEncryption: true,
@@ -11777,18 +12233,18 @@ return /******/ (function(modules) { // webpackBootstrap
 	    return new Scheme(key, options);
 	};
 
-	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(17).Buffer))
+	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(21).Buffer))
 
 /***/ },
-/* 46 */
+/* 50 */
 /***/ function(module, exports, __webpack_require__) {
 
 	/* WEBPACK VAR INJECTION */(function(Buffer) {/**
 	 * PSS signature scheme
 	 */
 
-	var BigInteger = __webpack_require__(42);
-	var crypt = __webpack_require__(24);
+	var BigInteger = __webpack_require__(46);
+	var crypt = __webpack_require__(28);
 
 	module.exports = {
 	    isEncryption: false,
@@ -11799,7 +12255,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	var DEFAULT_SALT_LENGTH = 20;
 
 	module.exports.makeScheme = function (key, options) {
-	    var OAEP = __webpack_require__(43).pkcs1_oaep;
+	    var OAEP = __webpack_require__(47).pkcs1_oaep;
 
 	    /**
 	     * @param key
@@ -11970,17 +12426,17 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	    return new Scheme(key, options);
 	};
-	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(17).Buffer))
+	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(21).Buffer))
 
 /***/ },
-/* 47 */
+/* 51 */
 /***/ function(module, exports, __webpack_require__) {
 
-	var crypt = __webpack_require__(24);
+	var crypt = __webpack_require__(28);
 
 	module.exports = {
 	    getEngine: function (keyPair, options) {
-	        var engine = __webpack_require__(48);
+	        var engine = __webpack_require__(52);
 	        if (options.environment === 'node') {
 	            if (typeof crypt.publicEncrypt === 'function' && typeof crypt.privateDecrypt === 'function') {
 	                if (typeof crypt.privateEncrypt === 'function' && typeof crypt.publicDecrypt === 'function') {
@@ -11995,11 +12451,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	};
 
 /***/ },
-/* 48 */
+/* 52 */
 /***/ function(module, exports, __webpack_require__) {
 
-	var BigInteger = __webpack_require__(42);
-	var schemes = __webpack_require__(43);
+	var BigInteger = __webpack_require__(46);
+	var schemes = __webpack_require__(47);
 
 	module.exports = function (keyPair, options) {
 	    var pkcs1Scheme = schemes.pkcs1.makeScheme(keyPair, options);
@@ -12032,7 +12488,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	};
 
 /***/ },
-/* 49 */
+/* 53 */
 /***/ function(module, exports, __webpack_require__) {
 
 	// Copyright 2011 Mark Cavage <mcavage@gmail.com> All rights reserved.
@@ -12040,7 +12496,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	// If you have no idea what ASN.1 or BER is, see this:
 	// ftp://ftp.rsa.com/pub/pkcs/ascii/layman.asc
 
-	var Ber = __webpack_require__(50);
+	var Ber = __webpack_require__(54);
 
 
 
@@ -12058,16 +12514,16 @@ return /******/ (function(modules) { // webpackBootstrap
 
 
 /***/ },
-/* 50 */
+/* 54 */
 /***/ function(module, exports, __webpack_require__) {
 
 	// Copyright 2011 Mark Cavage <mcavage@gmail.com> All rights reserved.
 
-	var errors = __webpack_require__(51);
-	var types = __webpack_require__(52);
+	var errors = __webpack_require__(55);
+	var types = __webpack_require__(56);
 
-	var Reader = __webpack_require__(53);
-	var Writer = __webpack_require__(55);
+	var Reader = __webpack_require__(57);
+	var Writer = __webpack_require__(59);
 
 
 	///--- Exports
@@ -12091,7 +12547,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 
 /***/ },
-/* 51 */
+/* 55 */
 /***/ function(module, exports) {
 
 	// Copyright 2011 Mark Cavage <mcavage@gmail.com> All rights reserved.
@@ -12110,7 +12566,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 
 /***/ },
-/* 52 */
+/* 56 */
 /***/ function(module, exports) {
 
 	// Copyright 2011 Mark Cavage <mcavage@gmail.com> All rights reserved.
@@ -12152,15 +12608,15 @@ return /******/ (function(modules) { // webpackBootstrap
 
 
 /***/ },
-/* 53 */
+/* 57 */
 /***/ function(module, exports, __webpack_require__) {
 
 	/* WEBPACK VAR INJECTION */(function(Buffer) {// Copyright 2011 Mark Cavage <mcavage@gmail.com> All rights reserved.
 
-	var assert = __webpack_require__(54);
+	var assert = __webpack_require__(58);
 
-	var ASN1 = __webpack_require__(52);
-	var errors = __webpack_require__(51);
+	var ASN1 = __webpack_require__(56);
+	var errors = __webpack_require__(55);
 
 
 	///--- Globals
@@ -12417,10 +12873,10 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	module.exports = Reader;
 
-	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(17).Buffer))
+	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(21).Buffer))
 
 /***/ },
-/* 54 */
+/* 58 */
 /***/ function(module, exports, __webpack_require__) {
 
 	// http://wiki.commonjs.org/wiki/Unit_Testing/1.0
@@ -12450,7 +12906,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	// when used in node, this will actually load the util module we depend on
 	// versus loading the builtin util module as happens otherwise
 	// this is a bug in node module loading as far as I am concerned
-	var util = __webpack_require__(31);
+	var util = __webpack_require__(35);
 
 	var pSlice = Array.prototype.slice;
 	var hasOwn = Object.prototype.hasOwnProperty;
@@ -12785,14 +13241,14 @@ return /******/ (function(modules) { // webpackBootstrap
 
 
 /***/ },
-/* 55 */
+/* 59 */
 /***/ function(module, exports, __webpack_require__) {
 
 	/* WEBPACK VAR INJECTION */(function(Buffer) {// Copyright 2011 Mark Cavage <mcavage@gmail.com> All rights reserved.
 
-	var assert = __webpack_require__(54);
-	var ASN1 = __webpack_require__(52);
-	var errors = __webpack_require__(51);
+	var assert = __webpack_require__(58);
+	var ASN1 = __webpack_require__(56);
+	var errors = __webpack_require__(55);
 
 
 	///--- Globals
@@ -13105,13 +13561,13 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	module.exports = Writer;
 
-	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(17).Buffer))
+	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(21).Buffer))
 
 /***/ },
-/* 56 */
+/* 60 */
 /***/ function(module, exports, __webpack_require__) {
 
-	var _ = __webpack_require__(22)._;
+	var _ = __webpack_require__(26)._;
 
 	function formatParse(format) {
 	    format = format.split('-');
@@ -13141,9 +13597,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	}
 
 	module.exports = {
-	    pkcs1: __webpack_require__(57),
-	    pkcs8: __webpack_require__(58),
-	    components: __webpack_require__(59),
+	    pkcs1: __webpack_require__(61),
+	    pkcs8: __webpack_require__(62),
+	    components: __webpack_require__(63),
 
 	    isPrivateExport: function (format) {
 	        return module.exports[format] && typeof module.exports[format].privateExport === 'function';
@@ -13209,12 +13665,12 @@ return /******/ (function(modules) { // webpackBootstrap
 	};
 
 /***/ },
-/* 57 */
+/* 61 */
 /***/ function(module, exports, __webpack_require__) {
 
-	/* WEBPACK VAR INJECTION */(function(Buffer) {var ber = __webpack_require__(49).Ber;
-	var _ = __webpack_require__(22)._;
-	var utils = __webpack_require__(22);
+	/* WEBPACK VAR INJECTION */(function(Buffer) {var ber = __webpack_require__(53).Ber;
+	var _ = __webpack_require__(26)._;
+	var utils = __webpack_require__(26);
 
 	module.exports = {
 	    privateExport: function (key, options) {
@@ -13355,16 +13811,16 @@ return /******/ (function(modules) { // webpackBootstrap
 	        return false;
 	    }
 	};
-	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(17).Buffer))
+	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(21).Buffer))
 
 /***/ },
-/* 58 */
+/* 62 */
 /***/ function(module, exports, __webpack_require__) {
 
-	/* WEBPACK VAR INJECTION */(function(Buffer) {var ber = __webpack_require__(49).Ber;
-	var _ = __webpack_require__(22)._;
+	/* WEBPACK VAR INJECTION */(function(Buffer) {var ber = __webpack_require__(53).Ber;
+	var _ = __webpack_require__(26)._;
 	var PUBLIC_RSA_OID = '1.2.840.113549.1.1.1';
-	var utils = __webpack_require__(22);
+	var utils = __webpack_require__(26);
 
 	module.exports = {
 	    privateExport: function (key, options) {
@@ -13544,14 +14000,14 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }
 	};
 
-	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(17).Buffer))
+	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(21).Buffer))
 
 /***/ },
-/* 59 */
+/* 63 */
 /***/ function(module, exports, __webpack_require__) {
 
-	var _ = __webpack_require__(22)._;
-	var utils = __webpack_require__(22);
+	var _ = __webpack_require__(26)._;
+	var utils = __webpack_require__(26);
 
 	module.exports = {
 	    privateExport: function (key, options) {
@@ -13624,7 +14080,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 
 /***/ },
-/* 60 */
+/* 64 */
 /***/ function(module, exports, __webpack_require__) {
 
 	var require;var __WEBPACK_AMD_DEFINE_RESULT__;/* WEBPACK VAR INJECTION */(function(process, global, module) {/*!
@@ -13757,7 +14213,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    function lib$es6$promise$asap$$attemptVertx() {
 	      try {
 	        var r = require;
-	        var vertx = __webpack_require__(62);
+	        var vertx = __webpack_require__(66);
 	        lib$es6$promise$asap$$vertxNext = vertx.runOnLoop || vertx.runOnContext;
 	        return lib$es6$promise$asap$$useVertxTimer();
 	      } catch(e) {
@@ -14570,7 +15026,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    };
 
 	    /* global define:true module:true window: true */
-	    if ("function" === 'function' && __webpack_require__(63)['amd']) {
+	    if ("function" === 'function' && __webpack_require__(67)['amd']) {
 	      !(__WEBPACK_AMD_DEFINE_RESULT__ = function() { return lib$es6$promise$umd$$ES6Promise; }.call(exports, __webpack_require__, exports, module), __WEBPACK_AMD_DEFINE_RESULT__ !== undefined && (module.exports = __WEBPACK_AMD_DEFINE_RESULT__));
 	    } else if (typeof module !== 'undefined' && module['exports']) {
 	      module['exports'] = lib$es6$promise$umd$$ES6Promise;
@@ -14582,10 +15038,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	}).call(this);
 
 
-	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(23), (function() { return this; }()), __webpack_require__(61)(module)))
+	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(27), (function() { return this; }()), __webpack_require__(65)(module)))
 
 /***/ },
-/* 61 */
+/* 65 */
 /***/ function(module, exports) {
 
 	module.exports = function(module) {
@@ -14601,423 +15057,16 @@ return /******/ (function(modules) { // webpackBootstrap
 
 
 /***/ },
-/* 62 */
+/* 66 */
 /***/ function(module, exports) {
 
 	/* (ignored) */
 
 /***/ },
-/* 63 */
+/* 67 */
 /***/ function(module, exports) {
 
 	module.exports = function() { throw new Error("define cannot be used indirect"); };
-
-
-/***/ },
-/* 64 */
-/***/ function(module, exports, __webpack_require__) {
-
-	// the whatwg-fetch polyfill installs the fetch() function
-	// on the global object (window or self)
-	//
-	// Return that as the export for use in Webpack, Browserify etc.
-	__webpack_require__(65);
-	module.exports = self.fetch.bind(self);
-
-
-/***/ },
-/* 65 */
-/***/ function(module, exports) {
-
-	(function(self) {
-	  'use strict';
-
-	  if (self.fetch) {
-	    return
-	  }
-
-	  function normalizeName(name) {
-	    if (typeof name !== 'string') {
-	      name = String(name)
-	    }
-	    if (/[^a-z0-9\-#$%&'*+.\^_`|~]/i.test(name)) {
-	      throw new TypeError('Invalid character in header field name')
-	    }
-	    return name.toLowerCase()
-	  }
-
-	  function normalizeValue(value) {
-	    if (typeof value !== 'string') {
-	      value = String(value)
-	    }
-	    return value
-	  }
-
-	  function Headers(headers) {
-	    this.map = {}
-
-	    if (headers instanceof Headers) {
-	      headers.forEach(function(value, name) {
-	        this.append(name, value)
-	      }, this)
-
-	    } else if (headers) {
-	      Object.getOwnPropertyNames(headers).forEach(function(name) {
-	        this.append(name, headers[name])
-	      }, this)
-	    }
-	  }
-
-	  Headers.prototype.append = function(name, value) {
-	    name = normalizeName(name)
-	    value = normalizeValue(value)
-	    var list = this.map[name]
-	    if (!list) {
-	      list = []
-	      this.map[name] = list
-	    }
-	    list.push(value)
-	  }
-
-	  Headers.prototype['delete'] = function(name) {
-	    delete this.map[normalizeName(name)]
-	  }
-
-	  Headers.prototype.get = function(name) {
-	    var values = this.map[normalizeName(name)]
-	    return values ? values[0] : null
-	  }
-
-	  Headers.prototype.getAll = function(name) {
-	    return this.map[normalizeName(name)] || []
-	  }
-
-	  Headers.prototype.has = function(name) {
-	    return this.map.hasOwnProperty(normalizeName(name))
-	  }
-
-	  Headers.prototype.set = function(name, value) {
-	    this.map[normalizeName(name)] = [normalizeValue(value)]
-	  }
-
-	  Headers.prototype.forEach = function(callback, thisArg) {
-	    Object.getOwnPropertyNames(this.map).forEach(function(name) {
-	      this.map[name].forEach(function(value) {
-	        callback.call(thisArg, value, name, this)
-	      }, this)
-	    }, this)
-	  }
-
-	  function consumed(body) {
-	    if (body.bodyUsed) {
-	      return Promise.reject(new TypeError('Already read'))
-	    }
-	    body.bodyUsed = true
-	  }
-
-	  function fileReaderReady(reader) {
-	    return new Promise(function(resolve, reject) {
-	      reader.onload = function() {
-	        resolve(reader.result)
-	      }
-	      reader.onerror = function() {
-	        reject(reader.error)
-	      }
-	    })
-	  }
-
-	  function readBlobAsArrayBuffer(blob) {
-	    var reader = new FileReader()
-	    reader.readAsArrayBuffer(blob)
-	    return fileReaderReady(reader)
-	  }
-
-	  function readBlobAsText(blob) {
-	    var reader = new FileReader()
-	    reader.readAsText(blob)
-	    return fileReaderReady(reader)
-	  }
-
-	  var support = {
-	    blob: 'FileReader' in self && 'Blob' in self && (function() {
-	      try {
-	        new Blob();
-	        return true
-	      } catch(e) {
-	        return false
-	      }
-	    })(),
-	    formData: 'FormData' in self,
-	    arrayBuffer: 'ArrayBuffer' in self
-	  }
-
-	  function Body() {
-	    this.bodyUsed = false
-
-
-	    this._initBody = function(body) {
-	      this._bodyInit = body
-	      if (typeof body === 'string') {
-	        this._bodyText = body
-	      } else if (support.blob && Blob.prototype.isPrototypeOf(body)) {
-	        this._bodyBlob = body
-	      } else if (support.formData && FormData.prototype.isPrototypeOf(body)) {
-	        this._bodyFormData = body
-	      } else if (!body) {
-	        this._bodyText = ''
-	      } else if (support.arrayBuffer && ArrayBuffer.prototype.isPrototypeOf(body)) {
-	        // Only support ArrayBuffers for POST method.
-	        // Receiving ArrayBuffers happens via Blobs, instead.
-	      } else {
-	        throw new Error('unsupported BodyInit type')
-	      }
-
-	      if (!this.headers.get('content-type')) {
-	        if (typeof body === 'string') {
-	          this.headers.set('content-type', 'text/plain;charset=UTF-8')
-	        } else if (this._bodyBlob && this._bodyBlob.type) {
-	          this.headers.set('content-type', this._bodyBlob.type)
-	        }
-	      }
-	    }
-
-	    if (support.blob) {
-	      this.blob = function() {
-	        var rejected = consumed(this)
-	        if (rejected) {
-	          return rejected
-	        }
-
-	        if (this._bodyBlob) {
-	          return Promise.resolve(this._bodyBlob)
-	        } else if (this._bodyFormData) {
-	          throw new Error('could not read FormData body as blob')
-	        } else {
-	          return Promise.resolve(new Blob([this._bodyText]))
-	        }
-	      }
-
-	      this.arrayBuffer = function() {
-	        return this.blob().then(readBlobAsArrayBuffer)
-	      }
-
-	      this.text = function() {
-	        var rejected = consumed(this)
-	        if (rejected) {
-	          return rejected
-	        }
-
-	        if (this._bodyBlob) {
-	          return readBlobAsText(this._bodyBlob)
-	        } else if (this._bodyFormData) {
-	          throw new Error('could not read FormData body as text')
-	        } else {
-	          return Promise.resolve(this._bodyText)
-	        }
-	      }
-	    } else {
-	      this.text = function() {
-	        var rejected = consumed(this)
-	        return rejected ? rejected : Promise.resolve(this._bodyText)
-	      }
-	    }
-
-	    if (support.formData) {
-	      this.formData = function() {
-	        return this.text().then(decode)
-	      }
-	    }
-
-	    this.json = function() {
-	      return this.text().then(JSON.parse)
-	    }
-
-	    return this
-	  }
-
-	  // HTTP methods whose capitalization should be normalized
-	  var methods = ['DELETE', 'GET', 'HEAD', 'OPTIONS', 'POST', 'PUT']
-
-	  function normalizeMethod(method) {
-	    var upcased = method.toUpperCase()
-	    return (methods.indexOf(upcased) > -1) ? upcased : method
-	  }
-
-	  function Request(input, options) {
-	    options = options || {}
-	    var body = options.body
-	    if (Request.prototype.isPrototypeOf(input)) {
-	      if (input.bodyUsed) {
-	        throw new TypeError('Already read')
-	      }
-	      this.url = input.url
-	      this.credentials = input.credentials
-	      if (!options.headers) {
-	        this.headers = new Headers(input.headers)
-	      }
-	      this.method = input.method
-	      this.mode = input.mode
-	      if (!body) {
-	        body = input._bodyInit
-	        input.bodyUsed = true
-	      }
-	    } else {
-	      this.url = input
-	    }
-
-	    this.credentials = options.credentials || this.credentials || 'omit'
-	    if (options.headers || !this.headers) {
-	      this.headers = new Headers(options.headers)
-	    }
-	    this.method = normalizeMethod(options.method || this.method || 'GET')
-	    this.mode = options.mode || this.mode || null
-	    this.referrer = null
-
-	    if ((this.method === 'GET' || this.method === 'HEAD') && body) {
-	      throw new TypeError('Body not allowed for GET or HEAD requests')
-	    }
-	    this._initBody(body)
-	  }
-
-	  Request.prototype.clone = function() {
-	    return new Request(this)
-	  }
-
-	  function decode(body) {
-	    var form = new FormData()
-	    body.trim().split('&').forEach(function(bytes) {
-	      if (bytes) {
-	        var split = bytes.split('=')
-	        var name = split.shift().replace(/\+/g, ' ')
-	        var value = split.join('=').replace(/\+/g, ' ')
-	        form.append(decodeURIComponent(name), decodeURIComponent(value))
-	      }
-	    })
-	    return form
-	  }
-
-	  function headers(xhr) {
-	    var head = new Headers()
-	    var pairs = xhr.getAllResponseHeaders().trim().split('\n')
-	    pairs.forEach(function(header) {
-	      var split = header.trim().split(':')
-	      var key = split.shift().trim()
-	      var value = split.join(':').trim()
-	      head.append(key, value)
-	    })
-	    return head
-	  }
-
-	  Body.call(Request.prototype)
-
-	  function Response(bodyInit, options) {
-	    if (!options) {
-	      options = {}
-	    }
-
-	    this.type = 'default'
-	    this.status = options.status
-	    this.ok = this.status >= 200 && this.status < 300
-	    this.statusText = options.statusText
-	    this.headers = options.headers instanceof Headers ? options.headers : new Headers(options.headers)
-	    this.url = options.url || ''
-	    this._initBody(bodyInit)
-	  }
-
-	  Body.call(Response.prototype)
-
-	  Response.prototype.clone = function() {
-	    return new Response(this._bodyInit, {
-	      status: this.status,
-	      statusText: this.statusText,
-	      headers: new Headers(this.headers),
-	      url: this.url
-	    })
-	  }
-
-	  Response.error = function() {
-	    var response = new Response(null, {status: 0, statusText: ''})
-	    response.type = 'error'
-	    return response
-	  }
-
-	  var redirectStatuses = [301, 302, 303, 307, 308]
-
-	  Response.redirect = function(url, status) {
-	    if (redirectStatuses.indexOf(status) === -1) {
-	      throw new RangeError('Invalid status code')
-	    }
-
-	    return new Response(null, {status: status, headers: {location: url}})
-	  }
-
-	  self.Headers = Headers;
-	  self.Request = Request;
-	  self.Response = Response;
-
-	  self.fetch = function(input, init) {
-	    return new Promise(function(resolve, reject) {
-	      var request
-	      if (Request.prototype.isPrototypeOf(input) && !init) {
-	        request = input
-	      } else {
-	        request = new Request(input, init)
-	      }
-
-	      var xhr = new XMLHttpRequest()
-
-	      function responseURL() {
-	        if ('responseURL' in xhr) {
-	          return xhr.responseURL
-	        }
-
-	        // Avoid security warnings on getResponseHeader when not allowed by CORS
-	        if (/^X-Request-URL:/m.test(xhr.getAllResponseHeaders())) {
-	          return xhr.getResponseHeader('X-Request-URL')
-	        }
-
-	        return;
-	      }
-
-	      xhr.onload = function() {
-	        var status = (xhr.status === 1223) ? 204 : xhr.status
-	        if (status < 100 || status > 599) {
-	          reject(new TypeError('Network request failed'))
-	          return
-	        }
-	        var options = {
-	          status: status,
-	          statusText: xhr.statusText,
-	          headers: headers(xhr),
-	          url: responseURL()
-	        }
-	        var body = 'response' in xhr ? xhr.response : xhr.responseText;
-	        resolve(new Response(body, options))
-	      }
-
-	      xhr.onerror = function() {
-	        reject(new TypeError('Network request failed'))
-	      }
-
-	      xhr.open(request.method, request.url, true)
-
-	      if (request.credentials === 'include') {
-	        xhr.withCredentials = true
-	      }
-
-	      if ('responseType' in xhr && support.blob) {
-	        xhr.responseType = 'blob'
-	      }
-
-	      request.headers.forEach(function(value, name) {
-	        xhr.setRequestHeader(name, value)
-	      })
-
-	      xhr.send(typeof request._bodyInit === 'undefined' ? null : request._bodyInit)
-	    })
-	  }
-	  self.fetch.polyfill = true
-	})(typeof self !== 'undefined' ? self : this);
 
 
 /***/ }
