@@ -11,6 +11,7 @@ var EventEmitter = require('events');
 var MonkeyEnums = require('./libs/MonkeyEnums.js');
 var MOKMessage = require('./libs/MOKMessage.js');
 var monkeyKeystore = require('./libs/MonkeyKeystore.js');
+var watchdog = require('./libs/watchdog.js');
 var NodeRSA = require('node-rsa');
 var CryptoJS = require('node-cryptojs-aes').CryptoJS;
 
@@ -197,6 +198,11 @@ require('isomorphic-fetch');
       message.encryptedText = aesEncrypt(text, this.session.id);
       args.msg = message.encryptedText;
     }
+
+    watchdog.addMessageToWatchdog(args, function(){
+      this.socketConnection.close();
+      setTimeout(this.startConnection(this.session.id), 2000);
+    }.bind(this));
 
     this.sendCommand(cmd, args);
 
@@ -442,9 +448,12 @@ require('isomorphic-fetch');
 
     //Aditional treatment can be done here
     this._getEmitter().emit('onAcknowledge', message);
+
+    watchdog.removeMessageFromWatchdog(message.oldId);
   }
 
   proto.requestMessagesSinceTimestamp = function requestMessagesSinceTimestamp(lastTimestamp, quantity, withGroups){
+    
     var args={
       since: lastTimestamp,
       qty: quantity
@@ -454,7 +463,13 @@ require('isomorphic-fetch');
       args.groups = 1;
     }
 
+    watchdog.startWatchingSync(function(){
+      this.socketConnection.close();
+      setTimeout(this.startConnection(this.session.id), 2000);
+    }.bind(this));
+
     this.sendCommand(this.enums.MOKMessageProtocolCommand.SYNC, args);
+
   }
 
   proto.requestMessagesSinceId = function requestMessagesSinceId(lastMessageId, quantity, withGroups){
@@ -468,6 +483,11 @@ require('isomorphic-fetch');
     }
 
     this.sendCommand(this.enums.MOKMessageProtocolCommand.GET, args);
+
+    watchdog.startWatchingSync(function(){
+      this.socketConnection.close();
+      setTimeout(this.startConnection(this.session.id), 2000);
+    }.bind(this));
   }
 
   proto.startConnection = function startConnection(monkey_id){
@@ -527,6 +547,9 @@ require('isomorphic-fetch');
               var remaining = jsonres.args.remaining_messages;
 
               this.processGetMessages(arrayMessages, remaining);
+
+              watchdog.didResponseSync=true;
+              watchdog.removeAllMessagesFromWatchdog();
               break;
             }
             case this.enums.MOKGetType.GROUPS:{
@@ -550,6 +573,9 @@ require('isomorphic-fetch');
               var remaining = jsonres.args.remaining_messages;
 
               this.processSyncMessages(arrayMessages, remaining);
+
+              watchdog.didResponseSync=true;
+              watchdog.removeAllMessagesFromWatchdog();
               break;
             }
             case this.enums.MOKSyncType.GROUPS:{
