@@ -10,6 +10,7 @@
 var EventEmitter = require('events');
 var MonkeyEnums = require('./libs/MonkeyEnums.js');
 var MOKMessage = require('./libs/MOKMessage.js');
+var monkeyKeystore = require('./libs/MonkeyKeystore.js');
 var NodeRSA = require('node-rsa');
 var CryptoJS = require('node-cryptojs-aes').CryptoJS;
 
@@ -30,6 +31,7 @@ require('isomorphic-fetch');
   // Shortcuts to improve speed and size
   var proto = Monkey.prototype;
   var exports = this;
+  
 
   proto.enums = new MonkeyEnums();
   // var originalGlobalValue = exports.Monkey;
@@ -104,7 +106,7 @@ require('isomorphic-fetch');
       this.session.debuggingMode = true;
     }
 
-    this.keyStore={};
+    //this.keyStore={};
 
     this.domainUrl = 'monkey.criptext.com';
     //setup socketConnection
@@ -606,9 +608,11 @@ require('isomorphic-fetch');
       var newAESkey = newParamKeys[0];
       var newIv = newParamKeys[1];
 
-      var currentParamKeys = this.keyStore[respObj.data.session_to];
+      //var currentParamKeys = this.keyStore[respObj.data.session_to];
+      var currentParamKeys = monkeyKeystore.getData(respObj.data.session_to, this.session.myKey, this.session.myIv);
 
-      this.keyStore[respObj.data.session_to] = {key:newParamKeys[0],iv:newParamKeys[1]};
+      //this.keyStore[respObj.data.session_to] = {key:newParamKeys[0],iv:newParamKeys[1]};
+      monkeyKeystore.storeData(respObj.data.session_to, newParamKeys[0]+":"+newParamKeys[1], this.session.myKey, this.session.myIv);
 
       if (typeof(currentParamKeys) == 'undefined') {
         return callback(pendingMessage);
@@ -655,7 +659,8 @@ require('isomorphic-fetch');
   }
 
   proto.aesDecrypt = function aesDecrypt(dataToDecrypt, monkeyId){
-    var aesObj = this.keyStore[monkeyId];
+    //var aesObj = this.keyStore[monkeyId];
+    var aesObj = monkeyKeystore.getData(monkeyId, this.session.myKey, this.session.myIv);
     var aesKey = CryptoJS.enc.Base64.parse(aesObj.key);
     var initV = CryptoJS.enc.Base64.parse(aesObj.iv);
     var cipherParams = CryptoJS.lib.CipherParams.create({ ciphertext: CryptoJS.enc.Base64.parse(dataToDecrypt) });
@@ -665,7 +670,8 @@ require('isomorphic-fetch');
   }
 
   proto.decryptFile = function decryptFile (fileToDecrypt, monkeyId) {
-    var aesObj = this.keyStore[monkeyId];
+    //var aesObj = this.keyStore[monkeyId];
+    var aesObj = monkeyKeystore.getData(monkeyId, this.session.myKey, this.session.myIv);
 
     var aesKey=CryptoJS.enc.Base64.parse(aesObj.key);
     var initV= CryptoJS.enc.Base64.parse(aesObj.iv);
@@ -677,7 +683,8 @@ require('isomorphic-fetch');
   }
 
   proto.aesEncrypt = function aesEncrypt(dataToEncrypt, monkeyId){
-    var aesObj = this.keyStore[monkeyId];
+    //var aesObj = this.keyStore[monkeyId];
+    var aesObj = monkeyKeystore.getData(monkeyId, this.session.myKey, this.session.myIv);
     var aesKey=CryptoJS.enc.Base64.parse(aesObj.key);
     var initV= CryptoJS.enc.Base64.parse(aesObj.iv);
 
@@ -875,8 +882,10 @@ require('isomorphic-fetch');
         var myAesKeys=decryptedAesKeys.split(":");
         this.session.myKey=myAesKeys[0];
         this.session.myIv=myAesKeys[1];
+        
         //var myKeyParams=generateSessionKey();// generates local AES KEY
-        this.keyStore[this.session.id]={key:this.session.myKey,iv:this.session.myIv};
+        //this.keyStore[this.session.id]={key:this.session.myKey,iv:this.session.myIv};
+        monkeyKeystore.storeData(this.session.id, this.session.myKey+":"+this.session.myIv, this.session.myKey, this.session.myIv);
 
         this.startConnection(this.session.id);
         return;
@@ -900,7 +909,8 @@ require('isomorphic-fetch');
 
       connectParams['usk'] = encryptedAES;
 
-      this.keyStore[this.session.id]={key:this.session.myKey, iv:this.session.myIv};
+      //this.keyStore[this.session.id]={key:this.session.myKey, iv:this.session.myIv};
+      monkeyKeystore.storeData(this.session.id, this.session.myKey+":"+this.session.myIv, this.session.myKey, this.session.myIv);
 
       this.basicRequest('POST', '/user/connect', connectParams, false, function(error, response){
         if(error){
