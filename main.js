@@ -1166,6 +1166,14 @@ require('es6-promise').polyfill();
     return db.getAllMessagesSending();
   }
 
+  proto.deleteAllMessagesFromMonkeyId = function deleteAllMessagesFromMonkeyId(id){
+    return db.deleteAllMessagesFromMonkeyId(id);
+  }
+
+  proto.setAllMessagesToRead = function setAllMessagesToRead(id){
+    return db.setAllMessagesToRead(id);
+  }
+
   /*
   * Utils
   */

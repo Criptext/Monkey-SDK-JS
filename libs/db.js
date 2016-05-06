@@ -15,12 +15,21 @@ module.exports = (function() {
   //UPDATERS
 
   db.updateMessageReadStatus = function(id){
-    var mokmessage = this.getMessageById("message_"+id);
-    mokmessage.readByUser = true;
-    this.storeMessage(mokmessage);
+    var mokmessage = this.getMessageById(id);
+    if(mokmessage != ""){
+      mokmessage.readByUser = true;
+      this.storeMessage(mokmessage);
+    }
   }
 
   db.setAllMessagesToRead = function(id){
+
+    var arrayMessages = this.getAllMessages();
+    arrayMessages.reduce(function(result, message){
+      if(message.senderId == id && !message.readByUser)
+        this.updateMessageReadStatus(message.id);
+      return result;
+    }.bind(this),0);  
 
   }
 
@@ -104,6 +113,12 @@ module.exports = (function() {
   }
 
   db.deleteAllMessagesFromMonkeyId = function(id) {
+
+    var arrayMessages = this.getAllMessagesByMonkeyId(id);
+    arrayMessages.reduce(function(result, message){
+      this.deleteMessageById(message.id);
+      return result;
+    }.bind(this),[]);  
 
   }
 
