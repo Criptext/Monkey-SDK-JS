@@ -611,6 +611,7 @@ require('es6-promise').polyfill();
         case this.enums.MOKMessageProtocolCommand.OPEN:{
           msg.protocolCommand = this.enums.MOKMessageProtocolCommand.OPEN;
           this._getEmitter().emit('onNotification', msg);
+          db.setAllMessagesToRead(msg.senderId);
           break;
         }
         default:{
