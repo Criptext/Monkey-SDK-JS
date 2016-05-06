@@ -12,6 +12,10 @@ module.exports = (function() {
     store.set(key, this.aesEncrypt(value, myaeskey, myaesiv));
   }
 
+  monkeyKeystore.storeMessage = function(key, value){
+    store.set(key, value);
+  }
+
   monkeyKeystore.getData = function(key, myaeskey, myaesiv){
     var encrypted = store.get(key, "");
     if(encrypted.length == 0)
@@ -19,6 +23,10 @@ module.exports = (function() {
 
     var decrypted = this.aesDecrypt(encrypted, myaeskey, myaesiv);
     return {key: decrypted.split(":")[0], iv: decrypted.split(":")[1]};
+  }
+
+  monkeyKeystore.getMessage = function(key){
+    return store.get(key, "");
   }
 
   monkeyKeystore.aesEncrypt = function(dataToEncrypt, key, iv){
