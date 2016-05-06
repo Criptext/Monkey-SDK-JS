@@ -164,14 +164,16 @@ return /******/ (function(modules) { // webpackBootstrap
 	      this.session.expireSession = 1;
 	    }
 
+	    this.domainUrl = 'monkey.criptext.com';
+
 	    if (isDebugging) {
 	      this.session.debuggingMode = true;
+	      this.domainUrl = 'stage.monkey.criptext.com';
 	    }
 
 	    //this.keyStore={};
 	    apiconnector.init(this);
 
-	    this.domainUrl = 'monkey.criptext.com';
 	    //setup socketConnection
 	    this.socketConnection = null;
 
