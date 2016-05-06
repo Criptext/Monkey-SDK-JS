@@ -970,6 +970,14 @@ require('es6-promise').polyfill();
         return;
       }
       Log.m(this.session.debuggingMode, 'Monkey - GET ALL CONVERSATIONS');
+      
+      respObj.data.conversations.map(function(conversation) {
+        
+        conversation.last_message = new MOKMessage(this.enums.MOKMessageProtocolCommand.MESSAGE, conversation.last_message);
+        return conversation;
+
+      }.bind(this));
+
       onComplete(null, respObj);
 
     }.bind(this));
