@@ -34,7 +34,7 @@ module.exports = (function() {
 	    if(key.indexOf("pending_") != -1){
 	    	store.remove(key);
 	    }
-	});
+	  });
 
   }
 

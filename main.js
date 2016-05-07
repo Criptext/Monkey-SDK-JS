@@ -14,6 +14,7 @@ var monkeyKeystore = require('./libs/MonkeyKeystore.js');
 var watchdog = require('./libs/watchdog.js');
 var apiconnector = require('./libs/ApiConnector.js');
 var Log = require('./libs/Log.js');
+var db = require('./libs/db.js');
 var NodeRSA = require('node-rsa');
 var CryptoJS = require('node-cryptojs-aes').CryptoJS;
 
@@ -208,6 +209,8 @@ require('es6-promise').polyfill();
       setTimeout(this.startConnection(this.session.id), 2000);
     }.bind(this));
 
+    db.storeMessage(message);
+
     this.sendCommand(cmd, args);
 
     return message;
@@ -262,6 +265,7 @@ require('es6-promise').polyfill();
         callback(error, message);
       }
 
+      db.storeMessage(message);
       callback(null, message);
     });
   }
@@ -328,12 +332,12 @@ require('es6-promise').polyfill();
     apiconnector.basicRequest('POST', '/file/new/base64',data, true, function(err,respObj){
       if (err) {
         Log.m(this.session.debuggingMode, 'Monkey - upload file Fail');
-        onComplete(err.toString(), message);
+        callback(err.toString(), message);
         return;
       }
       Log.m(this.session.debuggingMode, 'Monkey - upload file OK');
       message.id = respObj.data.messageId;
-      onComplete(null, message);
+      callback(null, message);
 
     }.bind(this));
 
@@ -375,10 +379,12 @@ require('es6-promise').polyfill();
     switch(message.protocolType){
       case this.enums.MOKMessageType.TEXT:{
         this.incomingMessage(message);
+        db.storeMessage(message);
         break;
       }
       case this.enums.MOKMessageType.FILE:{
         this.fileReceived(message);
+        db.storeMessage(message);
         break;
       }
       default:{
@@ -453,7 +459,15 @@ require('es6-promise').polyfill();
     //Aditional treatment can be done here
     this._getEmitter().emit('onAcknowledge', message);
 
-    watchdog.removeMessageFromWatchdog(message.oldId);
+    if(message.props.status == "52")
+      message.readByUser = true;
+
+    if(message.id != "0"){
+      watchdog.removeMessageFromWatchdog(message.oldId);
+      db.deleteMessageById(message.oldId);
+      db.storeMessage(message);
+    }
+
   }
 
   proto.requestMessagesSinceTimestamp = function requestMessagesSinceTimestamp(lastTimestamp, quantity, withGroups){
@@ -597,6 +611,7 @@ require('es6-promise').polyfill();
         case this.enums.MOKMessageProtocolCommand.OPEN:{
           msg.protocolCommand = this.enums.MOKMessageProtocolCommand.OPEN;
           this._getEmitter().emit('onNotification', msg);
+          db.setAllMessagesToRead(msg.senderId);
           break;
         }
         default:{
@@ -970,6 +985,14 @@ require('es6-promise').polyfill();
         return;
       }
       Log.m(this.session.debuggingMode, 'Monkey - GET ALL CONVERSATIONS');
+      
+      respObj.data.conversations.map(function(conversation) {
+        
+        conversation.last_message = new MOKMessage(this.enums.MOKMessageProtocolCommand.MESSAGE, conversation.last_message);
+        return conversation;
+
+      }.bind(this));
+
       onComplete(null, respObj);
 
     }.bind(this));
@@ -1126,6 +1149,30 @@ require('es6-promise').polyfill();
 
       return callback(null, respObj.data);
     }.bind(this));
+  }
+
+  proto.getAllMessages = function getAllMessages(){
+    return db.getAllMessages();
+  }
+
+  proto.getAllMessagesByMonkeyId = function getAllMessagesByMonkeyId(id){
+    return db.getAllMessagesByMonkeyId(id);
+  }
+
+  proto.getTotalWithoutRead = function getTotalWithoutRead(id){
+    return db.getTotalWithoutRead(id);
+  }
+
+  proto.getAllMessagesSending = function getAllMessagesSending(){
+    return db.getAllMessagesSending();
+  }
+
+  proto.deleteAllMessagesFromMonkeyId = function deleteAllMessagesFromMonkeyId(id){
+    return db.deleteAllMessagesFromMonkeyId(id);
+  }
+
+  proto.setAllMessagesToRead = function setAllMessagesToRead(id){
+    return db.setAllMessagesToRead(id);
   }
 
   /*
