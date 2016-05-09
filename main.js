@@ -1037,8 +1037,9 @@ require('es6-promise').polyfill();
         }
 
       }.bind(this), function(error){
-          if(error)
-            console.log("Error processing conversation "+err);
+          if(error){
+            onComplete(error.toString(), null);
+          }
           else
             onComplete(null, respObj);
       });
