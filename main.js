@@ -17,6 +17,7 @@ var Log = require('./libs/Log.js');
 var db = require('./libs/db.js');
 var NodeRSA = require('node-rsa');
 var CryptoJS = require('node-cryptojs-aes').CryptoJS;
+var async = require("async");
 
 require('es6-promise').polyfill();
 
@@ -986,14 +987,61 @@ require('es6-promise').polyfill();
       }
       Log.m(this.session.debuggingMode, 'Monkey - GET ALL CONVERSATIONS');
       
-      respObj.data.conversations.map(function(conversation) {
-        
+      async.each(respObj.data.conversations, function(conversation, callback) {
+
         conversation.last_message = new MOKMessage(this.enums.MOKMessageProtocolCommand.MESSAGE, conversation.last_message);
-        return conversation;
+        var message = conversation.last_message;
+        
+        if (message.isEncrypted() && message.protocolType != this.enums.MOKMessageType.FILE) {
+          try{
+            message.text = this.aesDecryptIncomingMessage(message);
+            callback();
+          }
+          catch(error){
+            Log.m(this.session.debuggingMode, "===========================");
+            Log.m(this.session.debuggingMode, "MONKEY - Fail decrypting: "+message.id+" type: "+message.protocolType);
+            Log.m(this.session.debuggingMode, "===========================");
+            //get keys
+            this.getAESkeyFromUser(message.senderId, message, function(response){
+              if (response != null) {
+                message.text = this.aesDecryptIncomingMessage(message);
+                callback();
+                return;
+              }
+              else{
+                callback();
+                return;
+              }
+            }.bind(this));
+          }
 
-      }.bind(this));
+          if (message.text == null) {
+            //get keys
+            this.getAESkeyFromUser(message.senderId, message, function(response){
+              if (response != null) {
+                message.text = this.aesDecryptIncomingMessage(message);
+                callback();
+                return;
+              }
+              else{
+                callback();
+                return;
+              }
+            }.bind(this));
+          }
+        }
+        else{
+          message.text = message.encryptedText;
+          callback();
+          return;
+        }
 
-      onComplete(null, respObj);
+      }.bind(this), function(error){
+          if(error)
+            console.log("Error processing conversation "+err);
+          else
+            onComplete(null, respObj);
+      });
 
     }.bind(this));
   }
