@@ -87,7 +87,7 @@ require('es6-promise').polyfill();
   * Session stuff
   */
 
-  proto.init = function init(appKey, appSecret, userObj, shouldExpireSession, isDebugging){
+  proto.init = function init(appKey, appSecret, userObj, shouldExpireSession, isDebugging, autoSync){
     if (appKey == null || appSecret == null) {
       throw 'Monkey - To initialize Monkey, you must provide your App Id and App Secret';
       return;
@@ -95,6 +95,7 @@ require('es6-promise').polyfill();
 
     this.appKey = appKey;
     this.appSecret = appSecret;
+    this.autoSync = autoSync;
 
     //setup session
     if (userObj != null) {
@@ -413,7 +414,7 @@ require('es6-promise').polyfill();
         return;
       }
 
-      if (message.text == null) {
+      if (message.text == null || message.text == "") {
         //get keys
         this.getAESkeyFromUser(message.senderId, message, function(response){
           if (response != null) {
@@ -530,7 +531,9 @@ require('es6-promise').polyfill();
       this._getEmitter().emit('onConnect', this.session.user);
 
       this.sendCommand(this.enums.MOKMessageProtocolCommand.SET, {online:1});
-      this.getPendingMessages();
+      
+      if(this.autoSync)
+        this.getPendingMessages();
     }.bind(this);
 
     this.socketConnection.onmessage = function (evt)
@@ -765,7 +768,7 @@ require('es6-promise').polyfill();
         return;
       }
 
-      if (message.text == null) {
+      if (message.text == null || message.text == "") {
         //get keys
         this.getAESkeyFromUser(message.senderId, message, function(response){
           if (response != null) {
@@ -850,7 +853,7 @@ require('es6-promise').polyfill();
     callback(null, fileData);
   }
 
-  function compress(fileData){
+  proto.compress = function(fileData){
     var binData = this.mok_convertDataURIToBinary(fileData);
     var gzip = new Zlib.Gzip(binData);
     var compressedBinary = gzip.compress(); //descompress
@@ -862,7 +865,7 @@ require('es6-promise').polyfill();
     return compressedBase64;
   }
 
-  function decompress(fileData){
+  proto.decompress = function(fileData){
     var binData = this.mok_convertDataURIToBinary(fileData);
     var gunzip = new Zlib.Gunzip(binData);
     var decompressedBinary = gunzip.decompress(); //descompress
@@ -1016,7 +1019,7 @@ require('es6-promise').polyfill();
             }.bind(this));
           }
 
-          if (message.text == null) {
+          if (message.text == null || message.text == "") {
             //get keys
             this.getAESkeyFromUser(message.senderId, message, function(response){
               if (response != null) {

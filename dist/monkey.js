@@ -147,7 +147,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	  * Session stuff
 	  */
 
-	  proto.init = function init(appKey, appSecret, userObj, shouldExpireSession, isDebugging) {
+	  proto.init = function init(appKey, appSecret, userObj, shouldExpireSession, isDebugging, autoSync) {
 	    if (appKey == null || appSecret == null) {
 	      throw 'Monkey - To initialize Monkey, you must provide your App Id and App Secret';
 	      return;
@@ -155,6 +155,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	    this.appKey = appKey;
 	    this.appSecret = appSecret;
+	    this.autoSync = autoSync;
 
 	    //setup session
 	    if (userObj != null) {
@@ -476,7 +477,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        return;
 	      }
 
-	      if (message.text == null) {
+	      if (message.text == null || message.text == "") {
 	        //get keys
 	        this.getAESkeyFromUser(message.senderId, message, function (response) {
 	          if (response != null) {
@@ -592,7 +593,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	      this._getEmitter().emit('onConnect', this.session.user);
 
 	      this.sendCommand(this.enums.MOKMessageProtocolCommand.SET, { online: 1 });
-	      this.getPendingMessages();
+
+	      if (this.autoSync) this.getPendingMessages();
 	    }.bind(this);
 
 	    this.socketConnection.onmessage = function (evt) {
@@ -834,7 +836,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        return;
 	      }
 
-	      if (message.text == null) {
+	      if (message.text == null || message.text == "") {
 	        //get keys
 	        this.getAESkeyFromUser(message.senderId, message, function (response) {
 	          if (response != null) {
@@ -918,7 +920,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    callback(null, fileData);
 	  };
 
-	  function compress(fileData) {
+	  proto.compress = function (fileData) {
 	    var binData = this.mok_convertDataURIToBinary(fileData);
 	    var gzip = new Zlib.Gzip(binData);
 	    var compressedBinary = gzip.compress(); //descompress
@@ -928,9 +930,9 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	    //this should be added by client 'data:image/png;base64'
 	    return compressedBase64;
-	  }
+	  };
 
-	  function decompress(fileData) {
+	  proto.decompress = function (fileData) {
 	    var binData = this.mok_convertDataURIToBinary(fileData);
 	    var gunzip = new Zlib.Gunzip(binData);
 	    var decompressedBinary = gunzip.decompress(); //descompress
@@ -940,7 +942,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	    //this should be added by client 'data:image/png;base64'
 	    return decompressedBase64;
-	  }
+	  };
 
 	  proto.generateAndStoreAES = function generateAndStoreAES() {
 	    var key = CryptoJS.enc.Hex.parse(this.randomString(32)); //256 bits
@@ -1082,7 +1084,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	            }.bind(this));
 	          }
 
-	          if (message.text == null) {
+	          if (message.text == null || message.text == "") {
 	            //get keys
 	            this.getAESkeyFromUser(message.senderId, message, function (response) {
 	              if (response != null) {
