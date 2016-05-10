@@ -263,7 +263,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    args.oldId = message.oldId;
 
 	    if (message.isEncrypted()) {
-	      message.encryptedText = aesEncrypt(text, this.session.id);
+	      message.encryptedText = this.aesEncrypt(text, this.session.id);
 	      args.msg = message.encryptedText;
 	    }
 
@@ -369,7 +369,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    args.msg = fileName;
 	    args.type = this.enums.MOKMessageType.FILE;
 
-	    var message = new MOKMessage(MOKMessageProtocolCommand.MESSAGE, args);
+	    var message = new MOKMessage(this.enums.MOKMessageProtocolCommand.MESSAGE, args);
 
 	    args.id = message.id;
 	    args.oldId = message.oldId;
@@ -381,7 +381,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }
 
 	    if (message.isEncrypted()) {
-	      fileData = this.aesEncrypt(fileData, monkey.session.id);
+	      fileData = this.aesEncrypt(fileData, this.session.id);
 	    }
 
 	    var fileToSend = new Blob([fileData.toString()], { type: message.props.file_type });
@@ -717,7 +717,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    apiconnector.basicRequest('POST', '/user/key/exchange', { monkey_id: this.session.id, user_to: monkeyId }, false, function (err, respObj) {
 	      if (err) {
 	        Log.m(this.session.debuggingMode, 'Monkey - error on getting aes keys ' + err);
-	        return;
+	        return callback(null);
 	      }
 
 	      Log.m(this.session.debuggingMode, 'Monkey - Received new aes keys');
@@ -1047,6 +1047,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	  };
 
 	  proto.getAllConversations = function getAllConversations(onComplete) {
+
 	    apiconnector.basicRequest('GET', '/user/' + this.session.id + '/conversations', {}, false, function (err, respObj) {
 	      if (err) {
 	        Log.m(this.session.debuggingMode, 'Monkey - FAIL TO GET ALL CONVERSATIONS');
@@ -1100,8 +1101,21 @@ return /******/ (function(modules) { // webpackBootstrap
 	          return;
 	        }
 	      }.bind(this), function (error) {
-	        if (error) console.log("Error processing conversation " + err);else onComplete(null, respObj);
-	      });
+	        if (error) {
+	          onComplete(error.toString(), null);
+	        } else {
+
+	          //NOW DELETE CONVERSATIONS WITH LASTMESSAGE NO DECRYPTED
+	          respObj.data.conversations = respObj.data.conversations.reduce(function (result, conversation) {
+
+	            if (conversation.last_message.protocolType == this.enums.MOKMessageType.TEXT && conversation.last_message.encryptedText != conversation.last_message.text) result.push(conversation);else if (conversation.last_message.protocolType != this.enums.MOKMessageType.TEXT) result.push(conversation);
+
+	            return result;
+	          }.bind(this), []);
+
+	          onComplete(null, respObj);
+	        }
+	      }.bind(this));
 	    }.bind(this));
 	  };
 
@@ -1121,7 +1135,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	      var messages = respObj.data.messages;
 
 	      var messagesArray = messages.reduce(function (result, message) {
-	        var msg = new MOKMessage(MOKMessageProtocolCommand.MESSAGE, message);
+	        var msg = new MOKMessage(this.enums.MOKMessageProtocolCommand.MESSAGE, message);
 	        result.push(msg);
 	        return result;
 	      }, []);
