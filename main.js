@@ -87,7 +87,7 @@ require('es6-promise').polyfill();
   * Session stuff
   */
 
-  proto.init = function init(appKey, appSecret, userObj, shouldExpireSession, isDebugging){
+  proto.init = function init(appKey, appSecret, userObj, shouldExpireSession, isDebugging, autoSync){
     if (appKey == null || appSecret == null) {
       throw 'Monkey - To initialize Monkey, you must provide your App Id and App Secret';
       return;
@@ -95,6 +95,7 @@ require('es6-promise').polyfill();
 
     this.appKey = appKey;
     this.appSecret = appSecret;
+    this.autoSync = autoSync;
 
     //setup session
     if (userObj != null) {
@@ -201,7 +202,7 @@ require('es6-promise').polyfill();
     args.oldId = message.oldId;
 
     if (message.isEncrypted()) {
-      message.encryptedText = aesEncrypt(text, this.session.id);
+      message.encryptedText = this.aesEncrypt(text, this.session.id);
       args.msg = message.encryptedText;
     }
 
@@ -307,7 +308,7 @@ require('es6-promise').polyfill();
     args.msg = fileName;
     args.type = this.enums.MOKMessageType.FILE;
 
-    var message = new MOKMessage(MOKMessageProtocolCommand.MESSAGE, args);
+    var message = new MOKMessage(this.enums.MOKMessageProtocolCommand.MESSAGE, args);
 
     args.id = message.id;
     args.oldId = message.oldId;
@@ -319,7 +320,7 @@ require('es6-promise').polyfill();
     }
 
     if (message.isEncrypted()) {
-      fileData = this.aesEncrypt(fileData, monkey.session.id);
+      fileData = this.aesEncrypt(fileData, this.session.id);
     }
 
     var fileToSend = new Blob([fileData.toString()], {type: message.props.file_type});
@@ -413,7 +414,7 @@ require('es6-promise').polyfill();
         return;
       }
 
-      if (message.text == null) {
+      if (message.text == null || message.text == "") {
         //get keys
         this.getAESkeyFromUser(message.senderId, message, function(response){
           if (response != null) {
@@ -530,7 +531,9 @@ require('es6-promise').polyfill();
       this._getEmitter().emit('onConnect', this.session.user);
 
       this.sendCommand(this.enums.MOKMessageProtocolCommand.SET, {online:1});
-      this.getPendingMessages();
+      
+      if(this.autoSync)
+        this.getPendingMessages();
     }.bind(this);
 
     this.socketConnection.onmessage = function (evt)
@@ -646,7 +649,7 @@ require('es6-promise').polyfill();
     apiconnector.basicRequest('POST', '/user/key/exchange',{ monkey_id:this.session.id, user_to:monkeyId}, false, function(err,respObj){
       if(err){
         Log.m(this.session.debuggingMode, 'Monkey - error on getting aes keys '+err);
-        return;
+        return callback(null);
       }
 
       Log.m(this.session.debuggingMode, 'Monkey - Received new aes keys');
@@ -765,7 +768,7 @@ require('es6-promise').polyfill();
         return;
       }
 
-      if (message.text == null) {
+      if (message.text == null || message.text == "") {
         //get keys
         this.getAESkeyFromUser(message.senderId, message, function(response){
           if (response != null) {
@@ -850,7 +853,7 @@ require('es6-promise').polyfill();
     callback(null, fileData);
   }
 
-  function compress(fileData){
+  proto.compress = function(fileData){
     var binData = this.mok_convertDataURIToBinary(fileData);
     var gzip = new Zlib.Gzip(binData);
     var compressedBinary = gzip.compress(); //descompress
@@ -862,7 +865,7 @@ require('es6-promise').polyfill();
     return compressedBase64;
   }
 
-  function decompress(fileData){
+  proto.decompress = function(fileData){
     var binData = this.mok_convertDataURIToBinary(fileData);
     var gunzip = new Zlib.Gunzip(binData);
     var decompressedBinary = gunzip.decompress(); //descompress
@@ -979,6 +982,7 @@ require('es6-promise').polyfill();
   }
 
   proto.getAllConversations = function getAllConversations (onComplete) {
+
     apiconnector.basicRequest('GET', '/user/'+this.session.id+'/conversations',{}, false, function(err,respObj){
       if (err) {
         Log.m(this.session.debuggingMode, 'Monkey - FAIL TO GET ALL CONVERSATIONS');
@@ -1015,7 +1019,7 @@ require('es6-promise').polyfill();
             }.bind(this));
           }
 
-          if (message.text == null) {
+          if (message.text == null || message.text == "") {
             //get keys
             this.getAESkeyFromUser(message.senderId, message, function(response){
               if (response != null) {
@@ -1040,9 +1044,23 @@ require('es6-promise').polyfill();
           if(error){
             onComplete(error.toString(), null);
           }
-          else
+          else{
+              
+            //NOW DELETE CONVERSATIONS WITH LASTMESSAGE NO DECRYPTED
+            respObj.data.conversations = respObj.data.conversations.reduce(function(result, conversation){
+              
+              if(conversation.last_message.protocolType == this.enums.MOKMessageType.TEXT
+                && conversation.last_message.encryptedText != conversation.last_message.text )
+                result.push(conversation);
+              else if(conversation.last_message.protocolType != this.enums.MOKMessageType.TEXT)
+                result.push(conversation);
+
+              return result;
+            }.bind(this),[]);
+
             onComplete(null, respObj);
-      });
+          }
+      }.bind(this));
 
     }.bind(this));
   }
@@ -1063,7 +1081,7 @@ require('es6-promise').polyfill();
       var messages = respObj.data.messages;
 
       var messagesArray = messages.reduce(function(result, message){
-        let msg = new MOKMessage(MOKMessageProtocolCommand.MESSAGE, message);
+        let msg = new MOKMessage(this.enums.MOKMessageProtocolCommand.MESSAGE, message);
         result.push(msg);
         return result;
       },[]);

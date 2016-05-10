@@ -147,7 +147,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	  * Session stuff
 	  */
 
-	  proto.init = function init(appKey, appSecret, userObj, shouldExpireSession, isDebugging) {
+	  proto.init = function init(appKey, appSecret, userObj, shouldExpireSession, isDebugging, autoSync) {
 	    if (appKey == null || appSecret == null) {
 	      throw 'Monkey - To initialize Monkey, you must provide your App Id and App Secret';
 	      return;
@@ -155,6 +155,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	    this.appKey = appKey;
 	    this.appSecret = appSecret;
+	    this.autoSync = autoSync;
 
 	    //setup session
 	    if (userObj != null) {
@@ -263,7 +264,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    args.oldId = message.oldId;
 
 	    if (message.isEncrypted()) {
-	      message.encryptedText = aesEncrypt(text, this.session.id);
+	      message.encryptedText = this.aesEncrypt(text, this.session.id);
 	      args.msg = message.encryptedText;
 	    }
 
@@ -369,7 +370,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    args.msg = fileName;
 	    args.type = this.enums.MOKMessageType.FILE;
 
-	    var message = new MOKMessage(MOKMessageProtocolCommand.MESSAGE, args);
+	    var message = new MOKMessage(this.enums.MOKMessageProtocolCommand.MESSAGE, args);
 
 	    args.id = message.id;
 	    args.oldId = message.oldId;
@@ -381,7 +382,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }
 
 	    if (message.isEncrypted()) {
-	      fileData = this.aesEncrypt(fileData, monkey.session.id);
+	      fileData = this.aesEncrypt(fileData, this.session.id);
 	    }
 
 	    var fileToSend = new Blob([fileData.toString()], { type: message.props.file_type });
@@ -476,7 +477,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        return;
 	      }
 
-	      if (message.text == null) {
+	      if (message.text == null || message.text == "") {
 	        //get keys
 	        this.getAESkeyFromUser(message.senderId, message, function (response) {
 	          if (response != null) {
@@ -592,7 +593,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	      this._getEmitter().emit('onConnect', this.session.user);
 
 	      this.sendCommand(this.enums.MOKMessageProtocolCommand.SET, { online: 1 });
-	      this.getPendingMessages();
+
+	      if (this.autoSync) this.getPendingMessages();
 	    }.bind(this);
 
 	    this.socketConnection.onmessage = function (evt) {
@@ -717,7 +719,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    apiconnector.basicRequest('POST', '/user/key/exchange', { monkey_id: this.session.id, user_to: monkeyId }, false, function (err, respObj) {
 	      if (err) {
 	        Log.m(this.session.debuggingMode, 'Monkey - error on getting aes keys ' + err);
-	        return;
+	        return callback(null);
 	      }
 
 	      Log.m(this.session.debuggingMode, 'Monkey - Received new aes keys');
@@ -834,7 +836,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        return;
 	      }
 
-	      if (message.text == null) {
+	      if (message.text == null || message.text == "") {
 	        //get keys
 	        this.getAESkeyFromUser(message.senderId, message, function (response) {
 	          if (response != null) {
@@ -918,7 +920,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    callback(null, fileData);
 	  };
 
-	  function compress(fileData) {
+	  proto.compress = function (fileData) {
 	    var binData = this.mok_convertDataURIToBinary(fileData);
 	    var gzip = new Zlib.Gzip(binData);
 	    var compressedBinary = gzip.compress(); //descompress
@@ -928,9 +930,9 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	    //this should be added by client 'data:image/png;base64'
 	    return compressedBase64;
-	  }
+	  };
 
-	  function decompress(fileData) {
+	  proto.decompress = function (fileData) {
 	    var binData = this.mok_convertDataURIToBinary(fileData);
 	    var gunzip = new Zlib.Gunzip(binData);
 	    var decompressedBinary = gunzip.decompress(); //descompress
@@ -940,7 +942,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	    //this should be added by client 'data:image/png;base64'
 	    return decompressedBase64;
-	  }
+	  };
 
 	  proto.generateAndStoreAES = function generateAndStoreAES() {
 	    var key = CryptoJS.enc.Hex.parse(this.randomString(32)); //256 bits
@@ -1047,6 +1049,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	  };
 
 	  proto.getAllConversations = function getAllConversations(onComplete) {
+
 	    apiconnector.basicRequest('GET', '/user/' + this.session.id + '/conversations', {}, false, function (err, respObj) {
 	      if (err) {
 	        Log.m(this.session.debuggingMode, 'Monkey - FAIL TO GET ALL CONVERSATIONS');
@@ -1081,7 +1084,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	            }.bind(this));
 	          }
 
-	          if (message.text == null) {
+	          if (message.text == null || message.text == "") {
 	            //get keys
 	            this.getAESkeyFromUser(message.senderId, message, function (response) {
 	              if (response != null) {
@@ -1100,8 +1103,21 @@ return /******/ (function(modules) { // webpackBootstrap
 	          return;
 	        }
 	      }.bind(this), function (error) {
-	        if (error) console.log("Error processing conversation " + err);else onComplete(null, respObj);
-	      });
+	        if (error) {
+	          onComplete(error.toString(), null);
+	        } else {
+
+	          //NOW DELETE CONVERSATIONS WITH LASTMESSAGE NO DECRYPTED
+	          respObj.data.conversations = respObj.data.conversations.reduce(function (result, conversation) {
+
+	            if (conversation.last_message.protocolType == this.enums.MOKMessageType.TEXT && conversation.last_message.encryptedText != conversation.last_message.text) result.push(conversation);else if (conversation.last_message.protocolType != this.enums.MOKMessageType.TEXT) result.push(conversation);
+
+	            return result;
+	          }.bind(this), []);
+
+	          onComplete(null, respObj);
+	        }
+	      }.bind(this));
 	    }.bind(this));
 	  };
 
@@ -1121,7 +1137,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	      var messages = respObj.data.messages;
 
 	      var messagesArray = messages.reduce(function (result, message) {
-	        var msg = new MOKMessage(MOKMessageProtocolCommand.MESSAGE, message);
+	        var msg = new MOKMessage(this.enums.MOKMessageProtocolCommand.MESSAGE, message);
 	        result.push(msg);
 	        return result;
 	      }, []);
