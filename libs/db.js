@@ -115,11 +115,11 @@ module.exports = (function() {
   }
 
   db.getMonkeyId = function(){
-    return store.get("monkey_id", "");
+    return store.get("monkey_id", null);
   }
 
   db.getUser = function(monkey_id){
-    return store.get("user_"+monkey_id, "");
+    return store.get("user_"+monkey_id, null);
   }
 
   //DELETERS
