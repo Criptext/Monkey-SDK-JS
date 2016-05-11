@@ -103,6 +103,8 @@ require('es6-promise').polyfill();
     if (userObj != null) {
       this.session.user = userObj;
       this.session.id = userObj.monkeyId;
+      db.storeMonkeyId(userObj.monkeyId);
+      db.storeUser(userObj.monkeyId, userObj);
     }
 
     if (shouldExpireSession) {
@@ -588,10 +590,11 @@ require('es6-promise').polyfill();
               var arrayMessages = jsonres.args.messages;
               var remaining = jsonres.args.remaining_messages;
 
-              this.processGetMessages(arrayMessages, remaining);
-
               watchdog.didResponseSync=true;
               watchdog.removeAllMessagesFromWatchdog();
+
+              this.processGetMessages(arrayMessages, remaining);
+
               break;
             }
             case this.enums.MOKGetType.GROUPS:{
@@ -614,10 +617,11 @@ require('es6-promise').polyfill();
               var arrayMessages = jsonres.args.messages;
               var remaining = jsonres.args.remaining_messages;
 
-              this.processSyncMessages(arrayMessages, remaining);
-
               watchdog.didResponseSync=true;
               watchdog.removeAllMessagesFromWatchdog();
+              
+              this.processSyncMessages(arrayMessages, remaining);
+
               break;
             }
             case this.enums.MOKSyncType.GROUPS:{
@@ -667,6 +671,7 @@ require('es6-promise').polyfill();
 
   proto.getAESkeyFromUser = function getAESkeyFromUser(monkeyId, pendingMessage, callback){
     apiconnector.basicRequest('POST', '/user/key/exchange',{ monkey_id:this.session.id, user_to:monkeyId}, false, function(err,respObj){
+      
       if(err){
         Log.m(this.session.debuggingMode, 'Monkey - error on getting aes keys '+err);
         return callback(null);
@@ -690,12 +695,14 @@ require('es6-promise').polyfill();
       //check if it's the same key
       if (newParamKeys[0] == currentParamKeys.key && newParamKeys[1] == currentParamKeys.iv) {
         this.requestEncryptedTextForMessage(pendingMessage, function(decryptedMessage){
-          callback(decryptedMessage);
-        });
-        return;
+          return callback(decryptedMessage);
+        }.bind(this));
       }
-      //it's a new key
-      callback(pendingMessage);
+      else{
+        //it's a new key
+        Log.m(this.session.debuggingMode, 'Monkey - it is a new key');
+        return callback(pendingMessage);
+      }
 
     }.bind(this));
   }
@@ -960,6 +967,7 @@ require('es6-promise').polyfill();
       }
 
       this.session.id=respObj.data.monkeyId;
+      db.storeMonkeyId(respObj.data.monkeyId);
 
       var connectParams = {monkey_id:this.session.id};
 
@@ -1004,62 +1012,66 @@ require('es6-promise').polyfill();
         return;
       }
       Log.m(this.session.debuggingMode, 'Monkey - GET ALL CONVERSATIONS');
+      
+      var processFunctions = respObj.data.conversations.reduce(function(result, conversation){
+        
+        result.push(function(callback){
 
-      async.each(respObj.data.conversations, function(conversation, callback) {
+          conversation.last_message = new MOKMessage(this.enums.MOKMessageProtocolCommand.MESSAGE, conversation.last_message);
+          var message = conversation.last_message;
+          var gotError = false;
+          
+          if (message.isEncrypted() && message.protocolType != this.enums.MOKMessageType.FILE) {
+            try{
+              message.text = this.aesDecryptIncomingMessage(message);
+              return callback();
+            }
+            catch(error){
+              gotError = true;
+              Log.m(this.session.debuggingMode, "===========================");
+              Log.m(this.session.debuggingMode, "MONKEY - Fail decrypting: "+message.id+" type: "+message.protocolType);
+              Log.m(this.session.debuggingMode, "===========================");
+              //get keys
+              this.getAESkeyFromUser(message.senderId, message, function(response){
+                if (response != null) {
+                  message.text = this.aesDecryptIncomingMessage(message);
+                  return callback();
+                }
+                else{
+                  return callback();
+                }
+              }.bind(this));
+            }
 
-        conversation.last_message = new MOKMessage(this.enums.MOKMessageProtocolCommand.MESSAGE, conversation.last_message);
-        var message = conversation.last_message;
-
-        if (message.isEncrypted() && message.protocolType != this.enums.MOKMessageType.FILE) {
-          try{
-            message.text = this.aesDecryptIncomingMessage(message);
-            callback();
+            if (!gotError && (message.text == null || message.text == "")) {
+              //get keys
+              this.getAESkeyFromUser(message.senderId, message, function(response){
+                if (response != null) {
+                  message.text = this.aesDecryptIncomingMessage(message);
+                  return callback();
+                }
+                else{
+                  return callback();
+                }
+              }.bind(this));
+            }
           }
-          catch(error){
-            Log.m(this.session.debuggingMode, "===========================");
-            Log.m(this.session.debuggingMode, "MONKEY - Fail decrypting: "+message.id+" type: "+message.protocolType);
-            Log.m(this.session.debuggingMode, "===========================");
-            //get keys
-            this.getAESkeyFromUser(message.senderId, message, function(response){
-              if (response != null) {
-                message.text = this.aesDecryptIncomingMessage(message);
-                callback();
-                return;
-              }
-              else{
-                callback();
-                return;
-              }
-            }.bind(this));
+          else{
+            message.text = message.encryptedText;
+            return callback();       
           }
 
-          if (message.text == null || message.text == "") {
-            //get keys
-            this.getAESkeyFromUser(message.senderId, message, function(response){
-              if (response != null) {
-                message.text = this.aesDecryptIncomingMessage(message);
-                callback();
-                return;
-              }
-              else{
-                callback();
-                return;
-              }
-            }.bind(this));
-          }
-        }
-        else{
-          message.text = message.encryptedText;
-          callback();
-          return;
-        }
+        }.bind(this));
+        
+        return result;
 
-      }.bind(this), function(error){
+      }.bind(this),[]);
+
+      async.waterfall(processFunctions, function(error, result){
           if(error){
             onComplete(error.toString(), null);
           }
           else{
-
             //NOW DELETE CONVERSATIONS WITH LASTMESSAGE NO DECRYPTED
             respObj.data.conversations = respObj.data.conversations.reduce(function(result, conversation){
 
@@ -1254,6 +1266,14 @@ require('es6-promise').polyfill();
 
   proto.setAllMessagesToRead = function setAllMessagesToRead(id){
     return db.setAllMessagesToRead(id);
+  }
+
+  proto.getMonkeyId = function getMonkeyId(){
+    return db.getMonkeyId();
+  }
+
+  proto.getUser = function getUser(){
+    return db.getUser(db.getMonkeyId());
   }
 
   /*
