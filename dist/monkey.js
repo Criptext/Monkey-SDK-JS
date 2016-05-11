@@ -844,7 +844,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	    var message = messages.shift();
 
-	    if (message.isEncrypted() && message.protocolType != MOKMessageType.FILE) {
+	    if (message.isEncrypted() && message.protocolType != this.enums.MOKMessageType.FILE) {
 	      try {
 	        message.text = this.aesDecryptIncomingMessage(message);
 	      } catch (error) {
@@ -1164,7 +1164,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        var msg = new MOKMessage(this.enums.MOKMessageProtocolCommand.MESSAGE, message);
 	        result.push(msg);
 	        return result;
-	      }, []);
+	      }.bind(this), []);
 
 	      this.decryptBulkMessages(messagesArray, [], function (decryptedMessages) {
 	        onComplete(null, decryptedMessages);
@@ -7651,11 +7651,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	  }
 
 	  db.getMonkeyId = function(){
-	    return store.get("monkey_id", "");
+	    return store.get("monkey_id", null);
 	  }
 
 	  db.getUser = function(monkey_id){
-	    return store.get("user_"+monkey_id, "");
+	    return store.get("user_"+monkey_id, null);
 	  }
 
 	  //DELETERS

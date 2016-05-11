@@ -776,7 +776,7 @@ require('es6-promise').polyfill();
 
     var message = messages.shift();
 
-    if (message.isEncrypted() && message.protocolType != MOKMessageType.FILE) {
+    if (message.isEncrypted() && message.protocolType != this.enums.MOKMessageType.FILE) {
       try{
         message.text = this.aesDecryptIncomingMessage(message);
       }
@@ -1110,7 +1110,7 @@ require('es6-promise').polyfill();
         let msg = new MOKMessage(this.enums.MOKMessageProtocolCommand.MESSAGE, message);
         result.push(msg);
         return result;
-      },[]);
+      }.bind(this),[]);
 
       this.decryptBulkMessages(messagesArray, [], function(decryptedMessages){
         onComplete(null, decryptedMessages);
