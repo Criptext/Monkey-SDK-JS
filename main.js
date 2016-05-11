@@ -19,6 +19,8 @@ var NodeRSA = require('node-rsa');
 var CryptoJS = require('node-cryptojs-aes').CryptoJS;
 var async = require("async");
 
+const zlib = require('zlib');
+
 require('es6-promise').polyfill();
 
 ;(function () {
@@ -35,7 +37,7 @@ require('es6-promise').polyfill();
   // Shortcuts to improve speed and size
   var proto = Monkey.prototype;
   var exports = this;
-  
+
 
   proto.enums = new MonkeyEnums();
   // var originalGlobalValue = exports.Monkey;
@@ -248,6 +250,7 @@ require('es6-promise').polyfill();
   }
 
   proto.sendFile = function sendFile(data, recipientMonkeyId, fileName, mimeType, fileType, shouldCompress, optionalParams, optionalPush, callback){
+    data = this.cleanFilePrefix(data);
     var props = {
       device: "web",
       encr: 0,
@@ -256,25 +259,37 @@ require('es6-promise').polyfill();
       filename: fileName
     };
 
-    if (shouldCompress) {
-      props.cmpr = "gzip";
-    }
-
     if (mimeType) {
       props.mime_type = mimeType;
     }
 
-    return this.uploadFile(data, recipientMonkeyId, fileName, props, optionalParams, function(error, message){
-      if (error) {
-        callback(error, message);
-      }
+    if (shouldCompress) {
+      props.cmpr = "gzip";
+      this.compress(data, function(error, compressedData){
+        return this.uploadFile(data, recipientMonkeyId, fileName, props, optionalParams, function(error, message){
+          if (error) {
+            callback(error, message);
+          }
 
-      db.storeMessage(message);
-      callback(null, message);
-    });
+          db.storeMessage(message);
+          callback(null, message);
+        });
+      }.bind(this));
+    }else{
+      return this.uploadFile(data, recipientMonkeyId, fileName, props, optionalParams, function(error, message){
+        if (error) {
+          callback(error, message);
+        }
+
+        db.storeMessage(message);
+        callback(null, message);
+      });
+    }
   }
 
   proto.sendEncryptedFile = function sendEncryptedFile(data, recipientMonkeyId, fileName, mimeType, fileType, shouldCompress, optionalParams, optionalPush, callback){
+    data = this.cleanFilePrefix(data);
+
     var props = {
       device: "web",
       encr: 1,
@@ -283,25 +298,35 @@ require('es6-promise').polyfill();
       filename: fileName
     };
 
-    if (shouldCompress) {
-      props.cmpr = "gzip";
-    }
-
     if (mimeType) {
       props.mime_type = mimeType;
     }
 
-    return this.uploadFile(data, recipientMonkeyId, fileName, props, optionalParams, optionalPush, function(error, message){
-      if (error) {
-        callback(error, message);
-      }
+    if (shouldCompress) {
+      props.cmpr = "gzip";
+      this.compress(data, function(error, compressedData){
+        return this.uploadFile(data, recipientMonkeyId, fileName, props, optionalParams, optionalPush, function(error, message){
+          if (error) {
+            return callback(error, message);
+          }
 
-      callback(null, message);
-    });
+          db.storeMessage(message);
+          callback(null, message);
+        });
+      }.bind(this));
+    }else{
+      return this.uploadFile(data, recipientMonkeyId, fileName, props, optionalParams, optionalPush, function(error, message){
+        if (error) {
+          return callback(error, message);
+        }
+
+        db.storeMessage(message);
+        callback(null, message);
+      });
+    }
   }
 
   proto.uploadFile = function uploadFile(fileData, recipientMonkeyId, fileName, props, optionalParams, optionalPush, callback) {
-    fileData = this.cleanFilePrefix(fileData);
 
     var binData = this.mok_convertDataURIToBinary(fileData);
     props.size = binData.size;
@@ -316,10 +341,6 @@ require('es6-promise').polyfill();
     args.oldId = message.oldId;
     args.props = message.props;
     args.params = message.params;
-
-    if (message.isCompressed()) {
-      fileData = this.compress(fileData);
-    }
 
     if (message.isEncrypted()) {
       fileData = this.aesEncrypt(fileData, this.session.id);
@@ -336,8 +357,7 @@ require('es6-promise').polyfill();
     apiconnector.basicRequest('POST', '/file/new/base64',data, true, function(err,respObj){
       if (err) {
         Log.m(this.session.debuggingMode, 'Monkey - upload file Fail');
-        callback(err.toString(), message);
-        return;
+        return callback(err.toString(), message);
       }
       Log.m(this.session.debuggingMode, 'Monkey - upload file OK');
       message.id = respObj.data.messageId;
@@ -475,7 +495,7 @@ require('es6-promise').polyfill();
   }
 
   proto.requestMessagesSinceTimestamp = function requestMessagesSinceTimestamp(lastTimestamp, quantity, withGroups){
-    
+
     var args={
       since: lastTimestamp,
       qty: quantity
@@ -533,7 +553,7 @@ require('es6-promise').polyfill();
       this._getEmitter().emit('onConnect', this.session.user);
 
       this.sendCommand(this.enums.MOKMessageProtocolCommand.SET, {online:1});
-      
+
       if(this.autoSync)
         this.getPendingMessages();
     }.bind(this);
@@ -860,28 +880,22 @@ require('es6-promise').polyfill();
     callback(null, fileData);
   }
 
-  proto.compress = function(fileData){
-    var binData = this.mok_convertDataURIToBinary(fileData);
-    var gzip = new Zlib.Gzip(binData);
-    var compressedBinary = gzip.compress(); //descompress
-    // Uint8Array to base64
-    var compressedArray = new Uint8Array(compressedBinary);
-    var compressedBase64 = this.mok_arrayBufferToBase64(compressedArray);
+  proto.compress = function(fileData, callback){
 
-    //this should be added by client 'data:image/png;base64'
-    return compressedBase64;
+    var binData = new Buffer(fileData, 'base64');
+    zlib.gzip(binData, function(error, result){
+      var compressedBase64 = this.mok_arrayBufferToBase64(result);
+      callback(error, compressedBase64);
+    }.bind(this));
   }
 
-  proto.decompress = function(fileData){
-    var binData = this.mok_convertDataURIToBinary(fileData);
-    var gunzip = new Zlib.Gunzip(binData);
-    var decompressedBinary = gunzip.decompress(); //descompress
-    // Uint8Array to base64
-    var decompressedArray = new Uint8Array(decompressedBinary);
-    var decompressedBase64 = this.mok_arrayBufferToBase64(decompressedArray);
+  proto.decompress = function(fileData, callback){
 
-    //this should be added by client 'data:image/png;base64'
-    return decompressedBase64;
+    var binData = new Buffer(fileData, 'base64');
+    zlib.gunzip(binData, function(error, result){
+      var decompressedBase64 = this.mok_arrayBufferToBase64(result);
+      callback(error, decompressedBase64);
+    }.bind(this));
   }
 
   proto.generateAndStoreAES = function generateAndStoreAES(){
@@ -938,7 +952,7 @@ require('es6-promise').polyfill();
         var myAesKeys=decryptedAesKeys.split(":");
         this.session.myKey=myAesKeys[0];
         this.session.myIv=myAesKeys[1];
-        
+
         //var myKeyParams=generateSessionKey();// generates local AES KEY
         //this.keyStore[this.session.id]={key:this.session.myKey,iv:this.session.myIv};
         monkeyKeystore.storeData(this.session.id, this.session.myKey+":"+this.session.myIv, this.session.myKey, this.session.myIv);
@@ -1060,7 +1074,7 @@ require('es6-promise').polyfill();
           else{
             //NOW DELETE CONVERSATIONS WITH LASTMESSAGE NO DECRYPTED
             respObj.data.conversations = respObj.data.conversations.reduce(function(result, conversation){
-              
+
               if(conversation.last_message.protocolType == this.enums.MOKMessageType.TEXT
                 && conversation.last_message.encryptedText != conversation.last_message.text )
                 result.push(conversation);
