@@ -12,6 +12,14 @@ module.exports = (function() {
     store.set("message_"+mokmessage.id, mokmessage);
   }
 
+  db.storeMonkeyId = function(monkey_id){
+    store.set("monkey_id", monkey_id);
+  }
+
+  db.storeUser = function(monkey_id, userObj){
+    store.set(monkey_id, userObj);
+  }
+
   //UPDATERS
 
   db.updateMessageReadStatus = function(id){
@@ -104,6 +112,14 @@ module.exports = (function() {
 
     return total;
 
+  }
+
+  db.getMonkeyId = function(){
+    return store.get("monkey_id", "");
+  }
+
+  db.getUser = function(monkey_id){
+    return store.get(monkey_id, "");
   }
 
   //DELETERS

@@ -101,6 +101,8 @@ require('es6-promise').polyfill();
     if (userObj != null) {
       this.session.user = userObj;
       this.session.id = userObj.monkeyId;
+      db.storeMonkeyId(userObj.monkeyId);
+      db.storeUser(userObj.monkeyId, userObj);
     }
 
     if (shouldExpireSession) {
@@ -951,6 +953,7 @@ require('es6-promise').polyfill();
       }
 
       this.session.id=respObj.data.monkeyId;
+      db.storeMonkeyId(respObj.data.monkeyId);
 
       var connectParams = {monkey_id:this.session.id};
 
