@@ -161,6 +161,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	    if (userObj != null) {
 	      this.session.user = userObj;
 	      this.session.id = userObj.monkeyId;
+	      db.storeMonkeyId(userObj.monkeyId);
+	      db.storeUser(userObj.monkeyId, userObj);
 	    }
 
 	    if (shouldExpireSession) {
@@ -1017,6 +1019,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	      }
 
 	      this.session.id = respObj.data.monkeyId;
+	      db.storeMonkeyId(respObj.data.monkeyId);
 
 	      var connectParams = { monkey_id: this.session.id };
 
@@ -1302,6 +1305,14 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	  proto.setAllMessagesToRead = function setAllMessagesToRead(id) {
 	    return db.setAllMessagesToRead(id);
+	  };
+
+	  proto.getMonkeyId = function getMonkeyId() {
+	    return db.getMonkeyId();
+	  };
+
+	  proto.getUser = function getUser() {
+	    return db.getUser(db.getMonkeyId());
 	  };
 
 	  /*
@@ -5736,6 +5747,14 @@ return /******/ (function(modules) { // webpackBootstrap
 	    store.set("message_"+mokmessage.id, mokmessage);
 	  }
 
+	  db.storeMonkeyId = function(monkey_id){
+	    store.set("monkey_id", monkey_id);
+	  }
+
+	  db.storeUser = function(monkey_id, userObj){
+	    store.set("user_"+monkey_id, userObj);
+	  }
+
 	  //UPDATERS
 
 	  db.updateMessageReadStatus = function(id){
@@ -5828,6 +5847,14 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	    return total;
 
+	  }
+
+	  db.getMonkeyId = function(){
+	    return store.get("monkey_id", "");
+	  }
+
+	  db.getUser = function(monkey_id){
+	    return store.get("user_"+monkey_id, "");
 	  }
 
 	  //DELETERS

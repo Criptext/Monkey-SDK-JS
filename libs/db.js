@@ -17,7 +17,7 @@ module.exports = (function() {
   }
 
   db.storeUser = function(monkey_id, userObj){
-    store.set(monkey_id, userObj);
+    store.set("user_"+monkey_id, userObj);
   }
 
   //UPDATERS
@@ -119,7 +119,7 @@ module.exports = (function() {
   }
 
   db.getUser = function(monkey_id){
-    return store.get(monkey_id, "");
+    return store.get("user_"+monkey_id, "");
   }
 
   //DELETERS

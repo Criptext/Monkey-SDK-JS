@@ -1254,6 +1254,14 @@ require('es6-promise').polyfill();
     return db.setAllMessagesToRead(id);
   }
 
+  proto.getMonkeyId = function getMonkeyId(){
+    return db.getMonkeyId();
+  }
+
+  proto.getUser = function getUser(){
+    return db.getUser(db.getMonkeyId());
+  }
+
   /*
   * Utils
   */
