@@ -266,7 +266,7 @@ require('es6-promise').polyfill();
     if (shouldCompress) {
       props.cmpr = "gzip";
       this.compress(data, function(error, compressedData){
-        return this.uploadFile(data, recipientMonkeyId, fileName, props, optionalParams, function(error, message){
+        this.uploadFile(data, recipientMonkeyId, fileName, props, optionalParams, function(error, message){
           if (error) {
             callback(error, message);
           }
@@ -275,6 +275,7 @@ require('es6-promise').polyfill();
           callback(null, message);
         });
       }.bind(this));
+      return this.createFileMessage(data, recipientMonkeyId, fileName, props, optionalParams, optionalPush);
     }else{
       return this.uploadFile(data, recipientMonkeyId, fileName, props, optionalParams, function(error, message){
         if (error) {
@@ -305,7 +306,7 @@ require('es6-promise').polyfill();
     if (shouldCompress) {
       props.cmpr = "gzip";
       this.compress(data, function(error, compressedData){
-        return this.uploadFile(data, recipientMonkeyId, fileName, props, optionalParams, optionalPush, function(error, message){
+        this.uploadFile(data, recipientMonkeyId, fileName, props, optionalParams, optionalPush, function(error, message){
           if (error) {
             return callback(error, message);
           }
@@ -314,6 +315,7 @@ require('es6-promise').polyfill();
           callback(null, message);
         });
       }.bind(this));
+      return this.createFileMessage(data, recipientMonkeyId, fileName, props, optionalParams, optionalPush);
     }else{
       return this.uploadFile(data, recipientMonkeyId, fileName, props, optionalParams, optionalPush, function(error, message){
         if (error) {
@@ -367,6 +369,25 @@ require('es6-promise').polyfill();
 
     return message;
   }
+
+  proto.createFileMessage = function createFileMessage(fileData, recipientMonkeyId, fileName, props, optionalParams, optionalPush){
+
+    var binData = this.mok_convertDataURIToBinary(fileData);
+    props.size = binData.size;
+
+    var args = this.prepareMessageArgs(recipientMonkeyId, props, optionalParams, optionalPush);
+    args.msg = fileName;
+    args.type = this.enums.MOKMessageType.FILE;
+
+    var message = new MOKMessage(this.enums.MOKMessageProtocolCommand.MESSAGE, args);
+
+    args.id = message.id;
+    args.oldId = message.oldId;
+    args.props = message.props;
+    args.params = message.params;
+
+    return message;
+  };
 
   proto.getPendingMessages = function getPendingMessages(){
     this.requestMessagesSinceTimestamp(this.session.lastTimestamp, 15, false);
@@ -791,7 +812,7 @@ require('es6-promise').polyfill();
           }
 
           this.decryptBulkMessages(messages, decryptedMessages, onComplete);
-        });
+        }.bind(this));
         return;
       }
 
@@ -803,7 +824,7 @@ require('es6-promise').polyfill();
           }
 
           this.decryptBulkMessages(message, decryptedMessages, onComplete);
-        });
+        }.bind(this));
         return;
       }
     }else{
@@ -839,7 +860,7 @@ require('es6-promise').polyfill();
             }else{
               callback("Error decrypting downloaded file");
             }
-          });
+          }.bind(this));
           return;
         }
       }
@@ -854,7 +875,7 @@ require('es6-promise').polyfill();
           }else{
             callback("Error decrypting downloaded file");
           }
-        });
+        }.bind(this));
         return;
       }
 
@@ -866,7 +887,7 @@ require('es6-promise').polyfill();
             return;
           }
           callback("Error decrypting downloaded file");
-        });
+        }.bind(this));
         return;
       }
 
