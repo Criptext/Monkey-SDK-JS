@@ -17,6 +17,8 @@ module.exports = (function() {
 
     var reqUrl = main.domainUrl+endpoint;
 
+    var parseAsJson = true;
+
     if (main.session.debuggingMode) {
       reqUrl = 'http://'+reqUrl;
     }else{
@@ -45,8 +47,13 @@ module.exports = (function() {
       bodyReq['body'] = data
     }
 
-    fetch(reqUrl, bodyReq).then(main.checkStatus)
-    .then(main.parseJSON)
+    if(method == 'GET' && isFile){
+      parseAsJson = false;
+    }
+
+    fetch(reqUrl, bodyReq)
+    .then(main.checkStatus)
+    .then(parseAsJson ? main.parseJSON : main.parseFile)
     .then(function(respObj) {
       callback(null,respObj);
     }).catch(function(error) {
