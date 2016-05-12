@@ -906,10 +906,13 @@ require('es6-promise').polyfill();
     }
 
     if (message.isCompressed()) {
-      fileData = decompress(fileData);
+      fileData = this.decompress(fileData, function(err, decompressedData){
+        callback(err, decompressedData);
+      });
     }
-
-    callback(null, fileData);
+    else{
+      callback(null, fileData);
+    }
   }
 
   proto.compress = function(fileData, callback){
@@ -1172,7 +1175,7 @@ require('es6-promise').polyfill();
 
   proto.downloadFile = function downloadFile(message, onComplete){
     onComplete = (typeof onComplete == "function") ? onComplete : function () { };
-    apiconnector.basicRequest('GET', '/file/open/'+message.text+'/base64',{}, false, function(err,fileData){
+    apiconnector.basicRequest('GET', '/file/open/'+message.text+'/base64',{}, true, function(err,fileData){
       if (err) {
         Log.m(this.session.debuggingMode, 'Monkey - Download File Fail');
         onComplete(err.toString());
@@ -1186,7 +1189,7 @@ require('es6-promise').polyfill();
           return;
         }
         onComplete(null, finalData);
-      });
+      }.bind(this));
     }.bind(this));
   }/// end of function downloadFile
 
@@ -1377,6 +1380,10 @@ require('es6-promise').polyfill();
   proto.parseJSON = function parseJSON(response) {
     return response.json()
   }
+
+  proto.parseFile = function parseJSON(response) {
+    return response.text();
+  };
 
   proto.mok_convertDataURIToBinary = function mok_convertDataURIToBinary(dataURI) {
     var raw = window.atob(dataURI);

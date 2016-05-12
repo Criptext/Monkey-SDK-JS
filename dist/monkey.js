@@ -312,6 +312,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	  };
 
 	  proto.sendFile = function sendFile(data, recipientMonkeyId, fileName, mimeType, fileType, shouldCompress, optionalParams, optionalPush, callback) {
+
+	    callback = typeof callback == "function" ? callback : function () {};
 	    data = this.cleanFilePrefix(data);
 	    var props = {
 	      device: "web",
@@ -328,7 +330,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    if (shouldCompress) {
 	      props.cmpr = "gzip";
 	      this.compress(data, function (error, compressedData) {
-	        return this.uploadFile(data, recipientMonkeyId, fileName, props, optionalParams, function (error, message) {
+	        this.uploadFile(data, recipientMonkeyId, fileName, props, optionalParams, function (error, message) {
 	          if (error) {
 	            callback(error, message);
 	          }
@@ -337,6 +339,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	          callback(null, message);
 	        });
 	      }.bind(this));
+	      return this.createFileMessage(data, recipientMonkeyId, fileName, props, optionalParams, optionalPush);
 	    } else {
 	      return this.uploadFile(data, recipientMonkeyId, fileName, props, optionalParams, function (error, message) {
 	        if (error) {
@@ -350,8 +353,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	  };
 
 	  proto.sendEncryptedFile = function sendEncryptedFile(data, recipientMonkeyId, fileName, mimeType, fileType, shouldCompress, optionalParams, optionalPush, callback) {
-	    data = this.cleanFilePrefix(data);
 
+	    callback = typeof callback == "function" ? callback : function () {};
+	    data = this.cleanFilePrefix(data);
 	    var props = {
 	      device: "web",
 	      encr: 1,
@@ -367,7 +371,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    if (shouldCompress) {
 	      props.cmpr = "gzip";
 	      this.compress(data, function (error, compressedData) {
-	        return this.uploadFile(data, recipientMonkeyId, fileName, props, optionalParams, optionalPush, function (error, message) {
+	        this.uploadFile(data, recipientMonkeyId, fileName, props, optionalParams, optionalPush, function (error, message) {
 	          if (error) {
 	            return callback(error, message);
 	          }
@@ -376,6 +380,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	          callback(null, message);
 	        });
 	      }.bind(this));
+	      return this.createFileMessage(data, recipientMonkeyId, fileName, props, optionalParams, optionalPush);
 	    } else {
 	      return this.uploadFile(data, recipientMonkeyId, fileName, props, optionalParams, optionalPush, function (error, message) {
 	        if (error) {
@@ -390,6 +395,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	  proto.uploadFile = function uploadFile(fileData, recipientMonkeyId, fileName, props, optionalParams, optionalPush, callback) {
 
+	    callback = typeof callback == "function" ? callback : function () {};
 	    var binData = this.mok_convertDataURIToBinary(fileData);
 	    props.size = binData.size;
 
@@ -425,6 +431,25 @@ return /******/ (function(modules) { // webpackBootstrap
 	      message.id = respObj.data.messageId;
 	      callback(null, message);
 	    }.bind(this));
+
+	    return message;
+	  };
+
+	  proto.createFileMessage = function createFileMessage(fileData, recipientMonkeyId, fileName, props, optionalParams, optionalPush) {
+
+	    var binData = this.mok_convertDataURIToBinary(fileData);
+	    props.size = binData.size;
+
+	    var args = this.prepareMessageArgs(recipientMonkeyId, props, optionalParams, optionalPush);
+	    args.msg = fileName;
+	    args.type = this.enums.MOKMessageType.FILE;
+
+	    var message = new MOKMessage(this.enums.MOKMessageProtocolCommand.MESSAGE, args);
+
+	    args.id = message.id;
+	    args.oldId = message.oldId;
+	    args.props = message.props;
+	    args.params = message.params;
 
 	    return message;
 	  };
@@ -740,6 +765,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	  */
 
 	  proto.getAESkeyFromUser = function getAESkeyFromUser(monkeyId, pendingMessage, callback) {
+
+	    callback = typeof callback == "function" ? callback : function () {};
 	    apiconnector.basicRequest('POST', '/user/key/exchange', { monkey_id: this.session.id, user_to: monkeyId }, false, function (err, respObj) {
 
 	      if (err) {
@@ -776,6 +803,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	  };
 
 	  proto.requestEncryptedTextForMessage = function requestEncryptedTextForMessage(message, callback) {
+
+	    callback = typeof callback == "function" ? callback : function () {};
 	    apiconnector.basicRequest('GET', '/message/' + message.id + '/open/secure', {}, false, function (err, respObj) {
 	      if (err) {
 	        Log.m(this.session.debuggingMode, 'Monkey - error on requestEncryptedTextForMessage: ' + err);
@@ -838,6 +867,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	  };
 
 	  proto.decryptBulkMessages = function decryptBulkMessages(messages, decryptedMessages, onComplete) {
+	    onComplete = typeof onComplete == "function" ? onComplete : function () {};
 	    if (!(typeof messages != "undefined" && messages != null && messages.length > 0)) {
 	      return onComplete(decryptedMessages);
 	    }
@@ -858,7 +888,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	          }
 
 	          this.decryptBulkMessages(messages, decryptedMessages, onComplete);
-	        });
+	        }.bind(this));
 	        return;
 	      }
 
@@ -870,7 +900,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	          }
 
 	          this.decryptBulkMessages(message, decryptedMessages, onComplete);
-	        });
+	        }.bind(this));
 	        return;
 	      }
 	    } else {
@@ -883,6 +913,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	  };
 
 	  proto.decryptDownloadedFile = function decryptDownloadedFile(fileData, message, callback) {
+
+	    callback = typeof callback == "function" ? callback : function () {};
 	    if (message.isEncrypted()) {
 	      var decryptedData = null;
 	      try {
@@ -906,7 +938,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	            } else {
 	              callback("Error decrypting downloaded file");
 	            }
-	          });
+	          }.bind(this));
 	          return;
 	        }
 	      } catch (error) {
@@ -920,7 +952,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	          } else {
 	            callback("Error decrypting downloaded file");
 	          }
-	        });
+	        }.bind(this));
 	        return;
 	      }
 
@@ -932,7 +964,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	            return;
 	          }
 	          callback("Error decrypting downloaded file");
-	        });
+	        }.bind(this));
 	        return;
 	      }
 
@@ -940,14 +972,17 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }
 
 	    if (message.isCompressed()) {
-	      fileData = decompress(fileData);
+	      fileData = this.decompress(fileData, function (err, decompressedData) {
+	        callback(err, decompressedData);
+	      });
+	    } else {
+	      callback(null, fileData);
 	    }
-
-	    callback(null, fileData);
 	  };
 
 	  proto.compress = function (fileData, callback) {
 
+	    callback = typeof callback == "function" ? callback : function () {};
 	    var binData = new Buffer(fileData, 'base64');
 	    zlib.gzip(binData, function (error, result) {
 	      var compressedBase64 = this.mok_arrayBufferToBase64(result);
@@ -957,6 +992,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	  proto.decompress = function (fileData, callback) {
 
+	    callback = typeof callback == "function" ? callback : function () {};
 	    var binData = new Buffer(fileData, 'base64');
 	    zlib.gunzip(binData, function (error, result) {
 	      var decompressedBase64 = this.mok_arrayBufferToBase64(result);
@@ -1060,6 +1096,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	  }; /// end of function requestSession
 
 	  proto.subscribe = function subscribe(channel, callback) {
+
+	    callback = typeof callback == "function" ? callback : function () {};
 	    apiconnector.basicRequest('POST', '/channel/subscribe/' + channel, { monkey_id: this.session.id }, false, function (err, respObj) {
 	      if (err) {
 	        Log.m(this.session.debuggingMode, 'Monkey - ' + err);
@@ -1146,6 +1184,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	  };
 
 	  proto.getConversationMessages = function getConversationMessages(conversationId, numberOfMessages, lastMessageId, onComplete) {
+
+	    onComplete = typeof onComplete == "function" ? onComplete : function () {};
 	    if (lastMessageId == null) {
 	      lastMessageId = '';
 	    }
@@ -1162,6 +1202,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	      var messagesArray = messages.reduce(function (result, message) {
 	        var msg = new MOKMessage(this.enums.MOKMessageProtocolCommand.MESSAGE, message);
+	        msg.datetimeOrder = msg.datetimeCreation;
 	        result.push(msg);
 	        return result;
 	      }.bind(this), []);
@@ -1173,6 +1214,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	  };
 
 	  proto.getMessagesSince = function getMessagesSince(timestamp, onComplete) {
+	    onComplete = typeof onComplete == "function" ? onComplete : function () {};
 	    apiconnector.basicRequest('GET', '/user/' + this.session.id + '/messages/' + timestamp, {}, false, function (err, respObj) {
 	      if (err) {
 	        Log.m(this.session.debuggingMode, 'Monkey - FAIL TO GET MESSAGES');
@@ -1185,7 +1227,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	  };
 
 	  proto.downloadFile = function downloadFile(message, onComplete) {
-	    apiconnector.basicRequest('GET', '/file/open/' + message.text + '/base64', {}, false, function (err, fileData) {
+	    onComplete = typeof onComplete == "function" ? onComplete : function () {};
+	    apiconnector.basicRequest('GET', '/file/open/' + message.text + '/base64', {}, true, function (err, fileData) {
 	      if (err) {
 	        Log.m(this.session.debuggingMode, 'Monkey - Download File Fail');
 	        onComplete(err.toString());
@@ -1199,7 +1242,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	          return;
 	        }
 	        onComplete(null, finalData);
-	      });
+	      }.bind(this));
 	    }.bind(this));
 	  }; /// end of function downloadFile
 
@@ -1223,6 +1266,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	  };
 
 	  proto.createGroup = function createGroup(members, groupInfo, optionalPush, optionalId, callback) {
+
+	    callback = typeof callback == "function" ? callback : function () {};
 	    //check if I'm already in the proposed members
 	    if (members.indexOf(this.session.id) == -1) {
 	      members.push(this.session.id);
@@ -1248,6 +1293,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	  };
 
 	  proto.addMemberToGroup = function addMemberToGroup(groupId, newMemberId, optionalPushNewMember, optionalPushExistingMembers, callback) {
+
+	    callback = typeof callback == "function" ? callback : function () {};
 	    var params = {
 	      monkey_id: this.session.id,
 	      new_member: newMemberId,
@@ -1267,6 +1314,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	  };
 
 	  proto.removeMemberFromGroup = function removeMemberFromGroup(groupId, memberId, callback) {
+
+	    callback = typeof callback == "function" ? callback : function () {};
 	    apiconnector.basicRequest('POST', '/group/delete', { monkey_id: memberId, group_id: groupId }, false, function (err, respObj) {
 	      if (err) {
 	        Log.m(this.session.debuggingMode, 'Monkey - error removing member: ' + err);
@@ -1278,6 +1327,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	  };
 
 	  proto.getInfoById = function getInfoById(monkeyId, callback) {
+
+	    callback = typeof callback == "function" ? callback : function () {};
 	    var endpoint = '/info/' + monkeyId;
 
 	    //check if it's a group
@@ -1380,6 +1431,10 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	  proto.parseJSON = function parseJSON(response) {
 	    return response.json();
+	  };
+
+	  proto.parseFile = function parseJSON(response) {
+	    return response.text();
 	  };
 
 	  proto.mok_convertDataURIToBinary = function mok_convertDataURIToBinary(dataURI) {
@@ -6514,6 +6569,8 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	    var reqUrl = main.domainUrl+endpoint;
 
+	    var parseAsJson = true;
+
 	    if (main.session.debuggingMode) {
 	      reqUrl = 'http://'+reqUrl;
 	    }else{
@@ -6542,8 +6599,13 @@ return /******/ (function(modules) { // webpackBootstrap
 	      bodyReq['body'] = data
 	    }
 
-	    fetch(reqUrl, bodyReq).then(main.checkStatus)
-	    .then(main.parseJSON)
+	    if(method == 'GET' && isFile){
+	      parseAsJson = false;
+	    }
+
+	    fetch(reqUrl, bodyReq)
+	    .then(main.checkStatus)
+	    .then(parseAsJson ? main.parseJSON : main.parseFile)
 	    .then(function(respObj) {
 	      callback(null,respObj);
 	    }).catch(function(error) {
