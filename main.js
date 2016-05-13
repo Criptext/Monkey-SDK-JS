@@ -268,27 +268,37 @@ require('es6-promise').polyfill();
 
     if (shouldCompress) {
       props.cmpr = "gzip";
-      this.compress(data, function(error, compressedData){
-        this.uploadFile(compressedData, recipientMonkeyId, fileName, props, optionalParams, function(error, message){
+    }
+
+    var mokMessage = this.createFileMessage(data, recipientMonkeyId, fileName, props, optionalParams, optionalPush);
+
+    async.waterfall([
+      function(callbackAsync){
+        if (!shouldCompress) {
+          return callbackAsync(null, data);
+        }
+
+        this.compress(data, function(error, compressedData){
           if (error) {
-            callback(error, message);
+            return callbackAsync(error);
+          }
+          callbackAsync(null, compressedData);
+        });
+      }.bind(this),
+      function(finalData, callbackAsync){
+        this.uploadFile(finalData, recipientMonkeyId, fileName, props, optionalParams, optionalPush, mokMessage.id, function(error, message){
+          if (error) {
+            callbackAsync(error, message);
           }
 
           db.storeMessage(message);
-          callback(null, message);
+          callbackAsync(null, message);
         });
-      }.bind(this));
-      return this.createFileMessage(data, recipientMonkeyId, fileName, props, optionalParams, optionalPush);
-    }else{
-      return this.uploadFile(data, recipientMonkeyId, fileName, props, optionalParams, function(error, message){
-        if (error) {
+      }.bind(this)],function(error, message){
           callback(error, message);
-        }
+    });
 
-        db.storeMessage(message);
-        callback(null, message);
-      });
-    }
+    return mokMessage;
   }
 
   proto.sendEncryptedFile = function sendEncryptedFile(data, recipientMonkeyId, fileName, mimeType, fileType, shouldCompress, optionalParams, optionalPush, callback){
@@ -310,30 +320,40 @@ require('es6-promise').polyfill();
 
     if (shouldCompress) {
       props.cmpr = "gzip";
-      this.compress(data, function(error, compressedData){
-        this.uploadFile(compressedData, recipientMonkeyId, fileName, props, optionalParams, optionalPush, function(error, message){
+    }
+
+    var mokMessage = this.createFileMessage(data, recipientMonkeyId, fileName, props, optionalParams, optionalPush);
+
+    async.waterfall([
+      function(callbackAsync){
+        if (!shouldCompress) {
+          return callbackAsync(null, data);
+        }
+
+        this.compress(data, function(error, compressedData){
           if (error) {
-            return callback(error, message);
+            return callbackAsync(error);
+          }
+          callbackAsync(null, compressedData);
+        });
+      }.bind(this),
+      function(finalData, callbackAsync){
+        this.uploadFile(finalData, recipientMonkeyId, fileName, props, optionalParams, optionalPush, mokMessage.id, function(error, message){
+          if (error) {
+            callbackAsync(error, message);
           }
 
           db.storeMessage(message);
-          callback(null, message);
+          callbackAsync(null, message);
         });
-      }.bind(this));
-      return this.createFileMessage(data, recipientMonkeyId, fileName, props, optionalParams, optionalPush);
-    }else{
-      return this.uploadFile(data, recipientMonkeyId, fileName, props, optionalParams, optionalPush, function(error, message){
-        if (error) {
-          return callback(error, message);
-        }
+      }.bind(this)],function(error, message){
+          callback(error, message);
+    });
 
-        db.storeMessage(message);
-        callback(null, message);
-      });
-    }
+    return mokMessage;
   }
 
-  proto.uploadFile = function uploadFile(fileData, recipientMonkeyId, fileName, props, optionalParams, optionalPush, callback) {
+  proto.uploadFile = function uploadFile(fileData, recipientMonkeyId, fileName, props, optionalParams, optionalPush, optionalId, callback) {
 
     callback = (typeof callback == "function") ? callback : function () { };
 
@@ -342,6 +362,11 @@ require('es6-promise').polyfill();
     args.type = this.enums.MOKMessageType.FILE;
 
     var message = new MOKMessage(this.enums.MOKMessageProtocolCommand.MESSAGE, args);
+
+    if (optionalId != null) {
+      message.id = optionalId;
+      message.oldId = optionalId;
+    }
 
     args.id = message.id;
     args.oldId = message.oldId;
