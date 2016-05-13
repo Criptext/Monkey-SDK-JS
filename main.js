@@ -268,7 +268,7 @@ require('es6-promise').polyfill();
     if (shouldCompress) {
       props.cmpr = "gzip";
       this.compress(data, function(error, compressedData){
-        this.uploadFile(data, recipientMonkeyId, fileName, props, optionalParams, function(error, message){
+        this.uploadFile(compressedData, recipientMonkeyId, fileName, props, optionalParams, function(error, message){
           if (error) {
             callback(error, message);
           }
@@ -309,7 +309,7 @@ require('es6-promise').polyfill();
     if (shouldCompress) {
       props.cmpr = "gzip";
       this.compress(data, function(error, compressedData){
-        this.uploadFile(data, recipientMonkeyId, fileName, props, optionalParams, optionalPush, function(error, message){
+        this.uploadFile(compressedData, recipientMonkeyId, fileName, props, optionalParams, optionalPush, function(error, message){
           if (error) {
             return callback(error, message);
           }
