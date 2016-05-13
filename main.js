@@ -250,7 +250,7 @@ require('es6-promise').polyfill();
   }
 
   proto.sendFile = function sendFile(data, recipientMonkeyId, fileName, mimeType, fileType, shouldCompress, optionalParams, optionalPush, callback){
-    
+
     callback = (typeof callback == "function") ? callback : function () { };
     data = this.cleanFilePrefix(data);
     var props = {
@@ -258,7 +258,8 @@ require('es6-promise').polyfill();
       encr: 0,
       file_type: fileType,
       ext: this.mok_getFileExtension(fileName),
-      filename: fileName
+      filename: fileName,
+      size: data.length
     };
 
     if (mimeType) {
@@ -291,7 +292,7 @@ require('es6-promise').polyfill();
   }
 
   proto.sendEncryptedFile = function sendEncryptedFile(data, recipientMonkeyId, fileName, mimeType, fileType, shouldCompress, optionalParams, optionalPush, callback){
-    
+
     callback = (typeof callback == "function") ? callback : function () { };
     data = this.cleanFilePrefix(data);
     var props = {
@@ -299,7 +300,8 @@ require('es6-promise').polyfill();
       encr: 1,
       file_type: fileType,
       ext: this.mok_getFileExtension(fileName),
-      filename: fileName
+      filename: fileName,
+      size: data.length
     };
 
     if (mimeType) {
@@ -334,8 +336,6 @@ require('es6-promise').polyfill();
   proto.uploadFile = function uploadFile(fileData, recipientMonkeyId, fileName, props, optionalParams, optionalPush, callback) {
 
     callback = (typeof callback == "function") ? callback : function () { };
-    var binData = this.mok_convertDataURIToBinary(fileData);
-    props.size = binData.size;
 
     var args = this.prepareMessageArgs(recipientMonkeyId, props, optionalParams, optionalPush);
     args.msg = fileName;
@@ -375,9 +375,6 @@ require('es6-promise').polyfill();
   }
 
   proto.createFileMessage = function createFileMessage(fileData, recipientMonkeyId, fileName, props, optionalParams, optionalPush){
-
-    var binData = this.mok_convertDataURIToBinary(fileData);
-    props.size = binData.size;
 
     var args = this.prepareMessageArgs(recipientMonkeyId, props, optionalParams, optionalPush);
     args.msg = fileName;
@@ -644,7 +641,7 @@ require('es6-promise').polyfill();
 
               watchdog.didResponseSync=true;
               watchdog.removeAllMessagesFromWatchdog();
-              
+
               this.processSyncMessages(arrayMessages, remaining);
 
               break;
@@ -698,7 +695,7 @@ require('es6-promise').polyfill();
 
     callback = (typeof callback == "function") ? callback : function () { };
     apiconnector.basicRequest('POST', '/user/key/exchange',{ monkey_id:this.session.id, user_to:monkeyId}, false, function(err,respObj){
-      
+
       if(err){
         Log.m(this.session.debuggingMode, 'Monkey - error on getting aes keys '+err);
         return callback(null);
@@ -1051,15 +1048,15 @@ require('es6-promise').polyfill();
         return;
       }
       Log.m(this.session.debuggingMode, 'Monkey - GET ALL CONVERSATIONS');
-      
+
       var processFunctions = respObj.data.conversations.reduce(function(result, conversation){
-        
+
         result.push(function(callback){
 
           conversation.last_message = new MOKMessage(this.enums.MOKMessageProtocolCommand.MESSAGE, conversation.last_message);
           var message = conversation.last_message;
           var gotError = false;
-          
+
           if (message.isEncrypted() && message.protocolType != this.enums.MOKMessageType.FILE) {
             try{
               message.text = this.aesDecryptIncomingMessage(message);
@@ -1097,11 +1094,11 @@ require('es6-promise').polyfill();
           }
           else{
             message.text = message.encryptedText;
-            return callback();       
+            return callback();
           }
 
         }.bind(this));
-        
+
         return result;
 
       }.bind(this),[]);
@@ -1131,7 +1128,7 @@ require('es6-promise').polyfill();
   }
 
   proto.getConversationMessages = function getConversationMessages(conversationId, numberOfMessages, lastMessageId, onComplete) {
-    
+
     onComplete = (typeof onComplete == "function") ? onComplete : function () { };
     if (lastMessageId == null) {
       lastMessageId = '';
@@ -1214,7 +1211,7 @@ require('es6-promise').polyfill();
   }
 
   proto.createGroup = function createGroup(members, groupInfo, optionalPush, optionalId, callback){
-  
+
     callback = (typeof callback == "function") ? callback : function () { };
     //check if I'm already in the proposed members
     if (members.indexOf(this.session.id) == -1) {
@@ -1241,7 +1238,7 @@ require('es6-promise').polyfill();
   }
 
   proto.addMemberToGroup = function addMemberToGroup(groupId, newMemberId, optionalPushNewMember, optionalPushExistingMembers, callback){
-    
+
     callback = (typeof callback == "function") ? callback : function () { };
     var params = {
       monkey_id:this.session.id,
@@ -1262,7 +1259,7 @@ require('es6-promise').polyfill();
   }
 
   proto.removeMemberFromGroup = function removeMemberFromGroup(groupId, memberId, callback){
-    
+
     callback = (typeof callback == "function") ? callback : function () { };
     apiconnector.basicRequest('POST', '/group/delete',{ monkey_id:memberId, group_id:groupId }, false, function(err,respObj){
       if(err){
@@ -1275,7 +1272,7 @@ require('es6-promise').polyfill();
   }
 
   proto.getInfoById = function getInfoById(monkeyId, callback){
-    
+
     callback = (typeof callback == "function") ? callback : function () { };
     var endpoint = '/info/'+monkeyId;
 
