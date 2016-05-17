@@ -253,13 +253,15 @@ require('es6-promise').polyfill();
 
     callback = (typeof callback == "function") ? callback : function () { };
     data = this.cleanFilePrefix(data);
+    var binData = new Buffer(data, 'base64');
+
     var props = {
       device: "web",
       encr: 0,
       file_type: fileType,
       ext: this.mok_getFileExtension(fileName),
       filename: fileName,
-      size: data.length
+      size: binData.length
     };
 
     if (mimeType) {
@@ -270,7 +272,7 @@ require('es6-promise').polyfill();
       props.cmpr = "gzip";
     }
 
-    var mokMessage = this.createFileMessage(data, recipientMonkeyId, fileName, props, optionalParams, optionalPush);
+    var mokMessage = this.createFileMessage(recipientMonkeyId, fileName, props, optionalParams, optionalPush);
 
     async.waterfall([
       function(callbackAsync){
@@ -278,7 +280,7 @@ require('es6-promise').polyfill();
           return callbackAsync(null, data);
         }
 
-        this.compress(data, function(error, compressedData){
+        this.compress(binData, function(error, compressedData){
           if (error) {
             return callbackAsync(error);
           }
@@ -305,13 +307,15 @@ require('es6-promise').polyfill();
 
     callback = (typeof callback == "function") ? callback : function () { };
     data = this.cleanFilePrefix(data);
+    var binData = new Buffer(data, 'base64');
+
     var props = {
       device: "web",
       encr: 1,
       file_type: fileType,
       ext: this.mok_getFileExtension(fileName),
       filename: fileName,
-      size: data.length
+      size: binData.length
     };
 
     if (mimeType) {
@@ -322,7 +326,7 @@ require('es6-promise').polyfill();
       props.cmpr = "gzip";
     }
 
-    var mokMessage = this.createFileMessage(data, recipientMonkeyId, fileName, props, optionalParams, optionalPush);
+    var mokMessage = this.createFileMessage(recipientMonkeyId, fileName, props, optionalParams, optionalPush);
 
     async.waterfall([
       function(callbackAsync){
@@ -330,7 +334,7 @@ require('es6-promise').polyfill();
           return callbackAsync(null, data);
         }
 
-        this.compress(data, function(error, compressedData){
+        this.compress(binData, function(error, compressedData){
           if (error) {
             return callbackAsync(error);
           }
@@ -399,7 +403,7 @@ require('es6-promise').polyfill();
     return message;
   }
 
-  proto.createFileMessage = function createFileMessage(fileData, recipientMonkeyId, fileName, props, optionalParams, optionalPush){
+  proto.createFileMessage = function createFileMessage(recipientMonkeyId, fileName, props, optionalParams, optionalPush){
 
     var args = this.prepareMessageArgs(recipientMonkeyId, props, optionalParams, optionalPush);
     args.msg = fileName;
@@ -937,10 +941,10 @@ require('es6-promise').polyfill();
     }
   }
 
-  proto.compress = function(fileData, callback){
+  proto.compress = function(binData, callback){
 
     callback = (typeof callback == "function") ? callback : function () { };
-    var binData = new Buffer(fileData, 'base64');
+
     zlib.gzip(binData, function(error, result){
       var compressedBase64 = this.mok_arrayBufferToBase64(result);
       callback(error, compressedBase64);
@@ -1318,6 +1322,20 @@ require('es6-promise').polyfill();
     }.bind(this));
   }
 
+  proto.getUsersInfo = function getUsersInfo(monkeyIds, callback){
+
+    callback = (typeof callback == "function") ? callback : function () { };
+
+    apiconnector.basicRequest('POST', 'users/info/' ,{monkey_ids: monkeyIds}, false, function(err,respObj){
+      if(err){
+        Log.m(this.session.debuggingMode, 'Monkey - error get users info: '+err);
+        return callback(err);
+      }
+
+      return callback(null, respObj.data);
+    }.bind(this));
+  }
+
   proto.getAllMessages = function getAllMessages(){
     return db.getAllMessages();
   }
@@ -1350,6 +1368,16 @@ require('es6-promise').polyfill();
     return db.getUser(db.getMonkeyId());
   }
 
+  proto.logout = function logout(){
+    Log.m(this.session.debuggingMode, 'Monkey - terminating session and clearing data');
+    db.clear();
+    this.socketConnection.close();
+    this.session = null;
+  }
+
+  proto.close = alias('logout');
+
+  proto.exit = alias('logout');
   /*
   * Utils
   */
