@@ -163,8 +163,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	    if (userObj != null) {
 	      this.session.user = userObj;
 	      this.session.id = userObj.monkeyId;
-	      db.storeMonkeyId(userObj.monkeyId);
-	      db.storeUser(userObj.monkeyId, userObj);
+	      if (userObj.monkeyId != null) {
+	        db.storeMonkeyId(userObj.monkeyId);
+	        db.storeUser(userObj.monkeyId, userObj);
+	      }
 	    }
 
 	    if (shouldExpireSession) {
@@ -1068,8 +1070,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	      if (isSync) {
 	        Log.m(this.session.debuggingMode, 'Monkey - reusing Monkey ID : ' + this.session.id);
 
-	        this.session.lastTimestamp = respObj.data.last_time_synced;
-	        this.session.lastMessageId = respObj.data.last_message_id;
+	        this.session.lastTimestamp = respObj.data.last_time_synced || 0;
+	        this.session.lastMessageId = respObj.data.last_message_id || 0;
 
 	        var decryptedAesKeys = this.session.exchangeKeys.decrypt(respObj.data.keys, 'utf8');
 
@@ -1091,7 +1093,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	      }
 
 	      this.session.id = respObj.data.monkeyId;
+	      this.session.user.monkeyId = respObj.data.monkeyId;
 	      db.storeMonkeyId(respObj.data.monkeyId);
+	      db.storeUser(respObj.data.monkeyId, this.session.user);
 
 	      var connectParams = { monkey_id: this.session.id };
 
@@ -1364,6 +1368,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	      if (err) {
 	        Log.m(this.session.debuggingMode, 'Monkey - error get info: ' + err);
 	        return callback(err);
+	      }
+
+	      if (respObj.data == null) {
+	        respObj.data = {};
 	      }
 
 	      return callback(null, respObj.data);

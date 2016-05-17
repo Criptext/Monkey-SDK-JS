@@ -1009,8 +1009,8 @@ require('es6-promise').polyfill();
       if (isSync) {
         Log.m(this.session.debuggingMode, 'Monkey - reusing Monkey ID : '+this.session.id);
 
-        this.session.lastTimestamp = respObj.data.last_time_synced;
-        this.session.lastMessageId = respObj.data.last_message_id;
+        this.session.lastTimestamp = respObj.data.last_time_synced || 0;
+        this.session.lastMessageId = respObj.data.last_message_id || 0;
 
         var decryptedAesKeys = this.session.exchangeKeys.decrypt(respObj.data.keys, 'utf8');
 
@@ -1320,6 +1320,10 @@ require('es6-promise').polyfill();
       if(err){
         Log.m(this.session.debuggingMode, 'Monkey - error get info: '+err);
         return callback(err);
+      }
+
+      if (respObj.data == null) {
+        respObj.data = {};
       }
 
       return callback(null, respObj.data);
