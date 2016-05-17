@@ -103,8 +103,10 @@ require('es6-promise').polyfill();
     if (userObj != null) {
       this.session.user = userObj;
       this.session.id = userObj.monkeyId;
-      db.storeMonkeyId(userObj.monkeyId);
-      db.storeUser(userObj.monkeyId, userObj);
+      if(userObj.monkeyId!=null){
+        db.storeMonkeyId(userObj.monkeyId);
+        db.storeUser(userObj.monkeyId, userObj);
+      }
     }
 
     if (shouldExpireSession) {
@@ -1025,8 +1027,10 @@ require('es6-promise').polyfill();
         return;
       }
 
-      this.session.id=respObj.data.monkeyId;
+      this.session.id = respObj.data.monkeyId;
+      this.session.user.monkeyId = respObj.data.monkeyId;
       db.storeMonkeyId(respObj.data.monkeyId);
+      db.storeUser(respObj.data.monkeyId, this.session.user);
 
       var connectParams = {monkey_id:this.session.id};
 
