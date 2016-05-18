@@ -58,13 +58,9 @@
     HISTORY:1,
     GROUPS:2
   }
-  /**
-  * Alias of addListener
-  */
-  // proto.on = alias('addListener');
 
   /**
-  * Reverts the global {@link Monkey} to its previous value and returns a reference to this version.
+  * Reverts the global {@link MonkeyEnums} to its previous value and returns a reference to this version.
   *
   * @return {Function} Non conflicting EventEmitter class.
   */

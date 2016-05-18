@@ -1,6 +1,6 @@
 {
   "name": "monkey-sdk",
-  "version": "0.0.58",
+  "version": "0.0.59",
   "description": "Monkey SDK for web",
   "main": "./dist/monkey.js",
   "scripts": {
@@ -28,7 +28,7 @@
     "whatwg-fetch": "^0.11.0"
   },
   "author": "Criptext <gianni@criptext.com>",
-  "license": "Apache 2.0",
+  "license": "Apache v2.0",
   "keywords": [
     "monkey",
     "sdk",

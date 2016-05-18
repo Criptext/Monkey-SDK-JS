@@ -81,7 +81,6 @@ require('es6-promise').polyfill();
     id:null,
     user: null,
     lastTimestamp: 0,
-    lastMessageId: 0,
     expireSession: 0,
     debuggingMode: false
   }
@@ -106,7 +105,7 @@ require('es6-promise').polyfill();
       this.session.id = userObj.monkeyId;
       if(userObj.monkeyId!=null){
         db.storeMonkeyId(userObj.monkeyId);
-        db.storeUser(userObj.monkeyId, userObj);
+        db.storeUser(userObj.monkeyId, this.session);
       }
     }
 
@@ -426,14 +425,6 @@ require('es6-promise').polyfill();
     this.requestMessagesSinceTimestamp(this.session.lastTimestamp, 15, false);
   }
 
-  proto.processGetMessages = function processGetMessages(messages, remaining){
-    this.processMultipleMessages(messages);
-
-    if (remaining > 0) {
-      this.requestMessagesSinceId(this.session.lastMessageId, 15, false);
-    }
-  }
-
   proto.processSyncMessages = function processSyncMessages(messages, remaining){
     this.processMultipleMessages(messages);
 
@@ -503,9 +494,8 @@ require('es6-promise').polyfill();
       message.text = message.encryptedText;
     }
 
-    if (message.id > 0) {
+    if (message.id > 0 && message.datetimeCreation > this.session.lastTimestamp) {
       this.session.lastTimestamp = message.datetimeCreation;
-      this.session.lastMessageId = message.id;
     }
 
     switch (message.protocolCommand){
@@ -525,9 +515,8 @@ require('es6-promise').polyfill();
   }
 
   proto.fileReceived = function fileReceived(message){
-    if (message.id > 0) {
+    if (message.id > 0 && message.datetimeCreation > this.session.lastTimestamp) {
       this.session.lastTimestamp = message.datetimeCreation;
-      this.session.lastMessageId = message.id;
     }
 
     this._getEmitter().emit('onMessage', message);
@@ -573,25 +562,6 @@ require('es6-promise').polyfill();
     }.bind(this));
 
     this.sendCommand(this.enums.MOKMessageProtocolCommand.SYNC, args);
-
-  }
-
-  proto.requestMessagesSinceId = function requestMessagesSinceId(lastMessageId, quantity, withGroups){
-    var args = {
-      messages_since: lastMessageId,
-      qty:  quantity
-    }
-
-    if (withGroups == true) {
-      args.groups = 1;
-    }
-
-    this.sendCommand(this.enums.MOKMessageProtocolCommand.GET, args);
-
-    watchdog.startWatchingSync(function(){
-      this.socketConnection.close();
-      setTimeout(this.startConnection(this.session.id), 2000);
-    }.bind(this));
   }
 
   proto.startConnection = function startConnection(monkey_id){
@@ -632,7 +602,7 @@ require('es6-promise').polyfill();
       var msg = new MOKMessage(jsonres.cmd, jsonres.args);
       switch (parseInt(jsonres.cmd)){
         case this.enums.MOKMessageProtocolCommand.MESSAGE:{
-          this.processMOKProtocolMessage(msg);          
+          this.processMOKProtocolMessage(msg);
           break;
         }
         case this.enums.MOKMessageProtocolCommand.PUBLISH:{
@@ -646,28 +616,13 @@ require('es6-promise').polyfill();
           break;
         }
         case this.enums.MOKMessageProtocolCommand.GET:{
-          //notify watchdog
-          switch(jsonres.args.type){
-            case this.enums.MOKGetType.HISTORY:{
-              var arrayMessages = jsonres.args.messages;
-              var remaining = jsonres.args.remaining_messages;
+          if (jsonres.args.type == this.enums.MOKGetType.GROUPS) {
+            msg.protocolCommand= this.enums.MOKMessageProtocolCommand.GET;
+            msg.protocolType = this.enums.MOKMessageType.NOTIF;
+            //monkeyType = MOKGroupsJoined;
+            msg.text = jsonres.args.messages;
 
-              watchdog.didResponseSync=true;
-              watchdog.removeAllMessagesFromWatchdog();
-
-              this.processGetMessages(arrayMessages, remaining);
-
-              break;
-            }
-            case this.enums.MOKGetType.GROUPS:{
-              msg.protocolCommand= this.enums.MOKMessageProtocolCommand.GET;
-              msg.protocolType = this.enums.MOKMessageType.NOTIF;
-              //monkeyType = MOKGroupsJoined;
-              msg.text = jsonres.args.messages;
-
-              this._getEmitter().emit('onNotification', msg);
-              break;
-            }
+            this._getEmitter().emit('onNotification', msg);
           }
 
           break;
@@ -784,9 +739,8 @@ require('es6-promise').polyfill();
       message.text = message.encryptedText;
       message.encryptedText = this.aesDecrypt(message.encryptedText, this.session.id);
       if (message.encryptedText == null) {
-        if (message.id > 0) {
+        if (message.id > 0 && message.datetimeCreation > this.session.lastTimestamp) {
           this.session.lastTimestamp = message.datetimeCreation;
-          this.session.lastMessageId = message.id;
         }
         return callback(null);
       }
@@ -1019,7 +973,6 @@ require('es6-promise').polyfill();
         Log.m(this.session.debuggingMode, 'Monkey - reusing Monkey ID : '+this.session.id);
 
         this.session.lastTimestamp = respObj.data.last_time_synced || 0;
-        this.session.lastMessageId = respObj.data.last_message_id || 0;
 
         var decryptedAesKeys = this.session.exchangeKeys.decrypt(respObj.data.keys, 'utf8');
 
@@ -1043,7 +996,7 @@ require('es6-promise').polyfill();
       this.session.id = respObj.data.monkeyId;
       this.session.user.monkeyId = respObj.data.monkeyId;
       db.storeMonkeyId(respObj.data.monkeyId);
-      db.storeUser(respObj.data.monkeyId, this.session.user);
+      db.storeUser(respObj.data.monkeyId, this.session);
 
       var connectParams = {monkey_id:this.session.id};
 
@@ -1386,7 +1339,8 @@ require('es6-promise').polyfill();
   }
 
   proto.getUser = function getUser(){
-    return db.getUser(db.getMonkeyId());
+    this.session = db.getUser(db.getMonkeyId())
+    return this.session.user;
   }
 
   proto.logout = function logout(){

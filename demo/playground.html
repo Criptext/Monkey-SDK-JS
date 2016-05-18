@@ -1,0 +1,213 @@
+<!--
+This is an example of a simple implementation for sending messages
+between 2 monkeyIds in an app.
+
+The simple example is called "plain", because is not using the encryption
+feature of monkey.
+
+-->
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+  <meta charset="UTF-8">
+  <meta name="description" content="Monkey playground">
+  <meta name="keywords" content="monkey, example">
+  <meta name="author" content="Criptext INC.">
+  <title> Monkey Playground </title>
+
+
+  <!-- Javascript: JS -->
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.2/jquery.min.js"></script>
+  <script src="../dist/monkey.js"></script>
+
+
+</head>
+<body>
+  <p>If you don't have a monkey ID you can leave it blank to generate a random id. Check the wiki to understand how it works</p>
+  <div style="text-align:center;">
+    <span>ID FROM: </span>
+    <input id="myMonkeyIdInput" type="text" value=""/>
+    <button onclick="connectWith();">Connect</button>
+    <br>
+    <p>Status: <span id="status">OFFLINE</span></p>
+    <br><br>
+    <span>ID TO: </span>
+    <input id="recipientMonkeyIdInput" type="text" value=""/>
+    <br><br>
+    <span>TEXT TO SEND: </span>
+    <input id="myTextToSend" type="text" value=""/>
+    <button onclick="sendMessage();">Send</button>
+    <br><br>
+    <button onclick="monkeyLogout();">Logout</button>
+    <br><br>
+    <br>
+    <p>Received messages:</p>
+
+  </div>
+
+
+  <div id="messages" style="text-align:center;">
+
+  </div>
+
+  <script>
+
+  var messages = {};
+
+  var monkey = new Monkey();
+
+  console.log(monkey.getUser());
+
+  //Add listeners
+  monkey.on( "onSession", function( eObject ) {
+    console.log("On Session "+ JSON.stringify(eObject));
+    changeStatus(getStatus(monkey.status));
+  });
+
+  monkey.on( "onConnect", function( eObject ) {
+    console.log("Connected "+JSON.stringify(eObject));
+    // In a simple implementation you just need to start sending a message to the other monkedId once you are connected.
+    changeStatus(getStatus(monkey.status));
+
+    monkey.getPendingMessages();
+
+    // monkey.getInfoByIds('idkh61jqs9ia151u7edhd7vi,idkh61jqs9ia151u7edhd7vi', function(error, resp){
+    //   console.log('error: '+error);
+    //   console.log('resp: '+JSON.stringify(resp));
+    // });
+  });
+
+  monkey.on( "onMessage", function(message ){
+    console.log('message arrived '+JSON.stringify(message));
+
+    switch(message.protocolType){
+      // Text
+      case monkey.enums.MessageType.MESSAGE:
+
+      addHTMLMessage(message.id, message.senderId,message.text)
+
+      break;
+      // File
+      case monkey.enums.MessageType.FILE:
+      break;
+    }
+
+
+  });
+
+  monkey.on( "onDisconnect", function( event, eObject ) {
+    console.log("onDisconnect event");
+    changeStatus(getStatus(monkey.status));
+  });
+
+  monkey.on( "onNotification", function( notification ) {
+    console.log("On Notifcation "+JSON.stringify(notification));
+
+  });
+
+  monkey.on( "onAcknowledge", function(acknowledge ) {
+
+    markMessageAs(acknowledge.oldId, acknowledge.props.status);
+
+  });
+
+  function markMessageAs(messageOldId,messageStatus){
+
+    if(messages[messageOldId]){
+      // TODO
+    }
+    else{
+      console.log("Message not found "+messageOldId);
+    }
+  }
+
+  function getStatus(code){
+
+    switch(code){
+      case 0:
+      return "OFFLINE"; break;
+      case 1:
+      return "HANDSHAKE"; break;
+      case 2:
+      return "CONNECTING"; break;
+      case 3:
+      return "ONLINE"; break;
+    }
+  }
+
+
+
+
+  function changeStatus(statusString){
+    $("#status").text(statusString);
+  }
+
+
+  $( document ).ready(function() {
+
+    //connectWith(userObj);
+
+  });
+
+
+  function connectWith(){
+    /*
+    To specify a user that already has a monkeyId saved in your system.
+
+    */
+    var monkeyId=$("#myMonkeyIdInput").val();
+
+    //reuse stored user:
+    var userObj = monkey.getUser();
+
+    if (userObj == null) {
+      userObj = { name:"pablo", monkeyId:monkeyId};
+    }
+
+    monkey.init("idkgwf6ghcmyfvvrxqiwwmi", "9da5bbc32210ed6501de82927056b8d2",userObj, false, true, false);
+
+  }
+
+
+  function addHTMLMessage(messageId_,fromUser,messageText_){
+
+    _mensajeHTML='<div class="message-line" id="'+messageId_+'">'+
+    '<span style="">'+fromUser+'</span> : '+messageText_+'</div>';
+
+    $("#messages").append(_mensajeHTML);
+  }
+
+  var messages={};
+
+  function monkeyLogout(){
+    if (monkey != null) {
+      monkey.exit();
+    }
+  }
+
+  function sendMessage(){
+
+
+    text=$("#myTextToSend").val();
+
+    recipientMonkeyId=$("#recipientMonkeyIdInput").val();
+
+    message = monkey.sendMessage(text, recipientMonkeyId, {test: "esto es un test de params"});//the last parameter is for a JSON object that the developer wants to send
+    // the oldId helps the developer to map the acknowledge that returns when the message was delivered to the other user.
+
+    console.log("Sent message with id "+message.oldId);
+
+    messages[message.oldId]=message; // keep track of the message sent so you can update the status of the message when the ack arrives.
+    $("#myTextToSend").val("");
+
+}
+
+</script>
+
+
+
+</body>
+</html>
