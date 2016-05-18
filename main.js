@@ -1339,11 +1339,15 @@ require('es6-promise').polyfill();
     }.bind(this));
   }
 
-  proto.getUsersInfo = function getUsersInfo(monkeyIds, callback){
+  proto.getInfoByIds = function getInfoByIds(monkeyIds, callback){
 
     callback = (typeof callback == "function") ? callback : function () { };
 
-    apiconnector.basicRequest('POST', 'users/info/' ,{monkey_ids: monkeyIds}, false, function(err,respObj){
+    if (Array.isArray(monkeyIds)) {
+      monkeyIds = monkeyIds.join();
+    }
+
+    apiconnector.basicRequest('POST', '/users/info/' ,{monkey_ids: monkeyIds}, false, function(err,respObj){
       if(err){
         Log.m(this.session.debuggingMode, 'Monkey - error get users info: '+err);
         return callback(err);
