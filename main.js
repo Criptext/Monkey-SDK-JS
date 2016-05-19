@@ -105,7 +105,7 @@ require('es6-promise').polyfill();
       this.session.id = userObj.monkeyId;
       if(userObj.monkeyId!=null){
         db.storeMonkeyId(userObj.monkeyId);
-        db.storeUser(userObj.monkeyId, this.session);
+        db.storeUser(userObj.monkeyId, userObj);
       }
     }
 
@@ -213,7 +213,7 @@ require('es6-promise').polyfill();
     }
 
     watchdog.addMessageToWatchdog(args, function(){
-      this.socketConnection.close();
+      // this.socketConnection.close();
       setTimeout(this.startConnection(this.session.id), 2000);
     }.bind(this));
 
@@ -557,7 +557,7 @@ require('es6-promise').polyfill();
     }
 
     watchdog.startWatchingSync(function(){
-      this.socketConnection.close();
+      // this.socketConnection.close();
       setTimeout(this.startConnection(this.session.id), 2000);
     }.bind(this));
 
@@ -854,17 +854,6 @@ require('es6-promise').polyfill();
 
         var newSize = decryptedData.length;
         Log.m(this.session.debuggingMode, "Monkey - decrypted file size: "+newSize);
-
-        if (currentSize == newSize) {
-          this.getAESkeyFromUser(message.senderId, message, function(response){
-            if (response != null) {
-              this.decryptDownloadedFile(fileData, message, callback);
-            }else{
-              callback("Error decrypting downloaded file");
-            }
-          }.bind(this));
-          return;
-        }
       }
       catch(error){
         Log.m(this.session.debuggingMode, "===========================");
@@ -898,6 +887,14 @@ require('es6-promise').polyfill();
 
     if (message.isCompressed()) {
       fileData = this.decompress(fileData, function(err, decompressedData){
+        if (err) {
+          return callback(err);
+        }
+
+        var binData = new Buffer(decompressedData, 'base64');
+        if (message.props.size != binData.length) {
+          return callback('Error decrypting downloaded file');
+        }
         callback(err, decompressedData);
       });
     }
@@ -996,7 +993,7 @@ require('es6-promise').polyfill();
       this.session.id = respObj.data.monkeyId;
       this.session.user.monkeyId = respObj.data.monkeyId;
       db.storeMonkeyId(respObj.data.monkeyId);
-      db.storeUser(respObj.data.monkeyId, this.session);
+      db.storeUser(respObj.data.monkeyId, respObj.data);
 
       var connectParams = {monkey_id:this.session.id};
 
@@ -1044,79 +1041,72 @@ require('es6-promise').polyfill();
       }
       Log.m(this.session.debuggingMode, 'Monkey - GET ALL CONVERSATIONS');
 
-      var processFunctions = respObj.data.conversations.reduce(function(result, conversation){
+      // assuming openFiles is an array of file names
 
-        result.push(function(callback){
+      async.each(respObj.data.conversations, function(conversation, callback) {
 
-          conversation.last_message = new MOKMessage(this.enums.MOKMessageProtocolCommand.MESSAGE, conversation.last_message);
-          var message = conversation.last_message;
-          var gotError = false;
+        conversation.last_message = new MOKMessage(this.enums.MOKMessageProtocolCommand.MESSAGE, conversation.last_message);
+        var message = conversation.last_message;
+        var gotError = false;
 
-          if (message.isEncrypted() && message.protocolType != this.enums.MOKMessageType.FILE) {
-            try{
-              message.text = this.aesDecryptIncomingMessage(message);
-              return callback();
-            }
-            catch(error){
-              gotError = true;
-              Log.m(this.session.debuggingMode, "===========================");
-              Log.m(this.session.debuggingMode, "MONKEY - Fail decrypting: "+message.id+" type: "+message.protocolType);
-              Log.m(this.session.debuggingMode, "===========================");
-              //get keys
-              this.getAESkeyFromUser(message.senderId, message, function(response){
-                if (response != null) {
-                  message.text = this.aesDecryptIncomingMessage(message);
-                  return callback();
-                }
-                else{
-                  return callback();
-                }
-              }.bind(this));
-            }
-
-            if (!gotError && (message.text == null || message.text == "")) {
-              //get keys
-              this.getAESkeyFromUser(message.senderId, message, function(response){
-                if (response != null) {
-                  message.text = this.aesDecryptIncomingMessage(message);
-                  return callback();
-                }
-                else{
-                  return callback();
-                }
-              }.bind(this));
-            }
+        if (message.isEncrypted() && message.protocolType != this.enums.MOKMessageType.FILE) {
+          try{
+            message.text = this.aesDecryptIncomingMessage(message);
+            return callback(null);
           }
-          else{
-            message.text = message.encryptedText;
-            return callback();
+          catch(error){
+            gotError = true;
+            Log.m(this.session.debuggingMode, "===========================");
+            Log.m(this.session.debuggingMode, "MONKEY - Fail decrypting: "+message.id+" type: "+message.protocolType);
+            Log.m(this.session.debuggingMode, "===========================");
+            //get keys
+            this.getAESkeyFromUser(message.senderId, message, function(response){
+              if (response != null) {
+                message.text = this.aesDecryptIncomingMessage(message);
+                return callback(null);
+              }
+              else{
+                return callback(null);
+              }
+            }.bind(this));
           }
 
-        }.bind(this));
-
-        return result;
-
-      }.bind(this),[]);
-
-      async.waterfall(processFunctions, function(error, result){
-          if(error){
-            onComplete(error.toString(), null);
+          if (!gotError && (message.text == null || message.text == "")) {
+            //get keys
+            this.getAESkeyFromUser(message.senderId, message, function(response){
+              if (response != null) {
+                message.text = this.aesDecryptIncomingMessage(message);
+                return callback(null);
+              }
+              else{
+                return callback(null);
+              }
+            }.bind(this));
           }
-          else{
-            //NOW DELETE CONVERSATIONS WITH LASTMESSAGE NO DECRYPTED
-            respObj.data.conversations = respObj.data.conversations.reduce(function(result, conversation){
+        }
+        else{
+          message.text = message.encryptedText;
+          return callback(null);
+        }
+      }.bind(this), function(error){
+        if(error){
+          onComplete(error.toString(), null);
+        }
+        else{
+          //NOW DELETE CONVERSATIONS WITH LASTMESSAGE NO DECRYPTED
+          respObj.data.conversations = respObj.data.conversations.reduce(function(result, conversation){
 
-              if(conversation.last_message.protocolType == this.enums.MOKMessageType.TEXT
-                && conversation.last_message.encryptedText != conversation.last_message.text )
-                result.push(conversation);
-              else if(conversation.last_message.protocolType != this.enums.MOKMessageType.TEXT)
-                result.push(conversation);
+            if(conversation.last_message.protocolType == this.enums.MOKMessageType.TEXT
+              && conversation.last_message.encryptedText != conversation.last_message.text )
+              result.push(conversation);
+            else if(conversation.last_message.protocolType != this.enums.MOKMessageType.TEXT)
+              result.push(conversation);
 
-              return result;
-            }.bind(this),[]);
+            return result;
+          }.bind(this),[]);
 
-            onComplete(null, respObj);
-          }
+          onComplete(null, respObj);
+        }
       }.bind(this));
 
     }.bind(this));
@@ -1339,15 +1329,15 @@ require('es6-promise').polyfill();
   }
 
   proto.getUser = function getUser(){
-    this.session = db.getUser(db.getMonkeyId())
-    return this.session.user;
+    // this.session = db.getUser(db.getMonkeyId())
+    return db.getUser(db.getMonkeyId());
   }
 
   proto.logout = function logout(){
     Log.m(this.session.debuggingMode, 'Monkey - terminating session and clearing data');
     db.clear();
     this.socketConnection.close();
-    this.session = null;
+    this.session = {};
   }
 
   proto.close = alias('logout');
