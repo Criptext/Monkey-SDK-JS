@@ -35,9 +35,9 @@ module.exports = (function() {
     var arrayMessages = this.getAllMessages();
     arrayMessages.reduce(function(result, message){
       if(message.senderId == id && !message.readByUser)
-        this.updateMessageReadStatus(message.id);
+      this.updateMessageReadStatus(message.id);
       return result;
-    }.bind(this),0);  
+    }.bind(this),0);
 
   }
 
@@ -48,9 +48,9 @@ module.exports = (function() {
   }
 
   db.getAllMessages = function(){
-    
+
     var arrayMessages = [];
-    
+
     store.forEach(function(key, val) {
       if(key.indexOf("message_") != -1){
         arrayMessages.push(val);
@@ -65,25 +65,25 @@ module.exports = (function() {
     var arrayMessages = this.getAllMessages();
 
     if(id.indexOf("G:") != -1){
-      
+
       arrayMessages = arrayMessages.reduce(function(result, message){
         if(message.senderId == id || message.recipientId == id)
-          result.push(message);
+        result.push(message);
         return result;
-      },[]);  
+      },[]);
 
     }
     else{
 
       arrayMessages = arrayMessages.reduce(function(result, message){
-        if( (message.recipientId.indexOf(id)>=0 && message.senderId.indexOf("G:")==-1) 
-            || (message.senderId == id && message.recipientId.indexOf("G:")==-1) )
-          result.push(message);
+        if( (message.recipientId.indexOf(id)>=0 && message.senderId.indexOf("G:")==-1)
+        || (message.senderId == id && message.recipientId.indexOf("G:")==-1) )
+        result.push(message);
         return result;
-      },[]);  
+      },[]);
 
     }
-    
+
     return arrayMessages;
 
   }
@@ -93,9 +93,9 @@ module.exports = (function() {
     var arrayMessages = this.getAllMessages();
     arrayMessages = arrayMessages.reduce(function(result, message){
       if(parseInt(message.id) < 0)
-        result.push(message);
+      result.push(message);
       return result;
-    },[]);  
+    },[]);
 
     return arrayMessages;
 
@@ -106,9 +106,9 @@ module.exports = (function() {
     var arrayMessages = this.getAllMessages();
     var total = arrayMessages.reduce(function(result, message){
       if(message.senderId == id && !message.readByUser)
-        result++;
+      result++;
       return result;
-    },0);  
+    },0);
 
     return total;
 
@@ -134,10 +134,12 @@ module.exports = (function() {
     arrayMessages.reduce(function(result, message){
       this.deleteMessageById(message.id);
       return result;
-    }.bind(this),[]);  
+    }.bind(this),[]);
 
   }
-
+  db.clear = function(){
+    return store.clear();
+  }
   return db;
 
 }())

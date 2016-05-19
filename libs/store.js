@@ -3,11 +3,11 @@
 module.exports = (function() {
 	// Store.js
 	var store = {},
-		win = (typeof window != 'undefined' ? window : global),
-		doc = win.document,
-		localStorageName = 'localStorage',
-		scriptTag = 'script',
-		storage
+	win = (typeof window != 'undefined' ? window : global),
+	doc = win.document,
+	localStorageName = 'localStorage',
+	scriptTag = 'script',
+	storage
 
 	store.disabled = false
 	store.version = '1.3.20'
@@ -36,6 +36,7 @@ module.exports = (function() {
 		return ret
 	}
 	store.forEach = function() {}
+	store.exists = function() {}
 	store.serialize = function(value) {
 		return JSON.stringify(value)
 	}
@@ -72,9 +73,19 @@ module.exports = (function() {
 				callback(key, store.get(key))
 			}
 		}
+		store.exists = function(needle) {
+			for (var i=0; i<storage.length; i++) {
+				var key = storage.key(i)
+
+				if (key == needle) {
+					return true;
+				}
+			}
+			return false;
+		}
 	} else if (doc && doc.documentElement.addBehavior) {
 		var storageOwner,
-			storageContainer
+		storageContainer
 		// Since #userData storage applies only to specific paths, we need to
 		// somehow link our data to a specific path.  We choose /favicon.ico
 		// as a pretty safe option, since all browsers already make a request to
@@ -162,6 +173,6 @@ module.exports = (function() {
 		store.disabled = true
 	}
 	store.enabled = !store.disabled
-	
+
 	return store
 }())
