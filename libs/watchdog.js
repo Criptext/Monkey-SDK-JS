@@ -10,12 +10,12 @@ module.exports = (function() {
   var myTimeout;
   var reconnect;
 
-  watchdog.didResponseSync = false;
+  watchdog.didRespondSync = false;
 
-  watchdog.addMessageToWatchdog = function(args, reconnectFunction){
+  watchdog.messageInTransit = function(reconnectFunction){
 
     reconnect = reconnectFunction;
-    store.set("pending_"+args.id, args);
+
     if(!working){
       this.startWatching();
     }
@@ -24,14 +24,14 @@ module.exports = (function() {
 
   watchdog.removeMessageFromWatchdog = function(messageid){
 
-    store.remove("pending_"+messageid);
+    store.remove('message_-'+messageid);
 
   }
 
   watchdog.removeAllMessagesFromWatchdog = function(){
 
     store.forEach(function(key, val) {
-      if(key.indexOf("pending_") != -1){
+      if(key.indexOf('message_-') != -1){
         store.remove(key);
       }
     });
@@ -41,7 +41,7 @@ module.exports = (function() {
   watchdog.startWatchingSync = function(reconnectFunction){
 
     reconnect = reconnectFunction;
-    watchdog.didResponseSync = false;
+    watchdog.didRespondSync = false;
     if(!working){
       this.startWatching();
     }
@@ -55,7 +55,7 @@ module.exports = (function() {
     }
     myTimeout = window.setTimeout(function(){
 
-      if(watchdog.checkIfPendingMessages() || !watchdog.didResponseSync){
+      if(watchdog.checkIfPendingMessages() || !watchdog.didRespondSync){
         if(reconnect!=null)
         reconnect();
       }
@@ -69,14 +69,14 @@ module.exports = (function() {
   }
 
   watchdog.checkIfPendingMessages = function(){
-    return store.exists('pending_');
+    return store.exists('message_-');
   }
 
   watchdog.getTotalPendingMessages = function(){
 
     var total=0;
     store.forEach(function(key, val) {
-      if(key.indexOf("pending_") != -1){
+      if(key.indexOf('message_-') != -1){
         total++;
       }
     });

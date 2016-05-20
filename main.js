@@ -212,12 +212,13 @@ require('es6-promise').polyfill();
       args.msg = message.encryptedText;
     }
 
-    watchdog.addMessageToWatchdog(args, function(){
-      // this.socketConnection.close();
+    message.args = args;
+    db.storeMessage(message);
+
+    watchdog.messageInTransit(function(){
+      this.socketConnection.close();
       setTimeout(this.startConnection(this.session.id), 2000);
     }.bind(this));
-
-    db.storeMessage(message);
 
     this.sendCommand(cmd, args);
 
@@ -415,9 +416,8 @@ require('es6-promise').polyfill();
 
     args.id = message.id;
     args.oldId = message.oldId;
-    args.props = message.props;
-    args.params = message.params;
 
+    message.args = args;
     return message;
   };
 
@@ -531,18 +531,46 @@ require('es6-promise').polyfill();
     Log.m(this.session.debuggingMode, "MONKEY - ACK in process");
     Log.m(this.session.debuggingMode, "===========================");
 
-    //Aditional treatment can be done here
-    this._getEmitter().emit('onAcknowledge', message);
-
     if(message.props.status == "52")
       message.readByUser = true;
 
     if(message.id != "0"){
-      watchdog.removeMessageFromWatchdog(message.oldId);
-      db.deleteMessageById(message.oldId);
-      db.storeMessage(message);
+      var storedMessage = db.getMessageById(message.oldId);
+
+      //if message was already sent, then look for it with the other id
+      if (storedMessage == null) {
+        storedMessage == db.getMessageById(message.id);
+      }
+
+      //if message doesn't exists locally, sync messages
+      if (storedMessage == null) {
+        this.getPendingMessages();
+      }else{
+        storedMessage.id = message.id;
+        db.deleteMessageById(message.oldId);
+        db.storeMessage(storedMessage);
+      }
+
     }
 
+    this._getEmitter().emit('onAcknowledge', message);
+
+  }
+
+  proto.resendPendingMessages = function resendPendingMessages(){
+    var arrayMessages = db.getPendingMessages();
+
+    //set watchdog
+    if (arrayMessages.length > 0) {
+      watchdog.messageInTransit(function(){
+        this.socketConnection.close();
+        setTimeout(this.startConnection(this.session.id), 2000);
+      }.bind(this));
+    }
+
+    arrayMessages.map(function(msg){
+      this.sendCommand(msg.protocolCommand, msg.args);
+    }.bind(this));
   }
 
   proto.requestMessagesSinceTimestamp = function requestMessagesSinceTimestamp(lastTimestamp, quantity, withGroups){
@@ -557,7 +585,7 @@ require('es6-promise').polyfill();
     }
 
     watchdog.startWatchingSync(function(){
-      // this.socketConnection.close();
+      this.socketConnection.close();
       setTimeout(this.startConnection(this.session.id), 2000);
     }.bind(this));
 
@@ -586,8 +614,11 @@ require('es6-promise').polyfill();
 
       this.sendCommand(this.enums.ProtocolCommand.SET, {online:1});
 
-      if(this.autoSync)
+      this.resendPendingMessages();
+
+      if(this.autoSync){
         this.getPendingMessages();
+      }
     }.bind(this);
 
     this.socketConnection.onmessage = function (evt)
@@ -634,8 +665,7 @@ require('es6-promise').polyfill();
               var arrayMessages = jsonres.args.messages;
               var remaining = jsonres.args.remaining_messages;
 
-              watchdog.didResponseSync=true;
-              watchdog.removeAllMessagesFromWatchdog();
+              watchdog.didRespondSync=true;
 
               this.processSyncMessages(arrayMessages, remaining);
 
@@ -993,7 +1023,7 @@ require('es6-promise').polyfill();
       this.session.id = respObj.data.monkeyId;
       this.session.user.monkeyId = respObj.data.monkeyId;
       db.storeMonkeyId(respObj.data.monkeyId);
-      db.storeUser(respObj.data.monkeyId, respObj.data);
+      db.storeUser(respObj.data.monkeyId, this.session.user);
 
       var connectParams = {monkey_id:this.session.id};
 
@@ -1195,6 +1225,29 @@ require('es6-promise').polyfill();
     }.bind(this));
   }
 
+  proto.deleteConversation = function deleteConversation(conversationId, callback){
+
+    callback = (typeof callback == "function") ? callback : function () { };
+
+    if (conversationId == null) {
+      Log.m(this.session.debuggingMode, 'ConversationId to delete is undefined');
+      return callback('ConversationId to delete is undefined');
+    }
+
+    if (conversationId.indexOf('G:') == -1) {
+      return this.removeMemberFromGroup(conversationId, this.session.id, callback);
+    }
+
+    apiconnector.basicRequest('POST', '/conversation/delete',{conversation_id: conversationId, monkey_id: this.session.id}, false, function(err, respObj){
+      if (err) {
+        Log.m(this.session.debuggingMode, "Monkey - error creating group: "+err);
+        return callback(err);
+      }
+
+      callback(null, respObj.data);
+    })
+  }
+
   proto.createGroup = function createGroup(members, groupInfo, optionalPush, optionalId, callback){
 
     callback = (typeof callback == "function") ? callback : function () { };
@@ -1334,9 +1387,16 @@ require('es6-promise').polyfill();
   }
 
   proto.logout = function logout(){
-    Log.m(this.session.debuggingMode, 'Monkey - terminating session and clearing data');
+    if (this.session != null) {
+      Log.m(this.session.debuggingMode, 'Monkey - terminating session and clearing data');
+    }
+
     db.clear();
-    this.socketConnection.close();
+
+    if (this.socketConnection != null) {
+      this.socketConnection.close();
+    }
+
     this.session = {};
   }
 

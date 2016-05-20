@@ -18,7 +18,7 @@
     ONLINE:3
   }
 
-  proto.MOKMessageProtocolCommand = {
+  proto.ProtocolCommand = {
     MESSAGE:200,
     GET:201,
     TRANSACTION:202,
@@ -34,7 +34,7 @@
     MESSAGEREAD:52
   }
 
-  proto.MOKMessageType = {
+  proto.MessageType = {
     TEXT:1,
     FILE:2,
     TEMP_NOTE:3,
@@ -42,19 +42,19 @@
     ALERT:5
   }
 
-  proto.MOKMessageFileType = {
+  proto.FileType = {
     AUDIO:1,
     VIDEO:2,
     PHOTO:3,
     ARCHIVE:4
   }
 
-  proto.MOKGetType = {
+  proto.GetType = {
     HISTORY:1,
     GROUPS:2
   }
 
-  proto.MOKSyncType = {
+  proto.SyncType = {
     HISTORY:1,
     GROUPS:2
   }

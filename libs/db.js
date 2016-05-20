@@ -60,6 +60,18 @@ module.exports = (function() {
     return arrayMessages;
   }
 
+  db.getPendingMessages = function(){
+    var arrayMessages = [];
+
+    store.forEach(function(key, val) {
+      if(key.indexOf("message_-") != -1){
+        arrayMessages.push(val);
+      }
+    });
+
+    return arrayMessages;
+  }
+
   db.getAllMessagesByMonkeyId = function(id){
 
     var arrayMessages = this.getAllMessages();

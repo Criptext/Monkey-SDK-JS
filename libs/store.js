@@ -77,7 +77,7 @@ module.exports = (function() {
 			for (var i=0; i<storage.length; i++) {
 				var key = storage.key(i)
 
-				if (key == needle) {
+				if(key.indexOf(needle) != -1){
 					return true;
 				}
 			}
