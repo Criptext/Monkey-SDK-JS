@@ -1234,11 +1234,11 @@ require('es6-promise').polyfill();
       return callback('ConversationId to delete is undefined');
     }
 
-    if (conversationId.indexOf('G:') == -1) {
+    if (conversationId.indexOf('G:') != -1) {
       return this.removeMemberFromGroup(conversationId, this.session.id, callback);
     }
 
-    apiconnector.basicRequest('POST', '/conversation/delete',{conversation_id: conversationId, monkey_id: this.session.id}, false, function(err, respObj){
+    apiconnector.basicRequest('POST', '/user/conversation/delete',{conversation_id: conversationId, monkey_id: this.session.id}, false, function(err, respObj){
       if (err) {
         Log.m(this.session.debuggingMode, "Monkey - error creating group: "+err);
         return callback(err);
