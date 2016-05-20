@@ -176,7 +176,7 @@ require('es6-promise').polyfill();
   }
 
   proto.sendOpenToUser = function sendOpenToUser(monkeyId){
-    this.sendCommand(this.enums.MOKMessageProtocolCommand.OPEN, {rid: monkeyId});
+    this.sendCommand(this.enums.ProtocolCommand.OPEN, {rid: monkeyId});
   }
 
   proto.sendMessage = function sendMessage(text, recipientMonkeyId, optionalParams, optionalPush){
@@ -185,7 +185,7 @@ require('es6-promise').polyfill();
       encr: 0,
     };
 
-    return this.sendText(this.enums.MOKMessageProtocolCommand.MESSAGE, text, recipientMonkeyId, props, optionalParams, optionalPush);
+    return this.sendText(this.enums.ProtocolCommand.MESSAGE, text, recipientMonkeyId, props, optionalParams, optionalPush);
   }
 
   proto.sendEncryptedMessage = function sendEncryptedMessage(text, recipientMonkeyId, optionalParams, optionalPush){
@@ -194,13 +194,13 @@ require('es6-promise').polyfill();
       encr: 1,
     };
 
-    return this.sendText(this.enums.MOKMessageProtocolCommand.MESSAGE, text, recipientMonkeyId, props, optionalParams, optionalPush);
+    return this.sendText(this.enums.ProtocolCommand.MESSAGE, text, recipientMonkeyId, props, optionalParams, optionalPush);
   }
 
   proto.sendText = function sendText(cmd, text, recipientMonkeyId, props, optionalParams, optionalPush){
     var args = this.prepareMessageArgs(recipientMonkeyId, props, optionalParams, optionalPush);
     args.msg = text;
-    args.type = this.enums.MOKMessageType.TEXT;
+    args.type = this.enums.MessageType.TEXT;
 
     var message = new MOKMessage(cmd, args);
 
@@ -230,14 +230,14 @@ require('es6-promise').polyfill();
     };
 
     var args = prepareMessageArgs(recipientMonkeyId, props, optionalParams, optionalPush);
-    args.type = this.enums.MOKMessageType.NOTIF;
+    args.type = this.enums.MessageType.NOTIF;
 
-    var message = new MOKMessage(this.enums.MOKMessageProtocolCommand.MESSAGE, args);
+    var message = new MOKMessage(this.enums.ProtocolCommand.MESSAGE, args);
 
     args.id = message.id;
     args.oldId = message.oldId;
 
-    this.sendCommand(this.enums.MOKMessageProtocolCommand.MESSAGE, args);
+    this.sendCommand(this.enums.ProtocolCommand.MESSAGE, args);
 
     return message;
   }
@@ -248,7 +248,7 @@ require('es6-promise').polyfill();
       encr: 0
     };
 
-    return this.sendText(this.enums.MOKMessageProtocolCommand.PUBLISH, text, channelName, props, optionalParams);
+    return this.sendText(this.enums.ProtocolCommand.PUBLISH, text, channelName, props, optionalParams);
   }
 
   proto.sendFile = function sendFile(data, recipientMonkeyId, fileName, mimeType, fileType, shouldCompress, optionalParams, optionalPush, callback){
@@ -365,9 +365,9 @@ require('es6-promise').polyfill();
 
     var args = this.prepareMessageArgs(recipientMonkeyId, props, optionalParams, optionalPush);
     args.msg = fileName;
-    args.type = this.enums.MOKMessageType.FILE;
+    args.type = this.enums.MessageType.FILE;
 
-    var message = new MOKMessage(this.enums.MOKMessageProtocolCommand.MESSAGE, args);
+    var message = new MOKMessage(this.enums.ProtocolCommand.MESSAGE, args);
 
     if (optionalId != null) {
       message.id = optionalId;
@@ -409,9 +409,9 @@ require('es6-promise').polyfill();
 
     var args = this.prepareMessageArgs(recipientMonkeyId, props, optionalParams, optionalPush);
     args.msg = fileName;
-    args.type = this.enums.MOKMessageType.FILE;
+    args.type = this.enums.MessageType.FILE;
 
-    var message = new MOKMessage(this.enums.MOKMessageProtocolCommand.MESSAGE, args);
+    var message = new MOKMessage(this.enums.ProtocolCommand.MESSAGE, args);
 
     args.id = message.id;
     args.oldId = message.oldId;
@@ -435,7 +435,7 @@ require('es6-promise').polyfill();
 
   proto.processMultipleMessages = function processMultipleMessages(messages){
     messages.map(function(message){
-      let msg = new MOKMessage(this.enums.MOKMessageProtocolCommand.MESSAGE, message);
+      let msg = new MOKMessage(this.enums.ProtocolCommand.MESSAGE, message);
       this.processMOKProtocolMessage(msg);
     }.bind(this));
   }
@@ -446,12 +446,12 @@ require('es6-promise').polyfill();
     Log.m(this.session.debuggingMode, "===========================");
 
     switch(message.protocolType){
-      case this.enums.MOKMessageType.TEXT:{
+      case this.enums.MessageType.TEXT:{
         this.incomingMessage(message);
         db.storeMessage(message);
         break;
       }
-      case this.enums.MOKMessageType.FILE:{
+      case this.enums.MessageType.FILE:{
         this.fileReceived(message);
         db.storeMessage(message);
         break;
@@ -499,7 +499,7 @@ require('es6-promise').polyfill();
     }
 
     switch (message.protocolCommand){
-      case this.enums.MOKMessageProtocolCommand.MESSAGE:{
+      case this.enums.ProtocolCommand.MESSAGE:{
         this._getEmitter().emit('onMessage', message);
         Push.create('New Message', {
             body: message.text.length > 0 ? message.text : 'You received a new message',
@@ -507,7 +507,7 @@ require('es6-promise').polyfill();
         });
         break;
       }
-      case this.enums.MOKMessageProtocolCommand.PUBLISH:{
+      case this.enums.ProtocolCommand.PUBLISH:{
         this._getEmitter().emit('onChannelMessages', message);
         break;
       }
@@ -561,7 +561,7 @@ require('es6-promise').polyfill();
       setTimeout(this.startConnection(this.session.id), 2000);
     }.bind(this));
 
-    this.sendCommand(this.enums.MOKMessageProtocolCommand.SYNC, args);
+    this.sendCommand(this.enums.ProtocolCommand.SYNC, args);
   }
 
   proto.startConnection = function startConnection(monkey_id){
@@ -584,7 +584,7 @@ require('es6-promise').polyfill();
       this.session.user.monkeyId = this.session.id;
       this._getEmitter().emit('onConnect', this.session.user);
 
-      this.sendCommand(this.enums.MOKMessageProtocolCommand.SET, {online:1});
+      this.sendCommand(this.enums.ProtocolCommand.SET, {online:1});
 
       if(this.autoSync)
         this.getPendingMessages();
@@ -601,24 +601,24 @@ require('es6-promise').polyfill();
 
       var msg = new MOKMessage(jsonres.cmd, jsonres.args);
       switch (parseInt(jsonres.cmd)){
-        case this.enums.MOKMessageProtocolCommand.MESSAGE:{
+        case this.enums.ProtocolCommand.MESSAGE:{
           this.processMOKProtocolMessage(msg);
           break;
         }
-        case this.enums.MOKMessageProtocolCommand.PUBLISH:{
+        case this.enums.ProtocolCommand.PUBLISH:{
           this.processMOKProtocolMessage(msg);
           break;
         }
-        case this.enums.MOKMessageProtocolCommand.ACK:{
-          //msg.protocolCommand = MOKMessageProtocolCommand.ACK;
+        case this.enums.ProtocolCommand.ACK:{
+          //msg.protocolCommand = ProtocolCommand.ACK;
           //msg.monkeyType = set status value from props
           this.processMOKProtocolACK(msg);
           break;
         }
-        case this.enums.MOKMessageProtocolCommand.GET:{
-          if (jsonres.args.type == this.enums.MOKGetType.GROUPS) {
-            msg.protocolCommand= this.enums.MOKMessageProtocolCommand.GET;
-            msg.protocolType = this.enums.MOKMessageType.NOTIF;
+        case this.enums.ProtocolCommand.GET:{
+          if (jsonres.args.type == this.enums.GetType.GROUPS) {
+            msg.protocolCommand= this.enums.ProtocolCommand.GET;
+            msg.protocolType = this.enums.MessageType.NOTIF;
             //monkeyType = MOKGroupsJoined;
             msg.text = jsonres.args.messages;
 
@@ -627,10 +627,10 @@ require('es6-promise').polyfill();
 
           break;
         }
-        case this.enums.MOKMessageProtocolCommand.SYNC:{
+        case this.enums.ProtocolCommand.SYNC:{
           //notify watchdog
           switch(jsonres.args.type){
-            case this.enums.MOKSyncType.HISTORY:{
+            case this.enums.SyncType.HISTORY:{
               var arrayMessages = jsonres.args.messages;
               var remaining = jsonres.args.remaining_messages;
 
@@ -641,9 +641,9 @@ require('es6-promise').polyfill();
 
               break;
             }
-            case this.enums.MOKSyncType.GROUPS:{
-              msg.protocolCommand= this.enums.MOKMessageProtocolCommand.GET;
-              msg.protocolType = this.enums.MOKMessageType.NOTIF;
+            case this.enums.SyncType.GROUPS:{
+              msg.protocolCommand= this.enums.ProtocolCommand.GET;
+              msg.protocolType = this.enums.MessageType.NOTIF;
               //monkeyType = MOKGroupsJoined;
               msg.text = jsonres.args.messages;
               this._getEmitter().emit('onNotification', msg);
@@ -653,8 +653,8 @@ require('es6-promise').polyfill();
 
           break;
         }
-        case this.enums.MOKMessageProtocolCommand.OPEN:{
-          msg.protocolCommand = this.enums.MOKMessageProtocolCommand.OPEN;
+        case this.enums.ProtocolCommand.OPEN:{
+          msg.protocolCommand = this.enums.ProtocolCommand.OPEN;
           this._getEmitter().emit('onNotification', msg);
           db.setAllMessagesToRead(msg.senderId);
           break;
@@ -797,7 +797,7 @@ require('es6-promise').polyfill();
 
     var message = messages.shift();
 
-    if (message.isEncrypted() && message.protocolType != this.enums.MOKMessageType.FILE) {
+    if (message.isEncrypted() && message.protocolType != this.enums.MessageType.FILE) {
       try{
         message.text = this.aesDecryptIncomingMessage(message);
       }
@@ -1045,11 +1045,11 @@ require('es6-promise').polyfill();
 
       async.each(respObj.data.conversations, function(conversation, callback) {
 
-        conversation.last_message = new MOKMessage(this.enums.MOKMessageProtocolCommand.MESSAGE, conversation.last_message);
+        conversation.last_message = new MOKMessage(this.enums.ProtocolCommand.MESSAGE, conversation.last_message);
         var message = conversation.last_message;
         var gotError = false;
 
-        if (message.isEncrypted() && message.protocolType != this.enums.MOKMessageType.FILE) {
+        if (message.isEncrypted() && message.protocolType != this.enums.MessageType.FILE) {
           try{
             message.text = this.aesDecryptIncomingMessage(message);
             return callback(null);
@@ -1096,10 +1096,10 @@ require('es6-promise').polyfill();
           //NOW DELETE CONVERSATIONS WITH LASTMESSAGE NO DECRYPTED
           respObj.data.conversations = respObj.data.conversations.reduce(function(result, conversation){
 
-            if(conversation.last_message.protocolType == this.enums.MOKMessageType.TEXT
+            if(conversation.last_message.protocolType == this.enums.MessageType.TEXT
               && conversation.last_message.encryptedText != conversation.last_message.text )
               result.push(conversation);
-            else if(conversation.last_message.protocolType != this.enums.MOKMessageType.TEXT)
+            else if(conversation.last_message.protocolType != this.enums.MessageType.TEXT)
               result.push(conversation);
 
             return result;
@@ -1130,7 +1130,7 @@ require('es6-promise').polyfill();
       var messages = respObj.data.messages;
 
       var messagesArray = messages.reduce(function(result, message){
-        let msg = new MOKMessage(this.enums.MOKMessageProtocolCommand.MESSAGE, message);
+        let msg = new MOKMessage(this.enums.ProtocolCommand.MESSAGE, message);
         msg.datetimeOrder = msg.datetimeCreation;
         result.push(msg);
         return result;
@@ -1399,17 +1399,6 @@ require('es6-promise').polyfill();
   proto.parseFile = function parseJSON(response) {
     return response.text();
   };
-
-  proto.mok_convertDataURIToBinary = function mok_convertDataURIToBinary(dataURI) {
-    var raw = window.atob(dataURI);
-    var rawLength = raw.length;
-    var array = new Uint8Array(new ArrayBuffer(rawLength));
-
-    for(var i = 0; i < rawLength; i++) {
-      array[i] = raw.charCodeAt(i);
-    }
-    return array;
-  }
 
   proto.mok_arrayBufferToBase64 = function mok_arrayBufferToBase64( buffer ) {
     var binary = '';
