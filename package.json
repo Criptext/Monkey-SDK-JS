@@ -24,6 +24,7 @@
     "isomorphic-fetch": "^2.2.1",
     "node-cryptojs-aes": "^0.4.0",
     "node-rsa": "^0.3.2",
+    "push.js": "0.0.7",
     "whatwg-fetch": "^0.11.0"
   },
   "author": "Criptext <gianni@criptext.com>",
