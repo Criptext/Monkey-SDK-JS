@@ -18,6 +18,7 @@ var db = require('./libs/db.js');
 var NodeRSA = require('node-rsa');
 var CryptoJS = require('node-cryptojs-aes').CryptoJS;
 var async = require("async");
+var Push = require('push.js');
 
 const zlib = require('zlib');
 
@@ -510,6 +511,10 @@ require('es6-promise').polyfill();
     switch (message.protocolCommand){
       case this.enums.MOKMessageProtocolCommand.MESSAGE:{
         this._getEmitter().emit('onMessage', message);
+        Push.create('New Message', {
+            body: message.text.length > 0 ? message.text : 'You received a new message',
+            vibrate: [200, 100]
+        });
         break;
       }
       case this.enums.MOKMessageProtocolCommand.PUBLISH:{
@@ -526,6 +531,10 @@ require('es6-promise').polyfill();
     }
 
     this._getEmitter().emit('onMessage', message);
+    Push.create('New file', {
+        body: 'You received a new file',
+        vibrate: [200, 100]
+    });
   }
 
   proto.processMOKProtocolACK = function processMOKProtocolACK(message){
@@ -623,7 +632,7 @@ require('es6-promise').polyfill();
       var msg = new MOKMessage(jsonres.cmd, jsonres.args);
       switch (parseInt(jsonres.cmd)){
         case this.enums.MOKMessageProtocolCommand.MESSAGE:{
-          this.processMOKProtocolMessage(msg);
+          this.processMOKProtocolMessage(msg);          
           break;
         }
         case this.enums.MOKMessageProtocolCommand.PUBLISH:{
