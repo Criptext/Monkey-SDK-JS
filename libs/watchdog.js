@@ -10,7 +10,7 @@ module.exports = (function() {
   var myTimeout;
   var reconnect;
 
-  watchdog.didRespondSync = false;
+  watchdog.didRespondSync = true;
 
   watchdog.messageInTransit = function(reconnectFunction){
 

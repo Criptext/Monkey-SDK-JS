@@ -215,12 +215,12 @@ require('es6-promise').polyfill();
     message.args = args;
     db.storeMessage(message);
 
+    this.sendCommand(cmd, args);
+
     watchdog.messageInTransit(function(){
       this.socketConnection.close();
       setTimeout(this.startConnection(this.session.id), 2000);
     }.bind(this));
-
-    this.sendCommand(cmd, args);
 
     return message;
   }
@@ -538,14 +538,15 @@ require('es6-promise').polyfill();
       var storedMessage = db.getMessageById(message.oldId);
 
       //if message was already sent, then look for it with the other id
-      if (storedMessage == null) {
+      if (storedMessage == null || storedMessage == "") {
         storedMessage == db.getMessageById(message.id);
       }
 
       //if message doesn't exists locally, sync messages
-      if (storedMessage == null) {
+      if (storedMessage == null || storedMessage == "") {
         this.getPendingMessages();
       }else{
+
         storedMessage.id = message.id;
         db.deleteMessageById(message.oldId);
         db.storeMessage(storedMessage);
@@ -560,6 +561,10 @@ require('es6-promise').polyfill();
   proto.resendPendingMessages = function resendPendingMessages(){
     var arrayMessages = db.getPendingMessages();
 
+    for (var msg in arrayMessages) {
+      this.sendCommand(msg.protocolCommand, msg.args);
+    }
+
     //set watchdog
     if (arrayMessages.length > 0) {
       watchdog.messageInTransit(function(){
@@ -567,10 +572,6 @@ require('es6-promise').polyfill();
         setTimeout(this.startConnection(this.session.id), 2000);
       }.bind(this));
     }
-
-    arrayMessages.map(function(msg){
-      this.sendCommand(msg.protocolCommand, msg.args);
-    }.bind(this));
   }
 
   proto.requestMessagesSinceTimestamp = function requestMessagesSinceTimestamp(lastTimestamp, quantity, withGroups){
@@ -1238,7 +1239,7 @@ require('es6-promise').polyfill();
       return this.removeMemberFromGroup(conversationId, this.session.id, callback);
     }
 
-    apiconnector.basicRequest('POST', '/user/conversation/delete',{conversation_id: conversationId, monkey_id: this.session.id}, false, function(err, respObj){
+    apiconnector.basicRequest('POST', '/user/delete/conversation',{conversation_id: conversationId, monkey_id: this.session.id}, false, function(err, respObj){
       if (err) {
         Log.m(this.session.debuggingMode, "Monkey - error creating group: "+err);
         return callback(err);
