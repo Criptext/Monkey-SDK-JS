@@ -517,6 +517,54 @@ return /******/ (function(modules) { // webpackBootstrap
 	        }
 	      default:
 	        {
+
+	          //check for group notifications
+	          if (message.props != null && message.props.monkey_action != null) {
+	            this.dispatchGroupNotification(message);
+	            return;
+	          }
+
+	          this._getEmitter().emit('onNotification', message);
+	          break;
+	        }
+	    }
+	  };
+
+	  proto.dispatchGroupNotification = function dispatchGroupNotification(message) {
+	    switch (message.props.monkey_action) {
+	      case this.enums.GroupAction.CREATE:
+	        {
+	          var paramsGroup = {
+	            'id': message.props.group_id,
+	            'members': message.props.members.split(','),
+	            'info': message.props.info
+	          };
+
+	          this._getEmitter().emit('onGroupCreate', paramsGroup);
+	          break;
+	        }
+	      case this.enums.GroupAction.NEW_MEMBER:
+	        {
+	          var paramsGroup = {
+	            'id': message.recipientId,
+	            'member': message.props.new_member
+	          };
+
+	          this._getEmitter().emit('onGroupAddMember', paramsGroup);
+	          break;
+	        }
+	      case this.enums.GroupAction.REMOVE_MEMBER:
+	        {
+	          var paramsGroup = {
+	            'id': message.recipientId,
+	            'member': message.senderId
+	          };
+
+	          this._getEmitter().emit('onGroupDeleteMember', paramsGroup);
+	          break;
+	        }
+	      default:
+	        {
 	          this._getEmitter().emit('onNotification', message);
 	          break;
 	        }
@@ -1255,6 +1303,29 @@ return /******/ (function(modules) { // webpackBootstrap
 	      }.bind(this));
 	    }.bind(this));
 	  }; /// end of function downloadFile
+
+	  proto.updateUser = function updateUser(params, callback) {
+
+	    callback = typeof callback == "function" ? callback : function () {};
+
+	    var params = {
+	      monkeyId: this.session.id,
+	      params: params
+	    };
+
+	    apiconnector.basicRequest('POST', '/user/update', params, false, function (err, respObj) {
+	      if (err) {
+	        Log.m(this.session.debuggingMode, 'Monkey - error update user info: ' + err);
+	        return callback(err);
+	      }
+
+	      if (respObj.data == null) {
+	        respObj.data = {};
+	      }
+
+	      return callback(null, respObj.data);
+	    }.bind(this));
+	  };
 
 	  proto.postMessage = function postMessage(messageObj) {
 	    apiconnector.basicRequest('POST', '/message/new', messageObj, false, function (err, respObj) {
@@ -3719,6 +3790,13 @@ return /******/ (function(modules) { // webpackBootstrap
 	  proto.SyncType = {
 	    HISTORY:1,
 	    GROUPS:2
+	  }
+
+	  proto.GroupAction = {
+	    CREATE:1,
+	    DELETE:2,
+	    NEW_MEMBER:3,
+	    REMOVE_MEMBER:4
 	  }
 
 	  /**

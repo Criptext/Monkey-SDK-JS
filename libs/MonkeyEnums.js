@@ -59,6 +59,13 @@
     GROUPS:2
   }
 
+  proto.GroupAction = {
+    CREATE:1,
+    DELETE:2,
+    NEW_MEMBER:3,
+    REMOVE_MEMBER:4
+  }
+
   /**
   * Reverts the global {@link MonkeyEnums} to its previous value and returns a reference to this version.
   *
