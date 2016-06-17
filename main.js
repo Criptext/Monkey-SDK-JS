@@ -1044,6 +1044,8 @@ require('es6-promise').polyfill();
       if (isSync) {
         Log.m(this.session.debuggingMode, 'Monkey - reusing Monkey ID : '+this.session.id);
 
+        this.session.user = respObj.info;
+
         this.session.lastTimestamp = respObj.data.last_time_synced || 0;
 
         var decryptedAesKeys = this.session.exchangeKeys.decrypt(respObj.data.keys, 'utf8');
