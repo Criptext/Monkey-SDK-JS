@@ -1185,6 +1185,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	      // assuming openFiles is an array of file names
 
 	      async.each(respObj.data.conversations, function (conversation, callback) {
+	        if (conversation.last_message == null || Object.keys(conversation.last_message).length == 0) {
+	          return callback(null);
+	        }
 
 	        conversation.last_message = new MOKMessage(this.enums.ProtocolCommand.MESSAGE, conversation.last_message);
 	        var message = conversation.last_message;
