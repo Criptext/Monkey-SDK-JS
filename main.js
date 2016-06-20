@@ -92,7 +92,6 @@ require('es6-promise').polyfill();
   proto.init = function init(appKey, appSecret, userObj, shouldExpireSession, isDebugging, autoSync){
     if (appKey == null || appSecret == null) {
       throw 'Monkey - To initialize Monkey, you must provide your App Id and App Secret';
-      return;
     }
 
     this.appKey = appKey;
@@ -160,7 +159,7 @@ require('es6-promise').polyfill();
       break;
     }
 
-    args["push"] = JSON.stringify(optionalPush);
+    args.push = JSON.stringify(optionalPush);
 
     return args;
   }
@@ -230,7 +229,7 @@ require('es6-promise').polyfill();
       device: "web"
     };
 
-    var args = prepareMessageArgs(recipientMonkeyId, props, optionalParams, optionalPush);
+    var args = this.prepareMessageArgs(recipientMonkeyId, props, optionalParams, optionalPush);
     args.type = this.enums.MessageType.NOTIF;
 
     var message = new MOKMessage(this.enums.ProtocolCommand.MESSAGE, args);
@@ -471,9 +470,10 @@ require('es6-promise').polyfill();
   }
 
   proto.dispatchGroupNotification = function dispatchGroupNotification(message){
+    var paramsGroup;
     switch (message.props.monkey_action) {
       case this.enums.GroupAction.CREATE:{
-        var paramsGroup = {
+        paramsGroup = {
           'id': message.props.group_id,
           'members': message.props.members.split(','),
           'info': message.props.info
@@ -483,7 +483,7 @@ require('es6-promise').polyfill();
         break;
       }
       case this.enums.GroupAction.NEW_MEMBER:{
-        var paramsGroup = {
+        paramsGroup = {
           'id': message.recipientId,
           'member': message.props.new_member
         };
@@ -492,7 +492,7 @@ require('es6-promise').polyfill();
         break;
       }
       case this.enums.GroupAction.REMOVE_MEMBER:{
-        var paramsGroup = {
+        paramsGroup = {
           'id': message.recipientId,
           'member': message.senderId
         };
@@ -525,7 +525,7 @@ require('es6-promise').polyfill();
         return;
       }
 
-      if (message.text == null || message.text == "") {
+      if (message.text == null || message.text === "") {
         //get keys
         this.getAESkeyFromUser(message.senderId, message, function(response){
           if (response != null) {
@@ -575,19 +575,20 @@ require('es6-promise').polyfill();
     Log.m(this.session.debuggingMode, "MONKEY - ACK in process");
     Log.m(this.session.debuggingMode, "===========================");
 
-    if(message.props.status == "52")
+    if(message.props.status == "52"){
       message.readByUser = true;
+    }
 
     if(message.id != "0"){
       var storedMessage = db.getMessageById(message.oldId);
 
       //if message was already sent, then look for it with the other id
-      if (storedMessage == null || storedMessage == "") {
-        storedMessage == db.getMessageById(message.id);
+      if (storedMessage == null || storedMessage === "") {
+        storedMessage = db.getMessageById(message.id);
       }
 
       //if message doesn't exists locally, sync messages
-      if (storedMessage == null || storedMessage == "") {
+      if (storedMessage == null || storedMessage === "") {
         this.getPendingMessages();
       }else{
 
@@ -605,7 +606,8 @@ require('es6-promise').polyfill();
   proto.resendPendingMessages = function resendPendingMessages(){
     var arrayMessages = db.getPendingMessages();
 
-    for (var msg in arrayMessages) {
+    for (var i = 0; i < arrayMessages.length; i++) {
+      var msg = arrayMessages[i];
       this.sendCommand(msg.protocolCommand, msg.args);
     }
 
@@ -780,7 +782,7 @@ require('es6-promise').polyfill();
       var currentParamKeys = monkeyKeystore.getData(respObj.data.session_to, this.session.myKey, this.session.myIv);
 
       //this.keyStore[respObj.data.session_to] = {key:newParamKeys[0],iv:newParamKeys[1]};
-      monkeyKeystore.storeData(respObj.data.session_to, newParamKeys[0]+":"+newParamKeys[1], this.session.myKey, this.session.myIv);
+      monkeyKeystore.storeData(respObj.data.session_to, newAESkey+":"+newIv, this.session.myKey, this.session.myIv);
 
       if (typeof(currentParamKeys) == 'undefined') {
         return callback(pendingMessage);
@@ -891,7 +893,7 @@ require('es6-promise').polyfill();
         return;
       }
 
-      if (message.text == null || message.text == "") {
+      if (message.text == null || message.text === "") {
         //get keys
         this.getAESkeyFromUser(message.senderId, message, function(response){
           if (response != null) {
@@ -1029,7 +1031,7 @@ require('es6-promise').polyfill();
     if (this.session.id != null) {
       endpoint = '/user/key/sync';
       isSync = true;
-      params['public_key'] = this.session.exchangeKeys.exportKey('public');
+      params.public_key = this.session.exchangeKeys.exportKey('public');
     }
 
     this.status = this.enums.Status.HANDSHAKE;
@@ -1081,12 +1083,12 @@ require('es6-promise').polyfill();
       var key = new NodeRSA(respObj.data.publicKey, 'public', {encryptionScheme: 'pkcs1'});
       var encryptedAES = key.encrypt(myKeyParams, 'base64');
 
-      connectParams['usk'] = encryptedAES;
+      connectParams.usk = encryptedAES;
 
       //this.keyStore[this.session.id]={key:this.session.myKey, iv:this.session.myIv};
       monkeyKeystore.storeData(this.session.id, this.session.myKey+":"+this.session.myIv, this.session.myKey, this.session.myIv);
 
-      apiconnector.basicRequest('POST', '/user/connect', connectParams, false, function(error, response){
+      apiconnector.basicRequest('POST', '/user/connect', connectParams, false, function(error){
         if(error){
           Log.m(this.session.debuggingMode, 'Monkey - '+error);
           return;
@@ -1151,7 +1153,7 @@ require('es6-promise').polyfill();
             }.bind(this));
           }
 
-          if (!gotError && (message.text == null || message.text == "")) {
+          if (!gotError && (message.text == null || message.text === "")) {
             //get keys
             this.getAESkeyFromUser(message.senderId, message, function(response){
               if (response != null) {
@@ -1176,11 +1178,11 @@ require('es6-promise').polyfill();
           //NOW DELETE CONVERSATIONS WITH LASTMESSAGE NO DECRYPTED
           respObj.data.conversations = respObj.data.conversations.reduce(function(result, conversation){
 
-            if(conversation.last_message.protocolType == this.enums.MessageType.TEXT
-              && conversation.last_message.encryptedText != conversation.last_message.text )
+            if(conversation.last_message.protocolType == this.enums.MessageType.TEXT && conversation.last_message.encryptedText != conversation.last_message.text ){
               result.push(conversation);
-            else if(conversation.last_message.protocolType != this.enums.MessageType.TEXT)
+            }else if(conversation.last_message.protocolType != this.enums.MessageType.TEXT){
               result.push(conversation);
+            }
 
             return result;
           }.bind(this),[]);
@@ -1259,12 +1261,12 @@ require('es6-promise').polyfill();
 
     callback = (typeof callback == "function") ? callback : function () { };
 
-    var params = {
+    var paramsRequest = {
       monkeyId:this.session.id,
       params: params
     };
 
-    apiconnector.basicRequest('POST', '/user/update' ,params, false, function(err,respObj){
+    apiconnector.basicRequest('POST', '/user/update' ,paramsRequest, false, function(err,respObj){
       if(err){
         Log.m(this.session.debuggingMode, 'Monkey - error update user info: '+err);
         return callback(err);

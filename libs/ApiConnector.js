@@ -12,7 +12,7 @@ module.exports = (function() {
   }
 
   apiconnector.basicRequest = function(method, endpoint, params, isFile, callback){
-    
+
     var basic= this.getAuthParamsBtoA(main.appKey+":"+main.appSecret);
 
     var reqUrl = main.domainUrl+endpoint;
@@ -44,7 +44,7 @@ module.exports = (function() {
     };
 
     if (method != 'GET') {
-      bodyReq['body'] = data
+      bodyReq.body = data
     }
 
     if(method == 'GET' && isFile){
@@ -65,8 +65,9 @@ module.exports = (function() {
   apiconnector.getAuthParamsBtoA = function(connectAuthParamsString){
 
     //window.btoa not supported in <=IE9
+    var basic;
     if (window.btoa) {
-      var basic = window.btoa(connectAuthParamsString);
+      basic = window.btoa(connectAuthParamsString);
     }
     else{
       //for <= IE9
@@ -76,7 +77,6 @@ module.exports = (function() {
 
       base64.makeDOMException = function() {
         // sadly in FF,Safari,Chrome you can't make a DOMException
-        var e, tmp;
 
         try {
           return new DOMException(DOMException.INVALID_CHARACTER_ERR);

@@ -55,8 +55,7 @@ module.exports = (function() {
     }
     myTimeout = window.setTimeout(function(){
 
-      if(watchdog.checkIfPendingMessages() || !watchdog.didRespondSync){
-        if(reconnect!=null)
+      if((watchdog.checkIfPendingMessages() || !watchdog.didRespondSync) && reconnect != null){
         reconnect();
       }
 

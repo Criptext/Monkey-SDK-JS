@@ -18,13 +18,15 @@ module.exports = (function() {
 
   monkeyKeystore.getData = function(key, myaeskey, myaesiv){
     var encrypted = store.get(key, "");
-    if(encrypted.length == 0)
+    if(encrypted.length == 0){
       return {key: "", iv: ""};
+    }
 
     var decrypted = this.aesDecrypt(encrypted, myaeskey, myaesiv);
-    if(decrypted.length == 0)
+    if(decrypted.length == 0){
       return {key: "", iv: ""};
-          
+    }
+
     return {key: decrypted.split(":")[0], iv: decrypted.split(":")[1]};
   }
 
@@ -37,7 +39,7 @@ module.exports = (function() {
     var aesKey=CryptoJS.enc.Base64.parse(key);
     var initV= CryptoJS.enc.Base64.parse(iv);
     var encryptedData = CryptoJS.AES.encrypt(dataToEncrypt, aesKey, { iv: initV });
-    
+
     return encryptedData.toString();
 
   }

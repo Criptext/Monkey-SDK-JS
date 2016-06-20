@@ -1,0 +1,10 @@
+{
+  "undef": true,
+  "unused": true,
+  "node" : true,
+  "curly" : true,
+  "forin" : true,
+  "eqnull" : true,
+  "asi" : true,
+  "esversion" : 6
+}

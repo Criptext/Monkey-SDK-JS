@@ -25,7 +25,7 @@ module.exports = class MOKMessage{
     this.readByUser = false;
 
     //parse props
-    if (args.props != null && typeof(args.props) != "undefined" && args.props != "") {
+    if (args.props != null && typeof(args.props) != "undefined" && args.props !== "") {
       if (typeof(args.props) === "string") {
         this.props = JSON.parse(args.props);
       }else{
@@ -36,7 +36,7 @@ module.exports = class MOKMessage{
     }
 
     //parse params
-    if (args.params != null && args.params != "" && typeof(args.params) != "undefined") {
+    if (args.params != null && args.params !== "" && typeof(args.params) != "undefined") {
       if (typeof(args.params) === "string") {
         this.params = JSON.parse(args.params);
       }else{
@@ -99,7 +99,7 @@ isCompressed(){
     return false;
   }
   return this.props.cmpr? true : false;
-};
+}
 
 isEncrypted(){
   if (this.props == null || typeof(this.props.encr) == "undefined" || this.props.encr == null) {
@@ -107,7 +107,7 @@ isEncrypted(){
     return false;
   }
   return this.props.encr == 1? true : false;
-};
+}
 setEncrypted(flag){
   this.props.encr = flag? 1 : 0;
 }

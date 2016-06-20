@@ -152,7 +152,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	  proto.init = function init(appKey, appSecret, userObj, shouldExpireSession, isDebugging, autoSync) {
 	    if (appKey == null || appSecret == null) {
 	      throw 'Monkey - To initialize Monkey, you must provide your App Id and App Secret';
-	      return;
 	    }
 
 	    this.appKey = appKey;
@@ -222,7 +221,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        break;
 	    }
 
-	    args["push"] = JSON.stringify(optionalPush);
+	    args.push = JSON.stringify(optionalPush);
 
 	    return args;
 	  };
@@ -292,7 +291,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	      device: "web"
 	    };
 
-	    var args = prepareMessageArgs(recipientMonkeyId, props, optionalParams, optionalPush);
+	    var args = this.prepareMessageArgs(recipientMonkeyId, props, optionalParams, optionalPush);
 	    args.type = this.enums.MessageType.NOTIF;
 
 	    var message = new MOKMessage(this.enums.ProtocolCommand.MESSAGE, args);
@@ -531,10 +530,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	  };
 
 	  proto.dispatchGroupNotification = function dispatchGroupNotification(message) {
+	    var paramsGroup;
 	    switch (message.props.monkey_action) {
 	      case this.enums.GroupAction.CREATE:
 	        {
-	          var paramsGroup = {
+	          paramsGroup = {
 	            'id': message.props.group_id,
 	            'members': message.props.members.split(','),
 	            'info': message.props.info
@@ -545,7 +545,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        }
 	      case this.enums.GroupAction.NEW_MEMBER:
 	        {
-	          var paramsGroup = {
+	          paramsGroup = {
 	            'id': message.recipientId,
 	            'member': message.props.new_member
 	          };
@@ -555,7 +555,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        }
 	      case this.enums.GroupAction.REMOVE_MEMBER:
 	        {
-	          var paramsGroup = {
+	          paramsGroup = {
 	            'id': message.recipientId,
 	            'member': message.senderId
 	          };
@@ -588,7 +588,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        return;
 	      }
 
-	      if (message.text == null || message.text == "") {
+	      if (message.text == null || message.text === "") {
 	        //get keys
 	        this.getAESkeyFromUser(message.senderId, message, function (response) {
 	          if (response != null) {
@@ -640,18 +640,20 @@ return /******/ (function(modules) { // webpackBootstrap
 	    Log.m(this.session.debuggingMode, "MONKEY - ACK in process");
 	    Log.m(this.session.debuggingMode, "===========================");
 
-	    if (message.props.status == "52") message.readByUser = true;
+	    if (message.props.status == "52") {
+	      message.readByUser = true;
+	    }
 
 	    if (message.id != "0") {
 	      var storedMessage = db.getMessageById(message.oldId);
 
 	      //if message was already sent, then look for it with the other id
-	      if (storedMessage == null || storedMessage == "") {
-	        storedMessage == db.getMessageById(message.id);
+	      if (storedMessage == null || storedMessage === "") {
+	        storedMessage = db.getMessageById(message.id);
 	      }
 
 	      //if message doesn't exists locally, sync messages
-	      if (storedMessage == null || storedMessage == "") {
+	      if (storedMessage == null || storedMessage === "") {
 	        this.getPendingMessages();
 	      } else {
 
@@ -667,7 +669,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	  proto.resendPendingMessages = function resendPendingMessages() {
 	    var arrayMessages = db.getPendingMessages();
 
-	    for (var msg in arrayMessages) {
+	    for (var i = 0; i < arrayMessages.length; i++) {
+	      var msg = arrayMessages[i];
 	      this.sendCommand(msg.protocolCommand, msg.args);
 	    }
 
@@ -849,7 +852,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	      var currentParamKeys = monkeyKeystore.getData(respObj.data.session_to, this.session.myKey, this.session.myIv);
 
 	      //this.keyStore[respObj.data.session_to] = {key:newParamKeys[0],iv:newParamKeys[1]};
-	      monkeyKeystore.storeData(respObj.data.session_to, newParamKeys[0] + ":" + newParamKeys[1], this.session.myKey, this.session.myIv);
+	      monkeyKeystore.storeData(respObj.data.session_to, newAESkey + ":" + newIv, this.session.myKey, this.session.myIv);
 
 	      if (typeof currentParamKeys == 'undefined') {
 	        return callback(pendingMessage);
@@ -957,7 +960,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        return;
 	      }
 
-	      if (message.text == null || message.text == "") {
+	      if (message.text == null || message.text === "") {
 	        //get keys
 	        this.getAESkeyFromUser(message.senderId, message, function (response) {
 	          if (response != null) {
@@ -1093,7 +1096,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    if (this.session.id != null) {
 	      endpoint = '/user/key/sync';
 	      isSync = true;
-	      params['public_key'] = this.session.exchangeKeys.exportKey('public');
+	      params.public_key = this.session.exchangeKeys.exportKey('public');
 	    }
 
 	    this.status = this.enums.Status.HANDSHAKE;
@@ -1145,12 +1148,12 @@ return /******/ (function(modules) { // webpackBootstrap
 	      var key = new NodeRSA(respObj.data.publicKey, 'public', { encryptionScheme: 'pkcs1' });
 	      var encryptedAES = key.encrypt(myKeyParams, 'base64');
 
-	      connectParams['usk'] = encryptedAES;
+	      connectParams.usk = encryptedAES;
 
 	      //this.keyStore[this.session.id]={key:this.session.myKey, iv:this.session.myIv};
 	      monkeyKeystore.storeData(this.session.id, this.session.myKey + ":" + this.session.myIv, this.session.myKey, this.session.myIv);
 
-	      apiconnector.basicRequest('POST', '/user/connect', connectParams, false, function (error, response) {
+	      apiconnector.basicRequest('POST', '/user/connect', connectParams, false, function (error) {
 	        if (error) {
 	          Log.m(this.session.debuggingMode, 'Monkey - ' + error);
 	          return;
@@ -1213,7 +1216,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	            }.bind(this));
 	          }
 
-	          if (!gotError && (message.text == null || message.text == "")) {
+	          if (!gotError && (message.text == null || message.text === "")) {
 	            //get keys
 	            this.getAESkeyFromUser(message.senderId, message, function (response) {
 	              if (response != null) {
@@ -1235,7 +1238,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	          //NOW DELETE CONVERSATIONS WITH LASTMESSAGE NO DECRYPTED
 	          respObj.data.conversations = respObj.data.conversations.reduce(function (result, conversation) {
 
-	            if (conversation.last_message.protocolType == this.enums.MessageType.TEXT && conversation.last_message.encryptedText != conversation.last_message.text) result.push(conversation);else if (conversation.last_message.protocolType != this.enums.MessageType.TEXT) result.push(conversation);
+	            if (conversation.last_message.protocolType == this.enums.MessageType.TEXT && conversation.last_message.encryptedText != conversation.last_message.text) {
+	              result.push(conversation);
+	            } else if (conversation.last_message.protocolType != this.enums.MessageType.TEXT) {
+	              result.push(conversation);
+	            }
 
 	            return result;
 	          }.bind(this), []);
@@ -1313,12 +1320,12 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	    callback = typeof callback == "function" ? callback : function () {};
 
-	    var params = {
+	    var paramsRequest = {
 	      monkeyId: this.session.id,
 	      params: params
 	    };
 
-	    apiconnector.basicRequest('POST', '/user/update', params, false, function (err, respObj) {
+	    apiconnector.basicRequest('POST', '/user/update', paramsRequest, false, function (err, respObj) {
 	      if (err) {
 	        Log.m(this.session.debuggingMode, 'Monkey - error update user info: ' + err);
 	        return callback(err);
@@ -3868,7 +3875,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    this.readByUser = false;
 
 	    //parse props
-	    if (args.props != null && typeof args.props != "undefined" && args.props != "") {
+	    if (args.props != null && typeof args.props != "undefined" && args.props !== "") {
 	      if (typeof args.props === "string") {
 	        this.props = JSON.parse(args.props);
 	      } else {
@@ -3879,7 +3886,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }
 
 	    //parse params
-	    if (args.params != null && args.params != "" && typeof args.params != "undefined") {
+	    if (args.params != null && args.params !== "" && typeof args.params != "undefined") {
 	      if (typeof args.params === "string") {
 	        this.params = JSON.parse(args.params);
 	      } else {
@@ -3999,13 +4006,15 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	  monkeyKeystore.getData = function(key, myaeskey, myaesiv){
 	    var encrypted = store.get(key, "");
-	    if(encrypted.length == 0)
+	    if(encrypted.length == 0){
 	      return {key: "", iv: ""};
+	    }
 
 	    var decrypted = this.aesDecrypt(encrypted, myaeskey, myaesiv);
-	    if(decrypted.length == 0)
+	    if(decrypted.length == 0){
 	      return {key: "", iv: ""};
-	          
+	    }
+
 	    return {key: decrypted.split(":")[0], iv: decrypted.split(":")[1]};
 	  }
 
@@ -4018,7 +4027,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    var aesKey=CryptoJS.enc.Base64.parse(key);
 	    var initV= CryptoJS.enc.Base64.parse(iv);
 	    var encryptedData = CryptoJS.AES.encrypt(dataToEncrypt, aesKey, { iv: initV });
-	    
+
 	    return encryptedData.toString();
 
 	  }
@@ -4041,6 +4050,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	  return monkeyKeystore;
 
 	}())
+
 
 /***/ },
 /* 9 */
@@ -6671,8 +6681,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }
 	    myTimeout = window.setTimeout(function(){
 
-	      if(watchdog.checkIfPendingMessages() || !watchdog.didRespondSync){
-	        if(reconnect!=null)
+	      if((watchdog.checkIfPendingMessages() || !watchdog.didRespondSync) && reconnect != null){
 	        reconnect();
 	      }
 
@@ -6723,7 +6732,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	  }
 
 	  apiconnector.basicRequest = function(method, endpoint, params, isFile, callback){
-	    
+
 	    var basic= this.getAuthParamsBtoA(main.appKey+":"+main.appSecret);
 
 	    var reqUrl = main.domainUrl+endpoint;
@@ -6755,7 +6764,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    };
 
 	    if (method != 'GET') {
-	      bodyReq['body'] = data
+	      bodyReq.body = data
 	    }
 
 	    if(method == 'GET' && isFile){
@@ -6776,8 +6785,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	  apiconnector.getAuthParamsBtoA = function(connectAuthParamsString){
 
 	    //window.btoa not supported in <=IE9
+	    var basic;
 	    if (window.btoa) {
-	      var basic = window.btoa(connectAuthParamsString);
+	      basic = window.btoa(connectAuthParamsString);
 	    }
 	    else{
 	      //for <= IE9
@@ -6787,7 +6797,6 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	      base64.makeDOMException = function() {
 	        // sadly in FF,Safari,Chrome you can't make a DOMException
-	        var e, tmp;
 
 	        try {
 	          return new DOMException(DOMException.INVALID_CHARACTER_ERR);
@@ -6919,6 +6928,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	  return apiconnector;
 
 	}())
+
 	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(20)))
 
 /***/ },
@@ -7781,7 +7791,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	  db.updateMessageReadStatus = function(id){
 	    var mokmessage = this.getMessageById(id);
-	    if(mokmessage != ""){
+	    if(mokmessage !== ""){
 	      mokmessage.readByUser = true;
 	      this.storeMessage(mokmessage);
 	    }
@@ -7791,8 +7801,9 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	    var arrayMessages = this.getAllMessages();
 	    arrayMessages.reduce(function(result, message){
-	      if(message.senderId == id && !message.readByUser)
-	      this.updateMessageReadStatus(message.id);
+	      if(message.senderId == id && !message.readByUser){
+	        this.updateMessageReadStatus(message.id);
+	      }
 	      return result;
 	    }.bind(this),0);
 
@@ -7836,8 +7847,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	    if(id.indexOf("G:") != -1){
 
 	      arrayMessages = arrayMessages.reduce(function(result, message){
-	        if(message.senderId == id || message.recipientId == id)
-	        result.push(message);
+	        if(message.senderId == id || message.recipientId == id){
+	          result.push(message);
+	        }
 	        return result;
 	      },[]);
 
@@ -7845,9 +7857,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	    else{
 
 	      arrayMessages = arrayMessages.reduce(function(result, message){
-	        if( (message.recipientId.indexOf(id)>=0 && message.senderId.indexOf("G:")==-1)
-	        || (message.senderId == id && message.recipientId.indexOf("G:")==-1) )
-	        result.push(message);
+	        if( (message.recipientId.indexOf(id)>=0 && message.senderId.indexOf("G:")==-1) || (message.senderId == id && message.recipientId.indexOf("G:")==-1) ){
+	          result.push(message);
+	        }
 	        return result;
 	      },[]);
 
@@ -7861,8 +7873,9 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	    var arrayMessages = this.getAllMessages();
 	    arrayMessages = arrayMessages.reduce(function(result, message){
-	      if(parseInt(message.id) < 0)
-	      result.push(message);
+	      if(parseInt(message.id) < 0){
+	        result.push(message);
+	      }
 	      return result;
 	    },[]);
 
@@ -7874,8 +7887,9 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	    var arrayMessages = this.getAllMessages();
 	    var total = arrayMessages.reduce(function(result, message){
-	      if(message.senderId == id && !message.readByUser)
-	      result++;
+	      if(message.senderId == id && !message.readByUser){
+	        result++;
+	      }
 	      return result;
 	    },0);
 

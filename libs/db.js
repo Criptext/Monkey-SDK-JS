@@ -24,7 +24,7 @@ module.exports = (function() {
 
   db.updateMessageReadStatus = function(id){
     var mokmessage = this.getMessageById(id);
-    if(mokmessage != ""){
+    if(mokmessage !== ""){
       mokmessage.readByUser = true;
       this.storeMessage(mokmessage);
     }
@@ -34,8 +34,9 @@ module.exports = (function() {
 
     var arrayMessages = this.getAllMessages();
     arrayMessages.reduce(function(result, message){
-      if(message.senderId == id && !message.readByUser)
-      this.updateMessageReadStatus(message.id);
+      if(message.senderId == id && !message.readByUser){
+        this.updateMessageReadStatus(message.id);
+      }
       return result;
     }.bind(this),0);
 
@@ -79,8 +80,9 @@ module.exports = (function() {
     if(id.indexOf("G:") != -1){
 
       arrayMessages = arrayMessages.reduce(function(result, message){
-        if(message.senderId == id || message.recipientId == id)
-        result.push(message);
+        if(message.senderId == id || message.recipientId == id){
+          result.push(message);
+        }
         return result;
       },[]);
 
@@ -88,9 +90,9 @@ module.exports = (function() {
     else{
 
       arrayMessages = arrayMessages.reduce(function(result, message){
-        if( (message.recipientId.indexOf(id)>=0 && message.senderId.indexOf("G:")==-1)
-        || (message.senderId == id && message.recipientId.indexOf("G:")==-1) )
-        result.push(message);
+        if( (message.recipientId.indexOf(id)>=0 && message.senderId.indexOf("G:")==-1) || (message.senderId == id && message.recipientId.indexOf("G:")==-1) ){
+          result.push(message);
+        }
         return result;
       },[]);
 
@@ -104,8 +106,9 @@ module.exports = (function() {
 
     var arrayMessages = this.getAllMessages();
     arrayMessages = arrayMessages.reduce(function(result, message){
-      if(parseInt(message.id) < 0)
-      result.push(message);
+      if(parseInt(message.id) < 0){
+        result.push(message);
+      }
       return result;
     },[]);
 
@@ -117,8 +120,9 @@ module.exports = (function() {
 
     var arrayMessages = this.getAllMessages();
     var total = arrayMessages.reduce(function(result, message){
-      if(message.senderId == id && !message.readByUser)
-      result++;
+      if(message.senderId == id && !message.readByUser){
+        result++;
+      }
       return result;
     },0);
 
