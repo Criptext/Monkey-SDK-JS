@@ -74,10 +74,18 @@ feature of monkey.
 
     monkey.getPendingMessages();
 
-    // monkey.getInfoByIds('idkh61jqs9ia151u7edhd7vi,idkh61jqs9ia151u7edhd7vi', function(error, resp){
-    //   console.log('error: '+error);
-    //   console.log('resp: '+JSON.stringify(resp));
-    // });
+    var recipientMonkeyId=$("#recipientMonkeyIdInput").val();
+
+    var messages = monkey.getAllStoredMessages();
+
+    for (var i = 0; i < messages.length; i++) {
+      var msg = messages[i];
+      console.log(msg.id);
+      console.log(msg.text);
+      console.log(msg.readByUser);
+      console.log(msg.isEncrypted());
+    }
+
   });
 
   monkey.on( "onMessage", function(message ){
@@ -164,7 +172,11 @@ feature of monkey.
     var userObj = monkey.getUser();
 
     if (userObj == null) {
-      userObj = { name:"pablo", monkeyId:monkeyId};
+      userObj = { name:"pablo"};
+    }
+
+    if (userObj.monkeyId == null) {
+      userObj.monkeyId = monkeyId;
     }
 
     monkey.init("idkgwf6ghcmyfvvrxqiwwmi", "9da5bbc32210ed6501de82927056b8d2",userObj, false, true, false);

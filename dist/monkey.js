@@ -137,19 +137,22 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	  proto.status = 0;
 
+	  proto.exchangeKeys = 0;
+
 	  proto.session = {
 	    id: null,
 	    user: null,
 	    lastTimestamp: 0,
 	    expireSession: 0,
-	    debuggingMode: false
+	    debuggingMode: false,
+	    autoSave: true
 	  };
 
 	  /*
 	  * Session stuff
 	  */
 
-	  proto.init = function init(appKey, appSecret, userObj, shouldExpireSession, isDebugging, autoSync) {
+	  proto.init = function init(appKey, appSecret, userObj, ignoreHook, shouldExpireSession, isDebugging, autoSync, autoSave) {
 	    if (appKey == null || appSecret == null) {
 	      throw 'Monkey - To initialize Monkey, you must provide your App Id and App Secret';
 	    }
@@ -162,17 +165,15 @@ return /******/ (function(modules) { // webpackBootstrap
 	    if (userObj != null) {
 	      this.session.user = userObj;
 	      this.session.id = userObj.monkeyId;
-	      if (userObj.monkeyId != null) {
-	        db.storeMonkeyId(userObj.monkeyId);
-	        db.storeUser(userObj.monkeyId, userObj);
-	      }
 	    }
 
 	    if (shouldExpireSession) {
 	      this.session.expireSession = 1;
 	    }
 
+	    this.session.autoSave = autoSave || true;
 	    this.domainUrl = 'monkey.criptext.com';
+	    this.session.ignore = ignoreHook;
 
 	    if (isDebugging) {
 	      this.session.debuggingMode = true;
@@ -185,9 +186,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	    //setup socketConnection
 	    this.socketConnection = null;
 
-	    this.requestSession();
+	    setTimeout(function () {
+	      this.requestSession();
+	    }.bind(this), 500);
+
 	    return this;
-	    // this.session =
 	  };
 
 	  /*
@@ -274,7 +277,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }
 
 	    message.args = args;
-	    db.storeMessage(message);
+
+	    if (this.session.autoSave) {
+	      db.storeMessage(message);
+	    }
 
 	    this.sendCommand(cmd, args);
 
@@ -355,7 +361,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	          callbackAsync(error, message);
 	        }
 
-	        db.storeMessage(message);
+	        if (this.session.autoSave) {
+	          db.storeMessage(message);
+	        }
 	        callbackAsync(null, message);
 	      });
 	    }.bind(this)], function (error, message) {
@@ -407,7 +415,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	          callbackAsync(error, message);
 	        }
 
-	        db.storeMessage(message);
+	        if (this.session.autoSave) {
+	          db.storeMessage(message);
+	        }
 	        callbackAsync(null, message);
 	      });
 	    }.bind(this)], function (error, message) {
@@ -477,8 +487,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	    return message;
 	  };
 
-	  proto.getPendingMessages = function getPendingMessages() {
-	    this.requestMessagesSinceTimestamp(this.session.lastTimestamp, 15, false);
+	  proto.getPendingMessages = function getPendingMessages(timestamp) {
+	    var finalTimestamp = timestamp || this.session.lastTimestamp;
+	    this.requestMessagesSinceTimestamp(finalTimestamp, 15, false);
 	  };
 
 	  proto.processSyncMessages = function processSyncMessages(messages, remaining) {
@@ -505,13 +516,17 @@ return /******/ (function(modules) { // webpackBootstrap
 	      case this.enums.MessageType.TEXT:
 	        {
 	          this.incomingMessage(message);
-	          db.storeMessage(message);
+	          if (this.session.autoSave) {
+	            db.storeMessage(message);
+	          }
 	          break;
 	        }
 	      case this.enums.MessageType.FILE:
 	        {
 	          this.fileReceived(message);
-	          db.storeMessage(message);
+	          if (this.session.autoSave) {
+	            db.storeMessage(message);
+	          }
 	          break;
 	        }
 	      default:
@@ -603,16 +618,15 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	    if (message.id > 0 && message.datetimeCreation > this.session.lastTimestamp) {
 	      this.session.lastTimestamp = message.datetimeCreation;
+	      if (this.session.autoSave) {
+	        db.storeUser(this.session.id, this.session);
+	      }
 	    }
 
 	    switch (message.protocolCommand) {
 	      case this.enums.ProtocolCommand.MESSAGE:
 	        {
 	          this._getEmitter().emit('onMessage', message);
-	          Push.create('New Message', {
-	            body: message.text.length > 0 ? message.text : 'You received a new message',
-	            vibrate: [200, 100]
-	          });
 	          break;
 	        }
 	      case this.enums.ProtocolCommand.PUBLISH:
@@ -623,16 +637,41 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }
 	  };
 
+	  proto.createPush = function createPush(title, body, timeout, tag, icon, onClick) {
+
+	    var myTitle = title || 'New Message';
+	    var myTag = tag || new Date().getTime() / 1000;
+	    onClick = typeof onClick == "function" ? onClick : function () {
+	      Push.close(myTag);
+	    };
+
+	    var params = {
+	      body: body || 'You received a new message',
+	      timeout: timeout || 3,
+	      tag: myTag,
+	      onClick: onClick
+	    };
+
+	    if (icon != null) {
+	      params.icon = icon;
+	    }
+
+	    Push.create(myTitle, params);
+	  };
+
+	  proto.closePush = function closePush(tag) {
+	    Push.close(tag);
+	  };
+
 	  proto.fileReceived = function fileReceived(message) {
 	    if (message.id > 0 && message.datetimeCreation > this.session.lastTimestamp) {
 	      this.session.lastTimestamp = message.datetimeCreation;
+	      if (this.session.autoSave) {
+	        db.storeUser(this.session.id, this.session);
+	      }
 	    }
 
 	    this._getEmitter().emit('onMessage', message);
-	    Push.create('New file', {
-	      body: 'You received a new file',
-	      vibrate: [200, 100]
-	    });
 	  };
 
 	  proto.processMOKProtocolACK = function processMOKProtocolACK(message) {
@@ -659,7 +698,10 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	        storedMessage.id = message.id;
 	        db.deleteMessageById(message.oldId);
-	        db.storeMessage(storedMessage);
+
+	        if (this.session.autoSave) {
+	          db.storeMessage(storedMessage);
+	        }
 	      }
 	    }
 
@@ -886,6 +928,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	      if (message.encryptedText == null) {
 	        if (message.id > 0 && message.datetimeCreation > this.session.lastTimestamp) {
 	          this.session.lastTimestamp = message.datetimeCreation;
+	          if (this.session.autoSave) {
+	            db.storeUser(this.session.id, this.session);
+	          }
 	        }
 	        return callback(null);
 	      }
@@ -1088,7 +1133,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	  */
 
 	  proto.requestSession = function requestSession() {
-	    this.session.exchangeKeys = new NodeRSA({ b: 2048 }, { encryptionScheme: 'pkcs1' });
+	    this.exchangeKeys = new NodeRSA({ b: 2048 }, { encryptionScheme: 'pkcs1' });
 	    var isSync = false;
 	    var endpoint = '/user/session';
 	    var params = { user_info: this.session.user, monkey_id: this.session.id, expiring: this.session.expireSession };
@@ -1096,7 +1141,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    if (this.session.id != null) {
 	      endpoint = '/user/key/sync';
 	      isSync = true;
-	      params.public_key = this.session.exchangeKeys.exportKey('public');
+	      params.public_key = this.exchangeKeys.exportKey('public');
 	    }
 
 	    this.status = this.enums.Status.HANDSHAKE;
@@ -1111,18 +1156,30 @@ return /******/ (function(modules) { // webpackBootstrap
 	      if (isSync) {
 	        Log.m(this.session.debuggingMode, 'Monkey - reusing Monkey ID : ' + this.session.id);
 
-	        this.session.user = respObj.info;
+	        if (respObj.data.info != null) {
+	          this.session.user = respObj.data.info;
+	        }
 
-	        this.session.lastTimestamp = respObj.data.last_time_synced || 0;
+	        if (respObj.data.last_time_synced == null) {
+	          respObj.data.last_time_synced = 0;
+	        }
 
-	        var decryptedAesKeys = this.session.exchangeKeys.decrypt(respObj.data.keys, 'utf8');
+	        var decryptedAesKeys = this.exchangeKeys.decrypt(respObj.data.keys, 'utf8');
 
 	        var myAesKeys = decryptedAesKeys.split(":");
 	        this.session.myKey = myAesKeys[0];
 	        this.session.myIv = myAesKeys[1];
 
-	        //var myKeyParams=generateSessionKey();// generates local AES KEY
-	        //this.keyStore[this.session.id]={key:this.session.myKey,iv:this.session.myIv};
+	        db.storeUser(this.session.id, this.session);
+
+	        if (respObj.data.last_time_synced > this.session.lastTimestamp) {
+	          this.session.lastTimestamp = respObj.data.last_time_synced;
+
+	          if (this.session.autoSave) {
+	            db.storeUser(this.session.id, this.session);
+	          }
+	        }
+
 	        monkeyKeystore.storeData(this.session.id, this.session.myKey + ":" + this.session.myIv, this.session.myKey, this.session.myIv);
 
 	        this.startConnection(this.session.id);
@@ -1137,9 +1194,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	      this.session.id = respObj.data.monkeyId;
 	      this.session.user.monkeyId = respObj.data.monkeyId;
 	      db.storeMonkeyId(respObj.data.monkeyId);
-	      db.storeUser(respObj.data.monkeyId, this.session.user);
 
-	      var connectParams = { monkey_id: this.session.id };
+	      var connectParams = {
+	        monkey_id: this.session.id
+	      };
 
 	      this._getEmitter().emit('onSession', connectParams);
 
@@ -1149,9 +1207,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	      var encryptedAES = key.encrypt(myKeyParams, 'base64');
 
 	      connectParams.usk = encryptedAES;
+	      connectParams.ignore_params = this.session.ignore;
 
 	      //this.keyStore[this.session.id]={key:this.session.myKey, iv:this.session.myIv};
 	      monkeyKeystore.storeData(this.session.id, this.session.myKey + ":" + this.session.myIv, this.session.myKey, this.session.myIv);
+	      db.storeUser(respObj.data.monkeyId, this.session);
 
 	      apiconnector.basicRequest('POST', '/user/connect', connectParams, false, function (error) {
 	        if (error) {
@@ -1486,37 +1546,74 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }.bind(this));
 	  };
 
-	  proto.getAllMessages = function getAllMessages() {
-	    return db.getAllMessages();
+	  proto.getAllStoredMessages = function getAllStoredMessages() {
+	    var messageArgs = db.getAllStoredMessages();
+	    var messages = [];
+
+	    for (var i = 0; i < messageArgs.length; i++) {
+	      var storedArgs = messageArgs[i];
+	      var msg = new MOKMessage(this.enums.ProtocolCommand.MESSAGE, storedArgs);
+	      messages.push(msg);
+	    }
+
+	    return messages;
 	  };
 
-	  proto.getAllMessagesByMonkeyId = function getAllMessagesByMonkeyId(id) {
-	    return db.getAllMessagesByMonkeyId(id);
+	  proto.getConversationStoredMessages = function getConversationStoredMessages(id) {
+	    var messageArgs = db.getConversationStoredMessages(this.session.id, id);
+	    var messages = [];
+
+	    for (var i = 0; i < messageArgs.length; i++) {
+	      var storedArgs = messageArgs[i];
+	      var msg = new MOKMessage(this.enums.ProtocolCommand.MESSAGE, storedArgs);
+	      messages.push(msg);
+	    }
+
+	    return messages;
 	  };
 
-	  proto.getTotalWithoutRead = function getTotalWithoutRead(id) {
-	    return db.getTotalWithoutRead(id);
+	  proto.getMessageById = function getMessageById(id) {
+	    var args = db.getMessageById(id);
+
+	    var msg = new MOKMessage(this.enums.ProtocolCommand.MESSAGE, args);
+	    return msg;
 	  };
 
-	  proto.getAllMessagesSending = function getAllMessagesSending() {
-	    return db.getAllMessagesSending();
+	  proto.getMessagesInTransit = function getMessagesInTransit(id) {
+	    var messageArgs = db.getMessagesInTransit(id);
+
+	    var messages = [];
+
+	    for (var i = 0; i < messageArgs.length; i++) {
+	      var storedArgs = messageArgs[i];
+	      var msg = new MOKMessage(this.enums.ProtocolCommand.MESSAGE, storedArgs);
+	      messages.push(msg);
+	    }
+
+	    return messages;
 	  };
 
-	  proto.deleteAllMessagesFromMonkeyId = function deleteAllMessagesFromMonkeyId(id) {
-	    return db.deleteAllMessagesFromMonkeyId(id);
+	  proto.deleteStoredMessagesOfConversation = function deleteStoredMessagesOfConversation(id) {
+	    return db.deleteStoredMessagesOfConversation(this.session.id, id);
 	  };
 
-	  proto.setAllMessagesToRead = function setAllMessagesToRead(id) {
-	    return db.setAllMessagesToRead(id);
+	  proto.markReadStoredMessage = function markReadStoredMessage(id) {
+	    return db.markReadStoredMessage(id);
 	  };
 
-	  proto.getMonkeyId = function getMonkeyId() {
-	    return db.getMonkeyId();
+	  proto.markReadConversationStoredMessages = function markReadConversationStoredMessages(id) {
+	    return db.markReadConversationStoredMessages(this.session.id, id);
 	  };
 
 	  proto.getUser = function getUser() {
-	    // this.session = db.getUser(db.getMonkeyId())
-	    return db.getUser(db.getMonkeyId());
+	    var session = db.getUser(db.getMonkeyId());
+
+	    if (session == null) {
+	      return session;
+	    }
+
+	    this.session = session;
+	    return this.session.user;
 	  };
 
 	  proto.logout = function logout() {
@@ -3858,6 +3955,12 @@ return /******/ (function(modules) { // webpackBootstrap
 	  function MOKMessage(command, args) {
 	    _classCallCheck(this, MOKMessage);
 
+	    //check if loading from DB
+	    if (args.args != null) {
+	      this.buildFromDB(args);
+	      return;
+	    }
+
 	    this.args = args;
 
 	    if (args.app_id != null) {
@@ -3872,7 +3975,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    this.datetimeOrder = this.getCurrentTimestamp();
 	    this.datetimeCreation = args.datetime == null ? this.datetimeOrder : args.datetime;
 
-	    this.readByUser = false;
+	    this.readByUser = args.readByUser || false;
 
 	    //parse props
 	    if (args.props != null && typeof args.props != "undefined" && args.props !== "") {
@@ -3932,6 +4035,34 @@ return /******/ (function(modules) { // webpackBootstrap
 	    key: "getCurrentTimestamp",
 	    value: function getCurrentTimestamp() {
 	      return new Date().getTime() / 1000;
+	    }
+	  }, {
+	    key: "buildFromDB",
+	    value: function buildFromDB(storedArgs) {
+	      this.args = storedArgs.args;
+
+	      if (storedArgs.app_id != null) {
+	        this.app_id = storedArgs.app_id;
+	      }
+	      this.protocolCommand = storedArgs.protocolCommand;
+	      this.protocolType = storedArgs.protocolType;
+
+	      this.senderId = storedArgs.senderId;
+	      this.recipientId = storedArgs.recipientId;
+
+	      this.datetimeOrder = storedArgs.datetimeOrder;
+	      this.datetimeCreation = storedArgs.datetimeCreation;
+
+	      this.readByUser = storedArgs.readByUser;
+
+	      this.props = storedArgs.props;
+	      this.params = storedArgs.params;
+
+	      this.id = storedArgs.id;
+	      this.oldId = storedArgs.oldId;
+
+	      this.encryptedText = storedArgs.encryptedText;
+	      this.text = storedArgs.text;
 	    }
 	  }, {
 	    key: "buildAcknowledge",
@@ -7784,13 +7915,13 @@ return /******/ (function(modules) { // webpackBootstrap
 	  }
 
 	  db.storeUser = function(monkey_id, userObj){
+	    store.set("monkey_id", monkey_id);
 	    store.set("user_"+monkey_id, userObj);
 	  }
 
 	  //UPDATERS
 
-	  db.updateMessageReadStatus = function(id){
-	    var mokmessage = this.getMessageById(id);
+	  db.updateMessageReadStatus = function(mokmessage){
 	    if(mokmessage !== ""){
 	      mokmessage.readByUser = true;
 	      this.storeMessage(mokmessage);
@@ -7799,14 +7930,35 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	  db.setAllMessagesToRead = function(id){
 
-	    var arrayMessages = this.getAllMessages();
+	    var arrayMessages = this.getAllStoredMessages();
 	    arrayMessages.reduce(function(result, message){
 	      if(message.senderId == id && !message.readByUser){
-	        this.updateMessageReadStatus(message.id);
+	        this.updateMessageReadStatus(message);
 	      }
 	      return result;
 	    }.bind(this),0);
 
+	  }
+
+	  db.markReadConversationStoredMessages = function(myId, id){
+
+	    var count = 0;
+	    store.forEach(function(key, message) {
+	      //check if it's a group
+	      if((key.indexOf("G:") != -1 && message.recipientId == id) || (message.recipientId == id && message.senderId == myId) || (message.recipientId == myId && message.senderId == id)){
+	        this.updateMessageReadStatus(message);
+	        count++;
+	      }
+	    }.bind(this));
+
+	    return count;
+
+	  }
+
+	  db.markReadStoredMessage = function(id){
+	    var mokmessage = this.getMessageById(id);
+
+	    this.updateMessageReadStatus(mokmessage);
 	  }
 
 	  //GETTERS
@@ -7815,7 +7967,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    return store.get("message_"+id, "");
 	  }
 
-	  db.getAllMessages = function(){
+	  db.getAllStoredMessages = function(){
 
 	    var arrayMessages = [];
 
@@ -7840,44 +7992,29 @@ return /******/ (function(modules) { // webpackBootstrap
 	    return arrayMessages;
 	  }
 
-	  db.getAllMessagesByMonkeyId = function(id){
+	  db.getConversationStoredMessages = function(myId, id){
 
-	    var arrayMessages = this.getAllMessages();
+	    var arrayMessages = [];
 
-	    if(id.indexOf("G:") != -1){
-
-	      arrayMessages = arrayMessages.reduce(function(result, message){
-	        if(message.senderId == id || message.recipientId == id){
-	          result.push(message);
-	        }
-	        return result;
-	      },[]);
-
-	    }
-	    else{
-
-	      arrayMessages = arrayMessages.reduce(function(result, message){
-	        if( (message.recipientId.indexOf(id)>=0 && message.senderId.indexOf("G:")==-1) || (message.senderId == id && message.recipientId.indexOf("G:")==-1) ){
-	          result.push(message);
-	        }
-	        return result;
-	      },[]);
-
-	    }
+	    store.forEach(function(key, message) {
+	      //check if it's a group
+	      if((key.indexOf("G:") != -1 && message.recipientId == id) || (message.recipientId == id && message.senderId == myId) || (message.recipientId == myId && message.senderId == id)){
+	        arrayMessages.push(message);
+	      }
+	    });
 
 	    return arrayMessages;
 
 	  }
 
-	  db.getAllMessagesSending = function(){
+	  db.getMessagesInTransit = function(){
 
-	    var arrayMessages = this.getAllMessages();
-	    arrayMessages = arrayMessages.reduce(function(result, message){
-	      if(parseInt(message.id) < 0){
-	        result.push(message);
+	    var arrayMessages = [];
+	    store.forEach(function(key, val) {
+	      if(key.indexOf("message_-") != -1){
+	        arrayMessages.push(val);
 	      }
-	      return result;
-	    },[]);
+	    });
 
 	    return arrayMessages;
 
@@ -7885,7 +8022,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	  db.getTotalWithoutRead = function(id){
 
-	    var arrayMessages = this.getAllMessages();
+	    var arrayMessages = this.getAllStoredMessages();
 	    var total = arrayMessages.reduce(function(result, message){
 	      if(message.senderId == id && !message.readByUser){
 	        result++;
@@ -7911,15 +8048,20 @@ return /******/ (function(modules) { // webpackBootstrap
 	    store.remove("message_"+id);
 	  }
 
-	  db.deleteAllMessagesFromMonkeyId = function(id) {
+	  db.deleteStoredMessagesOfConversation = function(myId, id) {
 
-	    var arrayMessages = this.getAllMessagesByMonkeyId(id);
+	    var arrayMessages = this.getConversationStoredMessages(myId, id);
+
+	    var count = arrayMessages.length;
+
 	    arrayMessages.reduce(function(result, message){
 	      this.deleteMessageById(message.id);
 	      return result;
 	    }.bind(this),[]);
 
+	    return count;
 	  }
+
 	  db.clear = function(){
 	    return store.clear();
 	  }

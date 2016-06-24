@@ -17,13 +17,13 @@ module.exports = (function() {
   }
 
   db.storeUser = function(monkey_id, userObj){
+    store.set("monkey_id", monkey_id);
     store.set("user_"+monkey_id, userObj);
   }
 
   //UPDATERS
 
-  db.updateMessageReadStatus = function(id){
-    var mokmessage = this.getMessageById(id);
+  db.updateMessageReadStatus = function(mokmessage){
     if(mokmessage !== ""){
       mokmessage.readByUser = true;
       this.storeMessage(mokmessage);
@@ -32,14 +32,35 @@ module.exports = (function() {
 
   db.setAllMessagesToRead = function(id){
 
-    var arrayMessages = this.getAllMessages();
+    var arrayMessages = this.getAllStoredMessages();
     arrayMessages.reduce(function(result, message){
       if(message.senderId == id && !message.readByUser){
-        this.updateMessageReadStatus(message.id);
+        this.updateMessageReadStatus(message);
       }
       return result;
     }.bind(this),0);
 
+  }
+
+  db.markReadConversationStoredMessages = function(myId, id){
+
+    var count = 0;
+    store.forEach(function(key, message) {
+      //check if it's a group
+      if((key.indexOf("G:") != -1 && message.recipientId == id) || (message.recipientId == id && message.senderId == myId) || (message.recipientId == myId && message.senderId == id)){
+        this.updateMessageReadStatus(message);
+        count++;
+      }
+    }.bind(this));
+
+    return count;
+
+  }
+
+  db.markReadStoredMessage = function(id){
+    var mokmessage = this.getMessageById(id);
+
+    this.updateMessageReadStatus(mokmessage);
   }
 
   //GETTERS
@@ -48,7 +69,7 @@ module.exports = (function() {
     return store.get("message_"+id, "");
   }
 
-  db.getAllMessages = function(){
+  db.getAllStoredMessages = function(){
 
     var arrayMessages = [];
 
@@ -73,44 +94,29 @@ module.exports = (function() {
     return arrayMessages;
   }
 
-  db.getAllMessagesByMonkeyId = function(id){
+  db.getConversationStoredMessages = function(myId, id){
 
-    var arrayMessages = this.getAllMessages();
+    var arrayMessages = [];
 
-    if(id.indexOf("G:") != -1){
-
-      arrayMessages = arrayMessages.reduce(function(result, message){
-        if(message.senderId == id || message.recipientId == id){
-          result.push(message);
-        }
-        return result;
-      },[]);
-
-    }
-    else{
-
-      arrayMessages = arrayMessages.reduce(function(result, message){
-        if( (message.recipientId.indexOf(id)>=0 && message.senderId.indexOf("G:")==-1) || (message.senderId == id && message.recipientId.indexOf("G:")==-1) ){
-          result.push(message);
-        }
-        return result;
-      },[]);
-
-    }
+    store.forEach(function(key, message) {
+      //check if it's a group
+      if((key.indexOf("G:") != -1 && message.recipientId == id) || (message.recipientId == id && message.senderId == myId) || (message.recipientId == myId && message.senderId == id)){
+        arrayMessages.push(message);
+      }
+    });
 
     return arrayMessages;
 
   }
 
-  db.getAllMessagesSending = function(){
+  db.getMessagesInTransit = function(){
 
-    var arrayMessages = this.getAllMessages();
-    arrayMessages = arrayMessages.reduce(function(result, message){
-      if(parseInt(message.id) < 0){
-        result.push(message);
+    var arrayMessages = [];
+    store.forEach(function(key, val) {
+      if(key.indexOf("message_-") != -1){
+        arrayMessages.push(val);
       }
-      return result;
-    },[]);
+    });
 
     return arrayMessages;
 
@@ -118,7 +124,7 @@ module.exports = (function() {
 
   db.getTotalWithoutRead = function(id){
 
-    var arrayMessages = this.getAllMessages();
+    var arrayMessages = this.getAllStoredMessages();
     var total = arrayMessages.reduce(function(result, message){
       if(message.senderId == id && !message.readByUser){
         result++;
@@ -144,15 +150,20 @@ module.exports = (function() {
     store.remove("message_"+id);
   }
 
-  db.deleteAllMessagesFromMonkeyId = function(id) {
+  db.deleteStoredMessagesOfConversation = function(myId, id) {
 
-    var arrayMessages = this.getAllMessagesByMonkeyId(id);
+    var arrayMessages = this.getConversationStoredMessages(myId, id);
+
+    var count = arrayMessages.length;
+
     arrayMessages.reduce(function(result, message){
       this.deleteMessageById(message.id);
       return result;
     }.bind(this),[]);
 
+    return count;
   }
+
   db.clear = function(){
     return store.clear();
   }

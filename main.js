@@ -77,19 +77,22 @@ require('es6-promise').polyfill();
 
   proto.status = 0;
 
+  proto.exchangeKeys = 0;
+
   proto.session = {
     id:null,
     user: null,
     lastTimestamp: 0,
     expireSession: 0,
-    debuggingMode: false
+    debuggingMode: false,
+    autoSave: true
   }
 
   /*
   * Session stuff
   */
 
-  proto.init = function init(appKey, appSecret, userObj, shouldExpireSession, isDebugging, autoSync){
+  proto.init = function init(appKey, appSecret, userObj, ignoreHook, shouldExpireSession, isDebugging, autoSync, autoSave){
     if (appKey == null || appSecret == null) {
       throw 'Monkey - To initialize Monkey, you must provide your App Id and App Secret';
     }
@@ -102,17 +105,15 @@ require('es6-promise').polyfill();
     if (userObj != null) {
       this.session.user = userObj;
       this.session.id = userObj.monkeyId;
-      if(userObj.monkeyId!=null){
-        db.storeMonkeyId(userObj.monkeyId);
-        db.storeUser(userObj.monkeyId, userObj);
-      }
     }
 
     if (shouldExpireSession) {
       this.session.expireSession = 1;
     }
 
+    this.session.autoSave = autoSave || true;
     this.domainUrl = 'monkey.criptext.com';
+    this.session.ignore = ignoreHook;
 
     if (isDebugging) {
       this.session.debuggingMode = true;
@@ -125,9 +126,12 @@ require('es6-promise').polyfill();
     //setup socketConnection
     this.socketConnection= null
 
-    this.requestSession();
+    setTimeout(function(){
+      this.requestSession();
+    }.bind(this),
+    500);
+
     return this;
-    // this.session =
   }
 
   /*
@@ -212,7 +216,10 @@ require('es6-promise').polyfill();
     }
 
     message.args = args;
-    db.storeMessage(message);
+
+    if (this.session.autoSave) {
+      db.storeMessage(message);
+    }
 
     this.sendCommand(cmd, args);
 
@@ -295,7 +302,9 @@ require('es6-promise').polyfill();
             callbackAsync(error, message);
           }
 
-          db.storeMessage(message);
+          if (this.session.autoSave) {
+            db.storeMessage(message);
+          }
           callbackAsync(null, message);
         });
       }.bind(this)],function(error, message){
@@ -349,7 +358,9 @@ require('es6-promise').polyfill();
             callbackAsync(error, message);
           }
 
-          db.storeMessage(message);
+          if (this.session.autoSave) {
+            db.storeMessage(message);
+          }
           callbackAsync(null, message);
         });
       }.bind(this)],function(error, message){
@@ -420,8 +431,9 @@ require('es6-promise').polyfill();
     return message;
   };
 
-  proto.getPendingMessages = function getPendingMessages(){
-    this.requestMessagesSinceTimestamp(this.session.lastTimestamp, 15, false);
+  proto.getPendingMessages = function getPendingMessages(timestamp){
+    var finalTimestamp = timestamp || this.session.lastTimestamp;
+    this.requestMessagesSinceTimestamp(finalTimestamp, 15, false);
   }
 
   proto.processSyncMessages = function processSyncMessages(messages, remaining){
@@ -447,12 +459,16 @@ require('es6-promise').polyfill();
     switch(message.protocolType){
       case this.enums.MessageType.TEXT:{
         this.incomingMessage(message);
-        db.storeMessage(message);
+        if (this.session.autoSave) {
+          db.storeMessage(message);
+        }
         break;
       }
       case this.enums.MessageType.FILE:{
         this.fileReceived(message);
-        db.storeMessage(message);
+        if (this.session.autoSave) {
+          db.storeMessage(message);
+        }
         break;
       }
       default:{
@@ -540,15 +556,14 @@ require('es6-promise').polyfill();
 
     if (message.id > 0 && message.datetimeCreation > this.session.lastTimestamp) {
       this.session.lastTimestamp = message.datetimeCreation;
+      if (this.session.autoSave) {
+        db.storeUser(this.session.id, this.session);
+      }
     }
 
     switch (message.protocolCommand){
       case this.enums.ProtocolCommand.MESSAGE:{
         this._getEmitter().emit('onMessage', message);
-        Push.create('New Message', {
-            body: message.text.length > 0 ? message.text : 'You received a new message',
-            vibrate: [200, 100]
-        });
         break;
       }
       case this.enums.ProtocolCommand.PUBLISH:{
@@ -558,16 +573,39 @@ require('es6-promise').polyfill();
     }
   }
 
+  proto.createPush = function createPush(title, body, timeout, tag, icon, onClick){
+
+    var myTitle = title || 'New Message';
+    var myTag = tag || (new Date().getTime() / 1000);
+    onClick = (typeof onClick == "function") ? onClick : function () { Push.close(myTag) };
+
+    var params = {
+      body: body || 'You received a new message',
+      timeout: timeout || 3,
+      tag: myTag,
+      onClick: onClick
+    };
+
+    if (icon != null) {
+      params.icon = icon;
+    }
+
+    Push.create(myTitle, params);
+  }
+
+  proto.closePush = function closePush(tag){
+    Push.close(tag);
+  }
+
   proto.fileReceived = function fileReceived(message){
     if (message.id > 0 && message.datetimeCreation > this.session.lastTimestamp) {
       this.session.lastTimestamp = message.datetimeCreation;
+      if (this.session.autoSave) {
+        db.storeUser(this.session.id, this.session);
+      }
     }
 
     this._getEmitter().emit('onMessage', message);
-    Push.create('New file', {
-        body: 'You received a new file',
-        vibrate: [200, 100]
-    });
   }
 
   proto.processMOKProtocolACK = function processMOKProtocolACK(message){
@@ -594,7 +632,10 @@ require('es6-promise').polyfill();
 
         storedMessage.id = message.id;
         db.deleteMessageById(message.oldId);
-        db.storeMessage(storedMessage);
+
+        if (this.session.autoSave) {
+          db.storeMessage(storedMessage);
+        }
       }
 
     }
@@ -818,6 +859,9 @@ require('es6-promise').polyfill();
       if (message.encryptedText == null) {
         if (message.id > 0 && message.datetimeCreation > this.session.lastTimestamp) {
           this.session.lastTimestamp = message.datetimeCreation;
+          if (this.session.autoSave) {
+            db.storeUser(this.session.id, this.session);
+          }
         }
         return callback(null);
       }
@@ -1023,7 +1067,7 @@ require('es6-promise').polyfill();
   */
 
   proto.requestSession = function requestSession(){
-    this.session.exchangeKeys = new NodeRSA({ b: 2048 }, {encryptionScheme: 'pkcs1'});
+    this.exchangeKeys = new NodeRSA({ b: 2048 }, {encryptionScheme: 'pkcs1'});
     var isSync = false;
     var endpoint = '/user/session';
     var params={ user_info:this.session.user,monkey_id:this.session.id,expiring:this.session.expireSession};
@@ -1031,7 +1075,7 @@ require('es6-promise').polyfill();
     if (this.session.id != null) {
       endpoint = '/user/key/sync';
       isSync = true;
-      params.public_key = this.session.exchangeKeys.exportKey('public');
+      params.public_key = this.exchangeKeys.exportKey('public');
     }
 
     this.status = this.enums.Status.HANDSHAKE;
@@ -1046,18 +1090,30 @@ require('es6-promise').polyfill();
       if (isSync) {
         Log.m(this.session.debuggingMode, 'Monkey - reusing Monkey ID : '+this.session.id);
 
-        this.session.user = respObj.info;
+        if (respObj.data.info != null) {
+            this.session.user = respObj.data.info;
+        }
 
-        this.session.lastTimestamp = respObj.data.last_time_synced || 0;
+        if (respObj.data.last_time_synced == null) {
+          respObj.data.last_time_synced = 0;
+        }
 
-        var decryptedAesKeys = this.session.exchangeKeys.decrypt(respObj.data.keys, 'utf8');
+        var decryptedAesKeys = this.exchangeKeys.decrypt(respObj.data.keys, 'utf8');
 
         var myAesKeys=decryptedAesKeys.split(":");
         this.session.myKey=myAesKeys[0];
         this.session.myIv=myAesKeys[1];
 
-        //var myKeyParams=generateSessionKey();// generates local AES KEY
-        //this.keyStore[this.session.id]={key:this.session.myKey,iv:this.session.myIv};
+        db.storeUser(this.session.id, this.session);
+
+        if (respObj.data.last_time_synced > this.session.lastTimestamp ) {
+          this.session.lastTimestamp = respObj.data.last_time_synced;
+
+          if (this.session.autoSave) {
+            db.storeUser(this.session.id, this.session);
+          }
+        }
+
         monkeyKeystore.storeData(this.session.id, this.session.myKey+":"+this.session.myIv, this.session.myKey, this.session.myIv);
 
         this.startConnection(this.session.id);
@@ -1072,9 +1128,10 @@ require('es6-promise').polyfill();
       this.session.id = respObj.data.monkeyId;
       this.session.user.monkeyId = respObj.data.monkeyId;
       db.storeMonkeyId(respObj.data.monkeyId);
-      db.storeUser(respObj.data.monkeyId, this.session.user);
 
-      var connectParams = {monkey_id:this.session.id};
+      var connectParams = {
+        monkey_id:this.session.id
+      };
 
       this._getEmitter().emit('onSession', connectParams);
 
@@ -1084,9 +1141,11 @@ require('es6-promise').polyfill();
       var encryptedAES = key.encrypt(myKeyParams, 'base64');
 
       connectParams.usk = encryptedAES;
+      connectParams.ignore_params = this.session.ignore;
 
       //this.keyStore[this.session.id]={key:this.session.myKey, iv:this.session.myIv};
       monkeyKeystore.storeData(this.session.id, this.session.myKey+":"+this.session.myIv, this.session.myKey, this.session.myIv);
+      db.storeUser(respObj.data.monkeyId, this.session);
 
       apiconnector.basicRequest('POST', '/user/connect', connectParams, false, function(error){
         if(error){
@@ -1428,37 +1487,74 @@ require('es6-promise').polyfill();
     }.bind(this));
   }
 
-  proto.getAllMessages = function getAllMessages(){
-    return db.getAllMessages();
+  proto.getAllStoredMessages = function getAllStoredMessages(){
+    var messageArgs = db.getAllStoredMessages();
+    var messages = [];
+
+    for (var i = 0; i < messageArgs.length; i++) {
+      var storedArgs = messageArgs[i];
+      var msg = new MOKMessage(this.enums.ProtocolCommand.MESSAGE, storedArgs);
+      messages.push(msg);
+    }
+
+    return messages;
   }
 
-  proto.getAllMessagesByMonkeyId = function getAllMessagesByMonkeyId(id){
-    return db.getAllMessagesByMonkeyId(id);
+  proto.getConversationStoredMessages = function getConversationStoredMessages(id){
+    var messageArgs = db.getConversationStoredMessages(this.session.id, id);
+    var messages = [];
+
+    for (var i = 0; i < messageArgs.length; i++) {
+      var storedArgs = messageArgs[i];
+      var msg = new MOKMessage(this.enums.ProtocolCommand.MESSAGE, storedArgs);
+      messages.push(msg);
+    }
+
+    return messages;
   }
 
-  proto.getTotalWithoutRead = function getTotalWithoutRead(id){
-    return db.getTotalWithoutRead(id);
+  proto.getMessageById = function getMessageById(id){
+    var args = db.getMessageById(id);
+
+    var msg = new MOKMessage(this.enums.ProtocolCommand.MESSAGE, args);
+    return msg;
   }
 
-  proto.getAllMessagesSending = function getAllMessagesSending(){
-    return db.getAllMessagesSending();
+  proto.getMessagesInTransit = function getMessagesInTransit(id){
+    var messageArgs = db.getMessagesInTransit(id);
+
+    var messages = [];
+
+    for (var i = 0; i < messageArgs.length; i++) {
+      var storedArgs = messageArgs[i];
+      var msg = new MOKMessage(this.enums.ProtocolCommand.MESSAGE, storedArgs);
+      messages.push(msg);
+    }
+
+    return messages;
   }
 
-  proto.deleteAllMessagesFromMonkeyId = function deleteAllMessagesFromMonkeyId(id){
-    return db.deleteAllMessagesFromMonkeyId(id);
+  proto.deleteStoredMessagesOfConversation = function deleteStoredMessagesOfConversation(id){
+    return db.deleteStoredMessagesOfConversation(this.session.id, id);
   }
 
-  proto.setAllMessagesToRead = function setAllMessagesToRead(id){
-    return db.setAllMessagesToRead(id);
+  proto.markReadStoredMessage = function markReadStoredMessage(id){
+    return db.markReadStoredMessage(id);
   }
 
-  proto.getMonkeyId = function getMonkeyId(){
-    return db.getMonkeyId();
+  proto.markReadConversationStoredMessages = function markReadConversationStoredMessages(id){
+    return db.markReadConversationStoredMessages(this.session.id, id);
   }
 
   proto.getUser = function getUser(){
-    // this.session = db.getUser(db.getMonkeyId())
-    return db.getUser(db.getMonkeyId());
+    var session = db.getUser(db.getMonkeyId());
+
+    if (session == null) {
+      return session;
+    }
+
+    this.session = session;
+    return this.session.user;
   }
 
   proto.logout = function logout(){

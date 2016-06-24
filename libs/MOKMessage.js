@@ -8,6 +8,12 @@ Start Message class definition
 
 module.exports = class MOKMessage{
   constructor(command, args){
+    //check if loading from DB
+    if (args.args != null) {
+      this.buildFromDB(args);
+      return;
+    }
+
     this.args = args;
 
     if (args.app_id != null) {
@@ -22,7 +28,7 @@ module.exports = class MOKMessage{
     this.datetimeOrder = this.getCurrentTimestamp();
     this.datetimeCreation = args.datetime == null? this.datetimeOrder : args.datetime;
 
-    this.readByUser = false;
+    this.readByUser = args.readByUser || false;
 
     //parse props
     if (args.props != null && typeof(args.props) != "undefined" && args.props !== "") {
@@ -74,6 +80,33 @@ generateRandomMessageId(){
 }
 getCurrentTimestamp(){
   return (new Date().getTime() / 1000);
+}
+buildFromDB(storedArgs){
+  this.args = storedArgs.args;
+
+  if (storedArgs.app_id != null) {
+    this.app_id = storedArgs.app_id;
+  }
+  this.protocolCommand = storedArgs.protocolCommand;
+  this.protocolType = storedArgs.protocolType;
+
+  this.senderId = storedArgs.senderId;
+  this.recipientId = storedArgs.recipientId;
+
+  this.datetimeOrder = storedArgs.datetimeOrder;
+  this.datetimeCreation = storedArgs.datetimeCreation;
+
+  this.readByUser = storedArgs.readByUser;
+
+  this.props = storedArgs.props;
+  this.params = storedArgs.params
+
+  this.id = storedArgs.id;
+  this.oldId = storedArgs.oldId;
+
+  this.encryptedText = storedArgs.encryptedText;
+  this.text = storedArgs.text;
+
 }
 buildAcknowledge(props){
   if (typeof(props.message_id) != "undefined" || props.message_id != null) {
