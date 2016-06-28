@@ -183,29 +183,23 @@ require('es6-promise').polyfill();
   }
 
   proto.sendMessage = function sendMessage(text, recipientMonkeyId, optionalParams, optionalPush){
-    var props = {
-      device: "web",
-      encr: 0,
-    };
-
-    return this.sendText(this.enums.ProtocolCommand.MESSAGE, text, recipientMonkeyId, props, optionalParams, optionalPush);
+    return this.sendText(text, recipientMonkeyId, false, optionalParams, optionalPush);
   }
 
   proto.sendEncryptedMessage = function sendEncryptedMessage(text, recipientMonkeyId, optionalParams, optionalPush){
-    var props = {
-      device: "web",
-      encr: 1,
-    };
-
-    return this.sendText(this.enums.ProtocolCommand.MESSAGE, text, recipientMonkeyId, props, optionalParams, optionalPush);
+    return this.sendText(text, recipientMonkeyId, true, optionalParams, optionalPush);
   }
 
-  proto.sendText = function sendText(cmd, text, recipientMonkeyId, props, optionalParams, optionalPush){
+  proto.sendText = function sendText(text, recipientMonkeyId, shouldEncrypt, optionalParams, optionalPush){
+    var props = {
+      device: "web",
+      encr: shouldEncrypt? 1 : 0,
+    };
     var args = this.prepareMessageArgs(recipientMonkeyId, props, optionalParams, optionalPush);
     args.msg = text;
     args.type = this.enums.MessageType.TEXT;
 
-    var message = new MOKMessage(cmd, args);
+    var message = new MOKMessage(this.enums.ProtocolCommand.MESSAGE, args);
 
     args.id = message.id;
     args.oldId = message.oldId;
@@ -221,7 +215,7 @@ require('es6-promise').polyfill();
       db.storeMessage(message);
     }
 
-    this.sendCommand(cmd, args);
+    this.sendCommand(this.enums.ProtocolCommand.MESSAGE, args);
 
     watchdog.messageInTransit(function(){
       this.socketConnection.close();
@@ -306,7 +300,7 @@ require('es6-promise').polyfill();
             db.storeMessage(message);
           }
           callbackAsync(null, message);
-        });
+        }.bind(this));
       }.bind(this)],function(error, message){
           callback(error, message);
     });
@@ -855,7 +849,14 @@ require('es6-promise').polyfill();
 
       message.encryptedText = respObj.data.message;
       message.text = message.encryptedText;
-      message.encryptedText = this.aesDecrypt(message.encryptedText, this.session.id);
+
+      //check if it's a group
+      if (message.recipientId.indexOf("G:") >-1) {
+        message.encryptedText = this.aesDecrypt(message.encryptedText, message.senderId);
+      }else{
+        message.encryptedText = this.aesDecrypt(message.encryptedText, this.session.id);
+      }
+
       if (message.encryptedText == null) {
         if (message.id > 0 && message.datetimeCreation > this.session.lastTimestamp) {
           this.session.lastTimestamp = message.datetimeCreation;
@@ -1187,6 +1188,7 @@ require('es6-promise').polyfill();
         }
 
         conversation.last_message = new MOKMessage(this.enums.ProtocolCommand.MESSAGE, conversation.last_message);
+
         var message = conversation.last_message;
         var gotError = false;
 
@@ -1237,9 +1239,14 @@ require('es6-promise').polyfill();
           //NOW DELETE CONVERSATIONS WITH LASTMESSAGE NO DECRYPTED
           respObj.data.conversations = respObj.data.conversations.reduce(function(result, conversation){
 
-            if(conversation.last_message.protocolType == this.enums.MessageType.TEXT && conversation.last_message.encryptedText != conversation.last_message.text ){
-              result.push(conversation);
-            }else if(conversation.last_message.protocolType != this.enums.MessageType.TEXT){
+            if((conversation.last_message.protocolType == this.enums.MessageType.TEXT && conversation.last_message.encryptedText != conversation.last_message.text) || conversation.last_message.protocolType != this.enums.MessageType.TEXT ){
+              if (this.session.autoSave) {
+                let stored = db.getMessageById(conversation.last_message.id);
+                if (stored == null || stored === "") {
+                  db.storeMessage(conversation.last_message);
+                }
+              }
+
               result.push(conversation);
             }
 
@@ -1272,12 +1279,23 @@ require('es6-promise').polyfill();
 
       var messagesArray = messages.reduce(function(result, message){
         let msg = new MOKMessage(this.enums.ProtocolCommand.MESSAGE, message);
+
         msg.datetimeOrder = msg.datetimeCreation;
+
         result.push(msg);
         return result;
       }.bind(this),[]);
 
       this.decryptBulkMessages(messagesArray, [], function(decryptedMessages){
+        for (var i = 0; i < decryptedMessages.length; i++) {
+          var msg = decryptedMessages[i];
+          if (this.session.autoSave) {
+            let stored = db.getMessageById(msg.id);
+            if (stored == null || stored === "") {
+              db.storeMessage(msg);
+            }
+          }
+        }
         onComplete(null, decryptedMessages);
       }.bind(this));
     }.bind(this));
@@ -1366,10 +1384,6 @@ require('es6-promise').polyfill();
     if (conversationId == null) {
       Log.m(this.session.debuggingMode, 'ConversationId to delete is undefined');
       return callback('ConversationId to delete is undefined');
-    }
-
-    if (conversationId.indexOf('G:') != -1) {
-      return this.removeMemberFromGroup(conversationId, this.session.id, callback);
     }
 
     apiconnector.basicRequest('POST', '/user/delete/conversation',{conversation_id: conversationId, monkey_id: this.session.id}, false, function(err, respObj){
@@ -1544,6 +1558,10 @@ require('es6-promise').polyfill();
 
   proto.markReadConversationStoredMessages = function markReadConversationStoredMessages(id){
     return db.markReadConversationStoredMessages(this.session.id, id);
+  }
+
+  proto.countUnreadConversationStoredMessages = function countUnreadConversationStoredMessages(id){
+    return db.countUnreadConversationStoredMessages(this.session.id, id);
   }
 
   proto.getUser = function getUser(){

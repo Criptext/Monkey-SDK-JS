@@ -46,15 +46,40 @@ module.exports = (function() {
 
     var count = 0;
     store.forEach(function(key, message) {
+      if (message.recipientId == null) {
+        return;
+      }
       //check if it's a group
-      if((key.indexOf("G:") != -1 && message.recipientId == id) || (message.recipientId == id && message.senderId == myId) || (message.recipientId == myId && message.senderId == id)){
-        this.updateMessageReadStatus(message);
-        count++;
+      if((message.recipientId.indexOf("G:") != -1 && message.recipientId == id) || (message.recipientId == id && message.senderId == myId) || (message.recipientId == myId && message.senderId == id)){
+        if (!message.readByUser) {
+          this.updateMessageReadStatus(message);
+          count++;
+        }
+
       }
     }.bind(this));
 
     return count;
 
+  }
+
+  db.countUnreadConversationStoredMessages = function(myId, id){
+
+    var count = 0;
+    store.forEach(function(key, message) {
+      if (message.recipientId == null) {
+        return;
+      }
+
+      //check if it's a group
+      if((message.recipientId.indexOf("G:") != -1 && message.recipientId == id) || (message.recipientId == id && message.senderId == myId) || (message.recipientId == myId && message.senderId == id)){
+        if (!message.readByUser) {
+          count++;
+        }
+      }
+    }.bind(this));
+
+    return count;
   }
 
   db.markReadStoredMessage = function(id){
@@ -99,8 +124,11 @@ module.exports = (function() {
     var arrayMessages = [];
 
     store.forEach(function(key, message) {
+      if (message.recipientId == null) {
+        return;
+      }
       //check if it's a group
-      if((key.indexOf("G:") != -1 && message.recipientId == id) || (message.recipientId == id && message.senderId == myId) || (message.recipientId == myId && message.senderId == id)){
+      if((message.recipientId.indexOf("G:") != -1 && message.recipientId == id) || (message.recipientId == id && message.senderId == myId) || (message.recipientId == myId && message.senderId == id)){
         arrayMessages.push(message);
       }
     });

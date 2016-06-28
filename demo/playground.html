@@ -86,6 +86,8 @@ feature of monkey.
       console.log(msg.isEncrypted());
     }
 
+    monkey.getConversationMessages(recipientMonkeyId, 10);
+
   });
 
   monkey.on( "onMessage", function(message ){
