@@ -356,7 +356,7 @@ require('es6-promise').polyfill();
             db.storeMessage(message);
           }
           callbackAsync(null, message);
-        });
+        }.bind(this));
       }.bind(this)],function(error, message){
           callback(error, message);
     });
@@ -823,18 +823,18 @@ require('es6-promise').polyfill();
         return callback(pendingMessage);
       }
 
-      //check if it's the same key
-      if (newParamKeys[0] == currentParamKeys.key && newParamKeys[1] == currentParamKeys.iv) {
-        this.requestEncryptedTextForMessage(pendingMessage, function(decryptedMessage){
-          return callback(decryptedMessage);
-        }.bind(this));
-      }
-      else{
-        //it's a new key
-        Log.m(this.session.debuggingMode, 'Monkey - it is a new key');
-        return callback(pendingMessage);
-      }
-
+      // //check if it's the same key
+      // if (newParamKeys[0] == currentParamKeys.key && newParamKeys[1] == currentParamKeys.iv) {
+      //   this.requestEncryptedTextForMessage(pendingMessage, function(decryptedMessage){
+      //     return callback(decryptedMessage);
+      //   }.bind(this));
+      // }
+      // else{
+      //   //it's a new key
+      //   Log.m(this.session.debuggingMode, 'Monkey - it is a new key');
+      //   return callback(pendingMessage);
+      // }
+      return callback(pendingMessage);
     }.bind(this));
   }
 
@@ -1195,6 +1195,9 @@ require('es6-promise').polyfill();
         if (message.isEncrypted() && message.protocolType != this.enums.MessageType.FILE) {
           try{
             message.text = this.aesDecryptIncomingMessage(message);
+            if(message.text == null || message.text === ""){
+              throw "Fail decrypt";
+            }
             return callback(null);
           }
           catch(error){
@@ -1572,6 +1575,13 @@ require('es6-promise').polyfill();
     }
 
     this.session = session;
+
+    if (this.session.user == null) {
+      this.session.user = {};
+    }
+
+    this.session.user.monkeyId = this.session.id;
+
     return this.session.user;
   }
 

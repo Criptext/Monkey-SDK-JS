@@ -413,7 +413,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	          db.storeMessage(message);
 	        }
 	        callbackAsync(null, message);
-	      });
+	      }.bind(this));
 	    }.bind(this)], function (error, message) {
 	      callback(error, message);
 	    });
@@ -894,16 +894,18 @@ return /******/ (function(modules) { // webpackBootstrap
 	        return callback(pendingMessage);
 	      }
 
-	      //check if it's the same key
-	      if (newParamKeys[0] == currentParamKeys.key && newParamKeys[1] == currentParamKeys.iv) {
-	        this.requestEncryptedTextForMessage(pendingMessage, function (decryptedMessage) {
-	          return callback(decryptedMessage);
-	        }.bind(this));
-	      } else {
-	        //it's a new key
-	        Log.m(this.session.debuggingMode, 'Monkey - it is a new key');
-	        return callback(pendingMessage);
-	      }
+	      // //check if it's the same key
+	      // if (newParamKeys[0] == currentParamKeys.key && newParamKeys[1] == currentParamKeys.iv) {
+	      //   this.requestEncryptedTextForMessage(pendingMessage, function(decryptedMessage){
+	      //     return callback(decryptedMessage);
+	      //   }.bind(this));
+	      // }
+	      // else{
+	      //   //it's a new key
+	      //   Log.m(this.session.debuggingMode, 'Monkey - it is a new key');
+	      //   return callback(pendingMessage);
+	      // }
+	      return callback(pendingMessage);
 	    }.bind(this));
 	  };
 
@@ -1261,6 +1263,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	        if (message.isEncrypted() && message.protocolType != this.enums.MessageType.FILE) {
 	          try {
 	            message.text = this.aesDecryptIncomingMessage(message);
+	            if (message.text == null || message.text === "") {
+	              throw "Fail decrypt";
+	            }
 	            return callback(null);
 	          } catch (error) {
 	            gotError = true;
@@ -1631,6 +1636,13 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }
 
 	    this.session = session;
+
+	    if (this.session.user == null) {
+	      this.session.user = {};
+	    }
+
+	    this.session.user.monkeyId = this.session.id;
+
 	    return this.session.user;
 	  };
 
