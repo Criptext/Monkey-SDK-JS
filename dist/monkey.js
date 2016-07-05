@@ -152,10 +152,12 @@ return /******/ (function(modules) { // webpackBootstrap
 	  * Session stuff
 	  */
 
-	  proto.init = function init(appKey, appSecret, userObj, ignoreHook, shouldExpireSession, isDebugging, autoSync, autoSave) {
+	  proto.init = function init(appKey, appSecret, userObj, ignoreHook, shouldExpireSession, isDebugging, autoSync, autoSave, callback) {
 	    if (appKey == null || appSecret == null) {
 	      throw 'Monkey - To initialize Monkey, you must provide your App Id and App Secret';
 	    }
+
+	    callback = typeof callback == "function" ? callback : function () {};
 
 	    this.appKey = appKey;
 	    this.appSecret = appSecret;
@@ -187,7 +189,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    this.socketConnection = null;
 
 	    setTimeout(function () {
-	      this.requestSession();
+	      this.requestSession(callback);
 	    }.bind(this), 500);
 
 	    return this;
@@ -884,27 +886,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	      var newAESkey = newParamKeys[0];
 	      var newIv = newParamKeys[1];
 
-	      //var currentParamKeys = this.keyStore[respObj.data.session_to];
-	      var currentParamKeys = monkeyKeystore.getData(respObj.data.session_to, this.session.myKey, this.session.myIv);
-
 	      //this.keyStore[respObj.data.session_to] = {key:newParamKeys[0],iv:newParamKeys[1]};
 	      monkeyKeystore.storeData(respObj.data.session_to, newAESkey + ":" + newIv, this.session.myKey, this.session.myIv);
 
-	      if (typeof currentParamKeys == 'undefined') {
-	        return callback(pendingMessage);
-	      }
-
-	      // //check if it's the same key
-	      // if (newParamKeys[0] == currentParamKeys.key && newParamKeys[1] == currentParamKeys.iv) {
-	      //   this.requestEncryptedTextForMessage(pendingMessage, function(decryptedMessage){
-	      //     return callback(decryptedMessage);
-	      //   }.bind(this));
-	      // }
-	      // else{
-	      //   //it's a new key
-	      //   Log.m(this.session.debuggingMode, 'Monkey - it is a new key');
-	      //   return callback(pendingMessage);
-	      // }
 	      return callback(pendingMessage);
 	    }.bind(this));
 	  };
@@ -1135,7 +1119,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	  * API CONNECTOR
 	  */
 
-	  proto.requestSession = function requestSession() {
+	  proto.requestSession = function requestSession(callback) {
 	    this.exchangeKeys = new NodeRSA({ b: 2048 }, { encryptionScheme: 'pkcs1' });
 	    var isSync = false;
 	    var endpoint = '/user/session';
@@ -1153,7 +1137,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	      if (err) {
 	        Log.m(this.session.debuggingMode, 'Monkey - ' + err);
-	        return;
+	        return callback(err);
 	      }
 
 	      if (isSync) {
@@ -1186,6 +1170,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	        monkeyKeystore.storeData(this.session.id, this.session.myKey + ":" + this.session.myIv, this.session.myKey, this.session.myIv);
 
 	        this.startConnection(this.session.id);
+
+	        callback(null, this.session.user);
 	        return;
 	      }
 
@@ -1219,9 +1205,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	      apiconnector.basicRequest('POST', '/user/connect', connectParams, false, function (error) {
 	        if (error) {
 	          Log.m(this.session.debuggingMode, 'Monkey - ' + error);
-	          return;
+	          return callback(error);
 	        }
 	        this.startConnection(this.session.id);
+	        callback(null, this.session.user);
 	      }.bind(this));
 	    }.bind(this));
 	  }; /// end of function requestSession
@@ -1304,17 +1291,18 @@ return /******/ (function(modules) { // webpackBootstrap
 	        } else {
 	          //NOW DELETE CONVERSATIONS WITH LASTMESSAGE NO DECRYPTED
 	          respObj.data.conversations = respObj.data.conversations.reduce(function (result, conversation) {
-
-	            if (conversation.last_message.protocolType == this.enums.MessageType.TEXT && conversation.last_message.encryptedText != conversation.last_message.text || conversation.last_message.protocolType != this.enums.MessageType.TEXT) {
-	              if (this.session.autoSave) {
-	                var stored = db.getMessageById(conversation.last_message.id);
-	                if (stored == null || stored === "") {
-	                  db.storeMessage(conversation.last_message);
-	                }
-	              }
-
-	              result.push(conversation);
+	            if (conversation.last_message.protocolType == this.enums.MessageType.TEXT && conversation.last_message.isEncrypted() && conversation.last_message.encryptedText == conversation.last_message.text) {
+	              return result;
 	            }
+
+	            if (this.session.autoSave) {
+	              var stored = db.getMessageById(conversation.last_message.id);
+	              if (stored == null || stored === "") {
+	                db.storeMessage(conversation.last_message);
+	              }
+	            }
+
+	            result.push(conversation);
 
 	            return result;
 	          }.bind(this), []);
