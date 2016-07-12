@@ -79,10 +79,32 @@ return /******/ (function(modules) { // webpackBootstrap
 	var CryptoJS = __webpack_require__(10).CryptoJS;
 	var async = __webpack_require__(65);
 	var Push = __webpack_require__(67);
+	__webpack_require__(68);
 
-	var zlib = __webpack_require__(68);
+	var zlib = __webpack_require__(69);
 
-	__webpack_require__(96).polyfill();
+	var MESSAGE_EVENT = 'Message';
+	var MESSAGE_UNSEND_EVENT = 'MessageUnsend';
+	var ACKNOWLEDGE_EVENT = 'Acknowledge';
+	var NOTIFICATION_EVENT = 'Notification';
+
+	var GROUP_CREATE_EVENT = 'GroupCreate';
+	var GROUP_ADD_EVENT = 'GroupAdd';
+	var GROUP_REMOVE_EVENT = 'GroupRemove';
+	var GROUP_LIST_EVENT = 'GroupList';
+
+	var CHANNEL_SUBSCRIBE_EVENT = 'ChannelSubscribe';
+	var CHANNEL_MESSAGE_EVENT = 'ChannelMessage';
+
+	var SESSION_EVENT = 'Session';
+	var CONNECT_EVENT = 'Connect';
+	var DISCONNECT_EVENT = 'Disconnect';
+
+	var CONVERSATION_OPEN_EVENT = 'ConversationOpen';
+	var CONVERSATION_OPEN_RESPONSE_EVENT = 'ConversationOpenResponse';
+	var CONVERSATION_CLOSE_EVENT = 'ConversationClose';
+
+	__webpack_require__(97).polyfill();
 
 	;(function () {
 	  'use strict';
@@ -159,15 +181,13 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	    callback = typeof callback == "function" ? callback : function () {};
 
+	    if (userObj == null) {
+	      userObj = {};
+	    }
+
 	    this.appKey = appKey;
 	    this.appSecret = appSecret;
 	    this.autoSync = autoSync;
-
-	    //setup session
-	    if (userObj != null) {
-	      this.session.user = userObj;
-	      this.session.id = userObj.monkeyId;
-	    }
 
 	    if (shouldExpireSession) {
 	      this.session.expireSession = 1;
@@ -187,6 +207,36 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	    //setup socketConnection
 	    this.socketConnection = null;
+
+	    Offline.options = { checks: { xhr: { url: 'https://query.yahooapis.com/v1/public/yql?q=select%20*%20from%20html%20where%20url=www.google.com&format=json' } } };
+	    //setup offline events
+	    Offline.on('confirmed-up', function () {
+	      console.log('connectivity up!');
+	      if (this.socketConnection == null) {
+	        this.startConnection(this.session.id);
+	      }
+	    }.bind(this));
+
+	    Offline.on('confirmed-down', function () {
+	      console.log('connectivity down');
+	      if (this.socketConnection != null) {
+	        this.socketConnection.onclose = function () {};
+	        this.socketConnection.close();
+	        this.socketConnection = null;
+	      }
+	    }.bind(this));
+
+	    var storedMonkeyId = db.getMonkeyId();
+
+	    if (storedMonkeyId != null && storedMonkeyId == userObj.monkeyId) {
+	      var user = this.getUser();
+
+	      this.startConnection(this.session.id);
+	      return callback(null, user);
+	    }
+
+	    this.session.user = userObj || {};
+	    this.session.id = this.session.user.monkeyId;
 
 	    setTimeout(function () {
 	      this.requestSession(callback);
@@ -245,6 +295,12 @@ return /******/ (function(modules) { // webpackBootstrap
 	    this.sendCommand(this.enums.ProtocolCommand.OPEN, { rid: monkeyId });
 	  };
 
+	  proto.openConversation = alias('sendOpenToUser');
+
+	  proto.closeConversation = function closeConversation(monkeyId) {
+	    this.sendCommand(this.enums.ProtocolCommand.CLOSE, { rid: monkeyId });
+	  };
+
 	  proto.sendMessage = function sendMessage(text, recipientMonkeyId, optionalParams, optionalPush) {
 	    return this.sendText(text, recipientMonkeyId, false, optionalParams, optionalPush);
 	  };
@@ -295,6 +351,24 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	    var args = this.prepareMessageArgs(recipientMonkeyId, props, optionalParams, optionalPush);
 	    args.type = this.enums.MessageType.NOTIF;
+
+	    var message = new MOKMessage(this.enums.ProtocolCommand.MESSAGE, args);
+
+	    args.id = message.id;
+	    args.oldId = message.oldId;
+
+	    this.sendCommand(this.enums.ProtocolCommand.MESSAGE, args);
+
+	    return message;
+	  };
+
+	  proto.sendTemporalNotification = function sendTemporalNotification(recipientMonkeyId, optionalParams, optionalPush) {
+	    var props = {
+	      device: "web"
+	    };
+
+	    var args = this.prepareMessageArgs(recipientMonkeyId, props, optionalParams, optionalPush);
+	    args.type = this.enums.MessageType.TEMP_NOTE;
 
 	    var message = new MOKMessage(this.enums.ProtocolCommand.MESSAGE, args);
 
@@ -512,17 +586,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	      case this.enums.MessageType.TEXT:
 	        {
 	          this.incomingMessage(message);
-	          if (this.session.autoSave) {
-	            db.storeMessage(message);
-	          }
 	          break;
 	        }
 	      case this.enums.MessageType.FILE:
 	        {
 	          this.fileReceived(message);
-	          if (this.session.autoSave) {
-	            db.storeMessage(message);
-	          }
 	          break;
 	        }
 	      default:
@@ -534,7 +602,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	            return;
 	          }
 
-	          this._getEmitter().emit('onNotification', message);
+	          this._getEmitter().emit(NOTIFICATION_EVENT, { senderId: message.senderId, recipientId: message.recipientId, params: message.params });
 	          break;
 	        }
 	    }
@@ -551,7 +619,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	            'info': message.props.info
 	          };
 
-	          this._getEmitter().emit('onGroupCreate', paramsGroup);
+	          this._getEmitter().emit(GROUP_CREATE_EVENT, paramsGroup);
 	          break;
 	        }
 	      case this.enums.GroupAction.NEW_MEMBER:
@@ -561,7 +629,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	            'member': message.props.new_member
 	          };
 
-	          this._getEmitter().emit('onGroupAddMember', paramsGroup);
+	          this._getEmitter().emit(GROUP_ADD_EVENT, paramsGroup);
 	          break;
 	        }
 	      case this.enums.GroupAction.REMOVE_MEMBER:
@@ -571,12 +639,12 @@ return /******/ (function(modules) { // webpackBootstrap
 	            'member': message.senderId
 	          };
 
-	          this._getEmitter().emit('onGroupDeleteMember', paramsGroup);
+	          this._getEmitter().emit(GROUP_REMOVE_EVENT, paramsGroup);
 	          break;
 	        }
 	      default:
 	        {
-	          this._getEmitter().emit('onNotification', message);
+	          this._getEmitter().emit(NOTIFICATION_EVENT, message);
 	          break;
 	        }
 	    }
@@ -619,15 +687,19 @@ return /******/ (function(modules) { // webpackBootstrap
 	      }
 	    }
 
+	    if (this.session.autoSave) {
+	      db.storeMessage(message);
+	    }
+
 	    switch (message.protocolCommand) {
 	      case this.enums.ProtocolCommand.MESSAGE:
 	        {
-	          this._getEmitter().emit('onMessage', message);
+	          this._getEmitter().emit(MESSAGE_EVENT, message);
 	          break;
 	        }
 	      case this.enums.ProtocolCommand.PUBLISH:
 	        {
-	          this._getEmitter().emit('onChannelMessages', message);
+	          this._getEmitter().emit(CHANNEL_MESSAGE_EVENT, message);
 	          break;
 	        }
 	    }
@@ -649,7 +721,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	    };
 
 	    if (icon != null) {
-	      params.icon = icon;
+	      params.icon = {
+	        x16: icon,
+	        x32: icon
+	      };
 	    }
 
 	    Push.create(myTitle, params);
@@ -667,7 +742,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	      }
 	    }
 
-	    this._getEmitter().emit('onMessage', message);
+	    if (this.session.autoSave) {
+	      db.storeMessage(message);
+	    }
+
+	    this._getEmitter().emit(MESSAGE_EVENT, message);
 	  };
 
 	  proto.processMOKProtocolACK = function processMOKProtocolACK(message) {
@@ -701,7 +780,23 @@ return /******/ (function(modules) { // webpackBootstrap
 	      }
 	    }
 
-	    this._getEmitter().emit('onAcknowledge', message);
+	    var ackParams = {};
+
+	    if (message.protocolType == this.enums.ProtocolCommand.OPEN) {
+	      ackParams.lastOpenMe = message.props.last_open_me;
+	      ackParams.lastSeen = message.props.last_seen;
+	      ackParams.online = message.props.online == 1;
+	      this._getEmitter().emit(CONVERSATION_OPEN_RESPONSE_EVENT, ackParams);
+	      return;
+	    }
+
+	    ackParams.newId = message.props.new_id;
+	    ackParams.oldId = message.props.old_id;
+	    ackParams.senderId = message.senderId;
+	    ackParams.recipientId = message.recipientId;
+	    ackParams.status = message.props.status;
+
+	    this._getEmitter().emit(ACKNOWLEDGE_EVENT, ackParams);
 	  };
 
 	  proto.resendPendingMessages = function resendPendingMessages() {
@@ -758,7 +853,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        this.session.user = {};
 	      }
 	      this.session.user.monkeyId = this.session.id;
-	      this._getEmitter().emit('onConnect', this.session.user);
+	      this._getEmitter().emit(CONNECT_EVENT, this.session.user);
 
 	      this.sendCommand(this.enums.ProtocolCommand.SET, { online: 1 });
 
@@ -781,6 +876,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	      switch (parseInt(jsonres.cmd)) {
 	        case this.enums.ProtocolCommand.MESSAGE:
 	          {
+	            //check if sync is in process, discard any messages if so
+	            if (!watchdog.didRespondSync) {
+	              return;
+	            }
 	            this.processMOKProtocolMessage(msg);
 	            break;
 	          }
@@ -804,7 +903,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	              //monkeyType = MOKGroupsJoined;
 	              msg.text = jsonres.args.messages;
 
-	              this._getEmitter().emit('onNotification', msg);
+	              this._getEmitter().emit(GROUP_LIST_EVENT, { groups: msg.text.split(',') });
 	            }
 
 	            break;
@@ -830,7 +929,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	                  msg.protocolType = this.enums.MessageType.NOTIF;
 	                  //monkeyType = MOKGroupsJoined;
 	                  msg.text = jsonres.args.messages;
-	                  this._getEmitter().emit('onNotification', msg);
+	                  this._getEmitter().emit(GROUP_LIST_EVENT, { groups: msg.text.split(',') });
 	                  break;
 	                }
 	            }
@@ -840,13 +939,24 @@ return /******/ (function(modules) { // webpackBootstrap
 	        case this.enums.ProtocolCommand.OPEN:
 	          {
 	            msg.protocolCommand = this.enums.ProtocolCommand.OPEN;
-	            this._getEmitter().emit('onNotification', msg);
+	            this._getEmitter().emit(CONVERSATION_OPEN_EVENT, msg);
 	            db.setAllMessagesToRead(msg.senderId);
+	            break;
+	          }
+	        case this.enums.ProtocolCommand.DELETE:
+	          {
+
+	            this._getEmitter().emit(MESSAGE_UNSEND_EVENT, { id: msg.id, senderId: msg.senderId, recipientId: msg.recipientId });
+	            break;
+	          }
+	        case this.enums.ProtocolCommand.CLOSE:
+	          {
+	            this._getEmitter().emit(CONVERSATION_CLOSE_EVENT, { senderId: msg.senderId, recipientId: msg.recipientId });
 	            break;
 	          }
 	        default:
 	          {
-	            this._getEmitter().emit('onNotification', msg);
+	            this._getEmitter().emit(NOTIFICATION_EVENT, msg);
 	            break;
 	          }
 	      }
@@ -863,7 +973,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        this.status = this.enums.Status.CONNECTING;
 	        setTimeout(this.startConnection(monkey_id), 2000);
 	      }
-	      this._getEmitter().emit('onDisconnect');
+	      this._getEmitter().emit(DISCONNECT_EVENT);
 	    }.bind(this);
 	  };
 
@@ -1188,7 +1298,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        monkey_id: this.session.id
 	      };
 
-	      this._getEmitter().emit('onSession', connectParams);
+	      this._getEmitter().emit(SESSION_EVENT, connectParams);
 
 	      var myKeyParams = this.generateAndStoreAES(); // generates local AES KEY
 
@@ -1199,14 +1309,16 @@ return /******/ (function(modules) { // webpackBootstrap
 	      connectParams.ignore_params = this.session.ignore;
 
 	      //this.keyStore[this.session.id]={key:this.session.myKey, iv:this.session.myIv};
-	      monkeyKeystore.storeData(this.session.id, this.session.myKey + ":" + this.session.myIv, this.session.myKey, this.session.myIv);
-	      db.storeUser(respObj.data.monkeyId, this.session);
 
 	      apiconnector.basicRequest('POST', '/user/connect', connectParams, false, function (error) {
 	        if (error) {
 	          Log.m(this.session.debuggingMode, 'Monkey - ' + error);
 	          return callback(error);
 	        }
+
+	        monkeyKeystore.storeData(this.session.id, this.session.myKey + ":" + this.session.myIv, this.session.myKey, this.session.myIv);
+	        db.storeUser(respObj.data.monkeyId, this.session);
+
 	        this.startConnection(this.session.id);
 	        callback(null, this.session.user);
 	      }.bind(this));
@@ -1221,7 +1333,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        Log.m(this.session.debuggingMode, 'Monkey - ' + err);
 	        return;
 	      }
-	      this._getEmitter().emit('onSubscribe', respObj);
+	      this._getEmitter().emit(CHANNEL_SUBSCRIBE_EVENT, respObj);
 	    }.bind(this));
 	  };
 
@@ -4104,10 +4216,15 @@ return /******/ (function(modules) { // webpackBootstrap
 	      return null;
 	    }
 	  }, {
+	    key: "isGroupMessage",
+	    value: function isGroupMessage() {
+	      return this.recipientId.indexOf('G:') > -1;
+	    }
+	  }, {
 	    key: "isCompressed",
 	    value: function isCompressed() {
 	      if (this.props == null || typeof this.props.cmpr == "undefined" || this.props.cmpr == null) {
-	        console.log("MONKEY - props null");
+	        console.log('MONKEY - props null');
 	        return false;
 	      }
 	      return this.props.cmpr ? true : false;
@@ -7965,8 +8082,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	      if (message.recipientId == null) {
 	        return;
 	      }
+
+	      // (message.recipientId == id && message.senderId == myId) add to mark my own messages
 	      //check if it's a group
-	      if((message.recipientId.indexOf("G:") != -1 && message.recipientId == id) || (message.recipientId == id && message.senderId == myId) || (message.recipientId == myId && message.senderId == id)){
+	      if((message.recipientId.indexOf("G:") != -1 && message.recipientId == id && message.senderId != myId) || (message.recipientId == myId && message.senderId == id)){
 	        if (!message.readByUser) {
 	          this.updateMessageReadStatus(message);
 	          count++;
@@ -7987,8 +8106,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	        return;
 	      }
 
+	      //(message.recipientId == id && message.senderId == myId) add to count my messages too
 	      //check if it's a group
-	      if((message.recipientId.indexOf("G:") != -1 && message.recipientId == id) || (message.recipientId == id && message.senderId == myId) || (message.recipientId == myId && message.senderId == id)){
+	      if((message.recipientId.indexOf("G:") != -1 && message.recipientId == id && message.senderId != myId) || (message.recipientId == myId && message.senderId == id)){
 	        if (!message.readByUser) {
 	          count++;
 	        }
@@ -22216,6 +22336,301 @@ return /******/ (function(modules) { // webpackBootstrap
 
 /***/ },
 /* 68 */
+/***/ function(module, exports) {
+
+	/*! offline-js 0.7.18 */
+	(function() {
+	  var Offline, checkXHR, defaultOptions, extendNative, grab, handlers, init;
+	  extendNative = function(to, from) {
+	    var e, key, results, val;
+	    results = [];
+	    for (key in from.prototype) try {
+	      val = from.prototype[key], null == to[key] && "function" != typeof val ? results.push(to[key] = val) :results.push(void 0);
+	    } catch (_error) {
+	      e = _error;
+	    }
+	    return results;
+	  }, Offline = {}, Offline.options = window.Offline ? window.Offline.options || {} :{}, 
+	  defaultOptions = {
+	    checks:{
+	      xhr:{
+	        url:function() {
+	          return "/favicon.ico?_=" + new Date().getTime();
+	        },
+	        timeout:5e3,
+	        type:"HEAD"
+	      },
+	      image:{
+	        url:function() {
+	          return "/favicon.ico?_=" + new Date().getTime();
+	        }
+	      },
+	      active:"xhr"
+	    },
+	    checkOnLoad:!1,
+	    interceptRequests:!0,
+	    reconnect:!0,
+	    deDupBody:!1
+	  }, grab = function(obj, key) {
+	    var cur, i, j, len, part, parts;
+	    for (cur = obj, parts = key.split("."), i = j = 0, len = parts.length; len > j && (part = parts[i], 
+	    cur = cur[part], "object" == typeof cur); i = ++j) ;
+	    return i === parts.length - 1 ? cur :void 0;
+	  }, Offline.getOption = function(key) {
+	    var ref, val;
+	    return val = null != (ref = grab(Offline.options, key)) ? ref :grab(defaultOptions, key), 
+	    "function" == typeof val ? val() :val;
+	  }, "function" == typeof window.addEventListener && window.addEventListener("online", function() {
+	    return setTimeout(Offline.confirmUp, 100);
+	  }, !1), "function" == typeof window.addEventListener && window.addEventListener("offline", function() {
+	    return Offline.confirmDown();
+	  }, !1), Offline.state = "up", Offline.markUp = function() {
+	    return Offline.trigger("confirmed-up"), "up" !== Offline.state ? (Offline.state = "up", 
+	    Offline.trigger("up")) :void 0;
+	  }, Offline.markDown = function() {
+	    return Offline.trigger("confirmed-down"), "down" !== Offline.state ? (Offline.state = "down", 
+	    Offline.trigger("down")) :void 0;
+	  }, handlers = {}, Offline.on = function(event, handler, ctx) {
+	    var e, events, j, len, results;
+	    if (events = event.split(" "), events.length > 1) {
+	      for (results = [], j = 0, len = events.length; len > j; j++) e = events[j], results.push(Offline.on(e, handler, ctx));
+	      return results;
+	    }
+	    return null == handlers[event] && (handlers[event] = []), handlers[event].push([ ctx, handler ]);
+	  }, Offline.off = function(event, handler) {
+	    var _handler, ctx, i, ref, results;
+	    if (null != handlers[event]) {
+	      if (handler) {
+	        for (i = 0, results = []; i < handlers[event].length; ) ref = handlers[event][i], 
+	        ctx = ref[0], _handler = ref[1], _handler === handler ? results.push(handlers[event].splice(i, 1)) :results.push(i++);
+	        return results;
+	      }
+	      return handlers[event] = [];
+	    }
+	  }, Offline.trigger = function(event) {
+	    var ctx, handler, j, len, ref, ref1, results;
+	    if (null != handlers[event]) {
+	      for (ref = handlers[event].slice(0), results = [], j = 0, len = ref.length; len > j; j++) ref1 = ref[j], 
+	      ctx = ref1[0], handler = ref1[1], results.push(handler.call(ctx));
+	      return results;
+	    }
+	  }, checkXHR = function(xhr, onUp, onDown) {
+	    var _onerror, _onload, _onreadystatechange, _ontimeout, checkStatus;
+	    return checkStatus = function() {
+	      return xhr.status && xhr.status < 12e3 ? onUp() :onDown();
+	    }, null === xhr.onprogress ? (_onerror = xhr.onerror, xhr.onerror = function() {
+	      return onDown(), "function" == typeof _onerror ? _onerror.apply(null, arguments) :void 0;
+	    }, _ontimeout = xhr.ontimeout, xhr.ontimeout = function() {
+	      return onDown(), "function" == typeof _ontimeout ? _ontimeout.apply(null, arguments) :void 0;
+	    }, _onload = xhr.onload, xhr.onload = function() {
+	      return checkStatus(), "function" == typeof _onload ? _onload.apply(null, arguments) :void 0;
+	    }) :(_onreadystatechange = xhr.onreadystatechange, xhr.onreadystatechange = function() {
+	      return 4 === xhr.readyState ? checkStatus() :0 === xhr.readyState && onDown(), "function" == typeof _onreadystatechange ? _onreadystatechange.apply(null, arguments) :void 0;
+	    });
+	  }, Offline.checks = {}, Offline.checks.xhr = function() {
+	    var e, xhr;
+	    xhr = new XMLHttpRequest(), xhr.offline = !1, xhr.open(Offline.getOption("checks.xhr.type"), Offline.getOption("checks.xhr.url"), !0), 
+	    null != xhr.timeout && (xhr.timeout = Offline.getOption("checks.xhr.timeout")), 
+	    checkXHR(xhr, Offline.markUp, Offline.markDown);
+	    try {
+	      xhr.send();
+	    } catch (_error) {
+	      e = _error, Offline.markDown();
+	    }
+	    return xhr;
+	  }, Offline.checks.image = function() {
+	    var img;
+	    img = document.createElement("img"), img.onerror = Offline.markDown, img.onload = Offline.markUp, 
+	    img.src = Offline.getOption("checks.image.url");
+	  }, Offline.checks.down = Offline.markDown, Offline.checks.up = Offline.markUp, Offline.check = function() {
+	    return Offline.trigger("checking"), Offline.checks[Offline.getOption("checks.active")]();
+	  }, Offline.confirmUp = Offline.confirmDown = Offline.check, Offline.onXHR = function(cb) {
+	    var _XDomainRequest, _XMLHttpRequest, monitorXHR;
+	    return monitorXHR = function(req, flags) {
+	      var _open;
+	      return _open = req.open, req.open = function(type, url, async, user, password) {
+	        return cb({
+	          type:type,
+	          url:url,
+	          async:async,
+	          flags:flags,
+	          user:user,
+	          password:password,
+	          xhr:req
+	        }), _open.apply(req, arguments);
+	      };
+	    }, _XMLHttpRequest = window.XMLHttpRequest, window.XMLHttpRequest = function(flags) {
+	      var _overrideMimeType, _setRequestHeader, req;
+	      return req = new _XMLHttpRequest(flags), monitorXHR(req, flags), _setRequestHeader = req.setRequestHeader, 
+	      req.headers = {}, req.setRequestHeader = function(name, value) {
+	        return req.headers[name] = value, _setRequestHeader.call(req, name, value);
+	      }, _overrideMimeType = req.overrideMimeType, req.overrideMimeType = function(type) {
+	        return req.mimeType = type, _overrideMimeType.call(req, type);
+	      }, req;
+	    }, extendNative(window.XMLHttpRequest, _XMLHttpRequest), null != window.XDomainRequest ? (_XDomainRequest = window.XDomainRequest, 
+	    window.XDomainRequest = function() {
+	      var req;
+	      return req = new _XDomainRequest(), monitorXHR(req), req;
+	    }, extendNative(window.XDomainRequest, _XDomainRequest)) :void 0;
+	  }, init = function() {
+	    return Offline.getOption("interceptRequests") && Offline.onXHR(function(arg) {
+	      var xhr;
+	      return xhr = arg.xhr, xhr.offline !== !1 ? checkXHR(xhr, Offline.markUp, Offline.confirmDown) :void 0;
+	    }), Offline.getOption("checkOnLoad") ? Offline.check() :void 0;
+	  }, setTimeout(init, 0), window.Offline = Offline;
+	}).call(this), function() {
+	  var down, next, nope, rc, reset, retryIntv, tick, tryNow, up;
+	  if (!window.Offline) throw new Error("Offline Reconnect brought in without offline.js");
+	  rc = Offline.reconnect = {}, retryIntv = null, reset = function() {
+	    var ref;
+	    return null != rc.state && "inactive" !== rc.state && Offline.trigger("reconnect:stopped"), 
+	    rc.state = "inactive", rc.remaining = rc.delay = null != (ref = Offline.getOption("reconnect.initialDelay")) ? ref :3;
+	  }, next = function() {
+	    var delay, ref;
+	    return delay = null != (ref = Offline.getOption("reconnect.delay")) ? ref :Math.min(Math.ceil(1.5 * rc.delay), 3600), 
+	    rc.remaining = rc.delay = delay;
+	  }, tick = function() {
+	    return "connecting" !== rc.state ? (rc.remaining -= 1, Offline.trigger("reconnect:tick"), 
+	    0 === rc.remaining ? tryNow() :void 0) :void 0;
+	  }, tryNow = function() {
+	    return "waiting" === rc.state ? (Offline.trigger("reconnect:connecting"), rc.state = "connecting", 
+	    Offline.check()) :void 0;
+	  }, down = function() {
+	    return Offline.getOption("reconnect") ? (reset(), rc.state = "waiting", Offline.trigger("reconnect:started"), 
+	    retryIntv = setInterval(tick, 1e3)) :void 0;
+	  }, up = function() {
+	    return null != retryIntv && clearInterval(retryIntv), reset();
+	  }, nope = function() {
+	    return Offline.getOption("reconnect") && "connecting" === rc.state ? (Offline.trigger("reconnect:failure"), 
+	    rc.state = "waiting", next()) :void 0;
+	  }, rc.tryNow = tryNow, reset(), Offline.on("down", down), Offline.on("confirmed-down", nope), 
+	  Offline.on("up", up);
+	}.call(this), function() {
+	  var clear, flush, held, holdRequest, makeRequest, waitingOnConfirm;
+	  if (!window.Offline) throw new Error("Requests module brought in without offline.js");
+	  held = [], waitingOnConfirm = !1, holdRequest = function(req) {
+	    return Offline.getOption("requests") !== !1 ? (Offline.trigger("requests:capture"), 
+	    "down" !== Offline.state && (waitingOnConfirm = !0), held.push(req)) :void 0;
+	  }, makeRequest = function(arg) {
+	    var body, name, password, ref, type, url, user, val, xhr;
+	    if (xhr = arg.xhr, url = arg.url, type = arg.type, user = arg.user, password = arg.password, 
+	    body = arg.body, Offline.getOption("requests") !== !1) {
+	      xhr.abort(), xhr.open(type, url, !0, user, password), ref = xhr.headers;
+	      for (name in ref) val = ref[name], xhr.setRequestHeader(name, val);
+	      return xhr.mimeType && xhr.overrideMimeType(xhr.mimeType), xhr.send(body);
+	    }
+	  }, clear = function() {
+	    return held = [];
+	  }, flush = function() {
+	    var body, i, key, len, request, requests, url;
+	    if (Offline.getOption("requests") !== !1) {
+	      for (Offline.trigger("requests:flush"), requests = {}, i = 0, len = held.length; len > i; i++) request = held[i], 
+	      url = request.url.replace(/(\?|&)_=[0-9]+/, function(match, chr) {
+	        return "?" === chr ? chr :"";
+	      }), Offline.getOption("deDupBody") ? (body = request.body, body = "[object Object]" === body.toString() ? JSON.stringify(body) :body.toString(), 
+	      requests[request.type.toUpperCase() + " - " + url + " - " + body] = request) :requests[request.type.toUpperCase() + " - " + url] = request;
+	      for (key in requests) request = requests[key], makeRequest(request);
+	      return clear();
+	    }
+	  }, setTimeout(function() {
+	    return Offline.getOption("requests") !== !1 ? (Offline.on("confirmed-up", function() {
+	      return waitingOnConfirm ? (waitingOnConfirm = !1, clear()) :void 0;
+	    }), Offline.on("up", flush), Offline.on("down", function() {
+	      return waitingOnConfirm = !1;
+	    }), Offline.onXHR(function(request) {
+	      var _onreadystatechange, _send, async, hold, xhr;
+	      return xhr = request.xhr, async = request.async, xhr.offline !== !1 && (hold = function() {
+	        return holdRequest(request);
+	      }, _send = xhr.send, xhr.send = function(body) {
+	        return request.body = body, _send.apply(xhr, arguments);
+	      }, async) ? null === xhr.onprogress ? (xhr.addEventListener("error", hold, !1), 
+	      xhr.addEventListener("timeout", hold, !1)) :(_onreadystatechange = xhr.onreadystatechange, 
+	      xhr.onreadystatechange = function() {
+	        return 0 === xhr.readyState ? hold() :4 === xhr.readyState && (0 === xhr.status || xhr.status >= 12e3) && hold(), 
+	        "function" == typeof _onreadystatechange ? _onreadystatechange.apply(null, arguments) :void 0;
+	      }) :void 0;
+	    }), Offline.requests = {
+	      flush:flush,
+	      clear:clear
+	    }) :void 0;
+	  }, 0);
+	}.call(this), function() {
+	  var base, e, i, len, ref, simulate, state;
+	  if (!Offline) throw new Error("Offline simulate brought in without offline.js");
+	  for (ref = [ "up", "down" ], i = 0, len = ref.length; len > i; i++) {
+	    state = ref[i];
+	    try {
+	      simulate = document.querySelector("script[data-simulate='" + state + "']") || ("undefined" != typeof localStorage && null !== localStorage ? localStorage.OFFLINE_SIMULATE :void 0) === state;
+	    } catch (_error) {
+	      e = _error, simulate = !1;
+	    }
+	  }
+	  simulate && (null == Offline.options && (Offline.options = {}), null == (base = Offline.options).checks && (base.checks = {}), 
+	  Offline.options.checks.active = state);
+	}.call(this), function() {
+	  var RETRY_TEMPLATE, TEMPLATE, _onreadystatechange, addClass, content, createFromHTML, el, flashClass, flashTimeouts, init, removeClass, render, roundTime;
+	  if (!window.Offline) throw new Error("Offline UI brought in without offline.js");
+	  TEMPLATE = '<div class="offline-ui"><div class="offline-ui-content"></div></div>', 
+	  RETRY_TEMPLATE = '<a href class="offline-ui-retry"></a>', createFromHTML = function(html) {
+	    var el;
+	    return el = document.createElement("div"), el.innerHTML = html, el.children[0];
+	  }, el = content = null, addClass = function(name) {
+	    return removeClass(name), el.className += " " + name;
+	  }, removeClass = function(name) {
+	    return el.className = el.className.replace(new RegExp("(^| )" + name.split(" ").join("|") + "( |$)", "gi"), " ");
+	  }, flashTimeouts = {}, flashClass = function(name, time) {
+	    return addClass(name), null != flashTimeouts[name] && clearTimeout(flashTimeouts[name]), 
+	    flashTimeouts[name] = setTimeout(function() {
+	      return removeClass(name), delete flashTimeouts[name];
+	    }, 1e3 * time);
+	  }, roundTime = function(sec) {
+	    var mult, unit, units, val;
+	    units = {
+	      day:86400,
+	      hour:3600,
+	      minute:60,
+	      second:1
+	    };
+	    for (unit in units) if (mult = units[unit], sec >= mult) return val = Math.floor(sec / mult), 
+	    [ val, unit ];
+	    return [ "now", "" ];
+	  }, render = function() {
+	    var button, handler;
+	    return el = createFromHTML(TEMPLATE), document.body.appendChild(el), null != Offline.reconnect && Offline.getOption("reconnect") && (el.appendChild(createFromHTML(RETRY_TEMPLATE)), 
+	    button = el.querySelector(".offline-ui-retry"), handler = function(e) {
+	      return e.preventDefault(), Offline.reconnect.tryNow();
+	    }, null != button.addEventListener ? button.addEventListener("click", handler, !1) :button.attachEvent("click", handler)), 
+	    addClass("offline-ui-" + Offline.state), content = el.querySelector(".offline-ui-content");
+	  }, init = function() {
+	    return render(), Offline.on("up", function() {
+	      return removeClass("offline-ui-down"), addClass("offline-ui-up"), flashClass("offline-ui-up-2s", 2), 
+	      flashClass("offline-ui-up-5s", 5);
+	    }), Offline.on("down", function() {
+	      return removeClass("offline-ui-up"), addClass("offline-ui-down"), flashClass("offline-ui-down-2s", 2), 
+	      flashClass("offline-ui-down-5s", 5);
+	    }), Offline.on("reconnect:connecting", function() {
+	      return addClass("offline-ui-connecting"), removeClass("offline-ui-waiting");
+	    }), Offline.on("reconnect:tick", function() {
+	      var ref, time, unit;
+	      return addClass("offline-ui-waiting"), removeClass("offline-ui-connecting"), ref = roundTime(Offline.reconnect.remaining), 
+	      time = ref[0], unit = ref[1], content.setAttribute("data-retry-in-value", time), 
+	      content.setAttribute("data-retry-in-unit", unit);
+	    }), Offline.on("reconnect:stopped", function() {
+	      return removeClass("offline-ui-connecting offline-ui-waiting"), content.setAttribute("data-retry-in-value", null), 
+	      content.setAttribute("data-retry-in-unit", null);
+	    }), Offline.on("reconnect:failure", function() {
+	      return flashClass("offline-ui-reconnect-failed-2s", 2), flashClass("offline-ui-reconnect-failed-5s", 5);
+	    }), Offline.on("reconnect:success", function() {
+	      return flashClass("offline-ui-reconnect-succeeded-2s", 2), flashClass("offline-ui-reconnect-succeeded-5s", 5);
+	    });
+	  }, "complete" === document.readyState ? init() :null != document.addEventListener ? document.addEventListener("DOMContentLoaded", init, !1) :(_onreadystatechange = document.onreadystatechange, 
+	  document.onreadystatechange = function() {
+	    return "complete" === document.readyState && init(), "function" == typeof _onreadystatechange ? _onreadystatechange.apply(null, arguments) :void 0;
+	  });
+	}.call(this);
+
+/***/ },
+/* 69 */
 /***/ function(module, exports, __webpack_require__) {
 
 	/* WEBPACK VAR INJECTION */(function(Buffer, process) {// Copyright Joyent, Inc. and other Node contributors.
@@ -22239,9 +22654,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	// OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
 	// USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-	var Transform = __webpack_require__(69);
+	var Transform = __webpack_require__(70);
 
-	var binding = __webpack_require__(84);
+	var binding = __webpack_require__(85);
 	var util = __webpack_require__(36);
 	var assert = __webpack_require__(59).ok;
 
@@ -22832,14 +23247,14 @@ return /******/ (function(modules) { // webpackBootstrap
 	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(1).Buffer, __webpack_require__(28)))
 
 /***/ },
-/* 69 */
+/* 70 */
 /***/ function(module, exports, __webpack_require__) {
 
-	module.exports = __webpack_require__(70)
+	module.exports = __webpack_require__(71)
 
 
 /***/ },
-/* 70 */
+/* 71 */
 /***/ function(module, exports, __webpack_require__) {
 
 	// Copyright Joyent, Inc. and other Node contributors.
@@ -22908,10 +23323,10 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	module.exports = Transform;
 
-	var Duplex = __webpack_require__(71);
+	var Duplex = __webpack_require__(72);
 
 	/*<replacement>*/
-	var util = __webpack_require__(72);
+	var util = __webpack_require__(73);
 	util.inherits = __webpack_require__(38);
 	/*</replacement>*/
 
@@ -23054,7 +23469,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 
 /***/ },
-/* 71 */
+/* 72 */
 /***/ function(module, exports, __webpack_require__) {
 
 	/* WEBPACK VAR INJECTION */(function(process) {// Copyright Joyent, Inc. and other Node contributors.
@@ -23095,12 +23510,12 @@ return /******/ (function(modules) { // webpackBootstrap
 
 
 	/*<replacement>*/
-	var util = __webpack_require__(72);
+	var util = __webpack_require__(73);
 	util.inherits = __webpack_require__(38);
 	/*</replacement>*/
 
-	var Readable = __webpack_require__(73);
-	var Writable = __webpack_require__(77);
+	var Readable = __webpack_require__(74);
+	var Writable = __webpack_require__(78);
 
 	util.inherits(Duplex, Readable);
 
@@ -23150,7 +23565,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(28)))
 
 /***/ },
-/* 72 */
+/* 73 */
 /***/ function(module, exports, __webpack_require__) {
 
 	/* WEBPACK VAR INJECTION */(function(Buffer) {// Copyright Joyent, Inc. and other Node contributors.
@@ -23264,7 +23679,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(1).Buffer))
 
 /***/ },
-/* 73 */
+/* 74 */
 /***/ function(module, exports, __webpack_require__) {
 
 	/* WEBPACK VAR INJECTION */(function(process) {// Copyright Joyent, Inc. and other Node contributors.
@@ -23291,7 +23706,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	module.exports = Readable;
 
 	/*<replacement>*/
-	var isArray = __webpack_require__(74);
+	var isArray = __webpack_require__(75);
 	/*</replacement>*/
 
 
@@ -23309,10 +23724,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	};
 	/*</replacement>*/
 
-	var Stream = __webpack_require__(75);
+	var Stream = __webpack_require__(76);
 
 	/*<replacement>*/
-	var util = __webpack_require__(72);
+	var util = __webpack_require__(73);
 	util.inherits = __webpack_require__(38);
 	/*</replacement>*/
 
@@ -23320,7 +23735,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 
 	/*<replacement>*/
-	var debug = __webpack_require__(82);
+	var debug = __webpack_require__(83);
 	if (debug && debug.debuglog) {
 	  debug = debug.debuglog('stream');
 	} else {
@@ -23332,7 +23747,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	util.inherits(Readable, Stream);
 
 	function ReadableState(options, stream) {
-	  var Duplex = __webpack_require__(71);
+	  var Duplex = __webpack_require__(72);
 
 	  options = options || {};
 
@@ -23393,14 +23808,14 @@ return /******/ (function(modules) { // webpackBootstrap
 	  this.encoding = null;
 	  if (options.encoding) {
 	    if (!StringDecoder)
-	      StringDecoder = __webpack_require__(83).StringDecoder;
+	      StringDecoder = __webpack_require__(84).StringDecoder;
 	    this.decoder = new StringDecoder(options.encoding);
 	    this.encoding = options.encoding;
 	  }
 	}
 
 	function Readable(options) {
-	  var Duplex = __webpack_require__(71);
+	  var Duplex = __webpack_require__(72);
 
 	  if (!(this instanceof Readable))
 	    return new Readable(options);
@@ -23503,7 +23918,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	// backwards compatibility.
 	Readable.prototype.setEncoding = function(enc) {
 	  if (!StringDecoder)
-	    StringDecoder = __webpack_require__(83).StringDecoder;
+	    StringDecoder = __webpack_require__(84).StringDecoder;
 	  this._readableState.decoder = new StringDecoder(enc);
 	  this._readableState.encoding = enc;
 	  return this;
@@ -24222,7 +24637,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(28)))
 
 /***/ },
-/* 74 */
+/* 75 */
 /***/ function(module, exports) {
 
 	module.exports = Array.isArray || function (arr) {
@@ -24231,7 +24646,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 
 /***/ },
-/* 75 */
+/* 76 */
 /***/ function(module, exports, __webpack_require__) {
 
 	// Copyright Joyent, Inc. and other Node contributors.
@@ -24261,11 +24676,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	var inherits = __webpack_require__(38);
 
 	inherits(Stream, EE);
-	Stream.Readable = __webpack_require__(76);
-	Stream.Writable = __webpack_require__(79);
-	Stream.Duplex = __webpack_require__(80);
-	Stream.Transform = __webpack_require__(69);
-	Stream.PassThrough = __webpack_require__(81);
+	Stream.Readable = __webpack_require__(77);
+	Stream.Writable = __webpack_require__(80);
+	Stream.Duplex = __webpack_require__(81);
+	Stream.Transform = __webpack_require__(70);
+	Stream.PassThrough = __webpack_require__(82);
 
 	// Backwards-compat with node 0.4.x
 	Stream.Stream = Stream;
@@ -24364,24 +24779,24 @@ return /******/ (function(modules) { // webpackBootstrap
 
 
 /***/ },
-/* 76 */
+/* 77 */
 /***/ function(module, exports, __webpack_require__) {
 
-	/* WEBPACK VAR INJECTION */(function(process) {exports = module.exports = __webpack_require__(73);
-	exports.Stream = __webpack_require__(75);
+	/* WEBPACK VAR INJECTION */(function(process) {exports = module.exports = __webpack_require__(74);
+	exports.Stream = __webpack_require__(76);
 	exports.Readable = exports;
-	exports.Writable = __webpack_require__(77);
-	exports.Duplex = __webpack_require__(71);
-	exports.Transform = __webpack_require__(70);
-	exports.PassThrough = __webpack_require__(78);
+	exports.Writable = __webpack_require__(78);
+	exports.Duplex = __webpack_require__(72);
+	exports.Transform = __webpack_require__(71);
+	exports.PassThrough = __webpack_require__(79);
 	if (!process.browser && process.env.READABLE_STREAM === 'disable') {
-	  module.exports = __webpack_require__(75);
+	  module.exports = __webpack_require__(76);
 	}
 
 	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(28)))
 
 /***/ },
-/* 77 */
+/* 78 */
 /***/ function(module, exports, __webpack_require__) {
 
 	/* WEBPACK VAR INJECTION */(function(process) {// Copyright Joyent, Inc. and other Node contributors.
@@ -24419,11 +24834,11 @@ return /******/ (function(modules) { // webpackBootstrap
 
 
 	/*<replacement>*/
-	var util = __webpack_require__(72);
+	var util = __webpack_require__(73);
 	util.inherits = __webpack_require__(38);
 	/*</replacement>*/
 
-	var Stream = __webpack_require__(75);
+	var Stream = __webpack_require__(76);
 
 	util.inherits(Writable, Stream);
 
@@ -24434,7 +24849,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	}
 
 	function WritableState(options, stream) {
-	  var Duplex = __webpack_require__(71);
+	  var Duplex = __webpack_require__(72);
 
 	  options = options || {};
 
@@ -24522,7 +24937,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	}
 
 	function Writable(options) {
-	  var Duplex = __webpack_require__(71);
+	  var Duplex = __webpack_require__(72);
 
 	  // Writable ctor is applied to Duplexes, though they're not
 	  // instanceof Writable, they're instanceof Readable.
@@ -24865,7 +25280,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(28)))
 
 /***/ },
-/* 78 */
+/* 79 */
 /***/ function(module, exports, __webpack_require__) {
 
 	// Copyright Joyent, Inc. and other Node contributors.
@@ -24895,10 +25310,10 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	module.exports = PassThrough;
 
-	var Transform = __webpack_require__(70);
+	var Transform = __webpack_require__(71);
 
 	/*<replacement>*/
-	var util = __webpack_require__(72);
+	var util = __webpack_require__(73);
 	util.inherits = __webpack_require__(38);
 	/*</replacement>*/
 
@@ -24917,34 +25332,34 @@ return /******/ (function(modules) { // webpackBootstrap
 
 
 /***/ },
-/* 79 */
-/***/ function(module, exports, __webpack_require__) {
-
-	module.exports = __webpack_require__(77)
-
-
-/***/ },
 /* 80 */
-/***/ function(module, exports, __webpack_require__) {
-
-	module.exports = __webpack_require__(71)
-
-
-/***/ },
-/* 81 */
 /***/ function(module, exports, __webpack_require__) {
 
 	module.exports = __webpack_require__(78)
 
 
 /***/ },
+/* 81 */
+/***/ function(module, exports, __webpack_require__) {
+
+	module.exports = __webpack_require__(72)
+
+
+/***/ },
 /* 82 */
+/***/ function(module, exports, __webpack_require__) {
+
+	module.exports = __webpack_require__(79)
+
+
+/***/ },
+/* 83 */
 /***/ function(module, exports) {
 
 	/* (ignored) */
 
 /***/ },
-/* 83 */
+/* 84 */
 /***/ function(module, exports, __webpack_require__) {
 
 	// Copyright Joyent, Inc. and other Node contributors.
@@ -25171,14 +25586,14 @@ return /******/ (function(modules) { // webpackBootstrap
 
 
 /***/ },
-/* 84 */
+/* 85 */
 /***/ function(module, exports, __webpack_require__) {
 
-	/* WEBPACK VAR INJECTION */(function(process, Buffer) {var msg = __webpack_require__(85);
-	var zstream = __webpack_require__(86);
-	var zlib_deflate = __webpack_require__(87);
-	var zlib_inflate = __webpack_require__(92);
-	var constants = __webpack_require__(95);
+	/* WEBPACK VAR INJECTION */(function(process, Buffer) {var msg = __webpack_require__(86);
+	var zstream = __webpack_require__(87);
+	var zlib_deflate = __webpack_require__(88);
+	var zlib_inflate = __webpack_require__(93);
+	var constants = __webpack_require__(96);
 
 	for (var key in constants) {
 	  exports[key] = constants[key];
@@ -25414,7 +25829,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(28), __webpack_require__(1).Buffer))
 
 /***/ },
-/* 85 */
+/* 86 */
 /***/ function(module, exports) {
 
 	'use strict';
@@ -25433,7 +25848,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 
 /***/ },
-/* 86 */
+/* 87 */
 /***/ function(module, exports) {
 
 	'use strict';
@@ -25468,16 +25883,16 @@ return /******/ (function(modules) { // webpackBootstrap
 
 
 /***/ },
-/* 87 */
+/* 88 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
 
-	var utils   = __webpack_require__(88);
-	var trees   = __webpack_require__(89);
-	var adler32 = __webpack_require__(90);
-	var crc32   = __webpack_require__(91);
-	var msg   = __webpack_require__(85);
+	var utils   = __webpack_require__(89);
+	var trees   = __webpack_require__(90);
+	var adler32 = __webpack_require__(91);
+	var crc32   = __webpack_require__(92);
+	var msg   = __webpack_require__(86);
 
 	/* Public constants ==========================================================*/
 	/* ===========================================================================*/
@@ -27239,7 +27654,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 
 /***/ },
-/* 88 */
+/* 89 */
 /***/ function(module, exports) {
 
 	'use strict';
@@ -27347,13 +27762,13 @@ return /******/ (function(modules) { // webpackBootstrap
 
 
 /***/ },
-/* 89 */
+/* 90 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
 
 
-	var utils = __webpack_require__(88);
+	var utils = __webpack_require__(89);
 
 	/* Public constants ==========================================================*/
 	/* ===========================================================================*/
@@ -28552,7 +28967,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 
 /***/ },
-/* 90 */
+/* 91 */
 /***/ function(module, exports) {
 
 	'use strict';
@@ -28590,7 +29005,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 
 /***/ },
-/* 91 */
+/* 92 */
 /***/ function(module, exports) {
 
 	'use strict';
@@ -28637,17 +29052,17 @@ return /******/ (function(modules) { // webpackBootstrap
 
 
 /***/ },
-/* 92 */
+/* 93 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
 
 
-	var utils = __webpack_require__(88);
-	var adler32 = __webpack_require__(90);
-	var crc32   = __webpack_require__(91);
-	var inflate_fast = __webpack_require__(93);
-	var inflate_table = __webpack_require__(94);
+	var utils = __webpack_require__(89);
+	var adler32 = __webpack_require__(91);
+	var crc32   = __webpack_require__(92);
+	var inflate_fast = __webpack_require__(94);
+	var inflate_table = __webpack_require__(95);
 
 	var CODES = 0;
 	var LENS = 1;
@@ -30146,7 +30561,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 
 /***/ },
-/* 93 */
+/* 94 */
 /***/ function(module, exports) {
 
 	'use strict';
@@ -30478,13 +30893,13 @@ return /******/ (function(modules) { // webpackBootstrap
 
 
 /***/ },
-/* 94 */
+/* 95 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
 
 
-	var utils = __webpack_require__(88);
+	var utils = __webpack_require__(89);
 
 	var MAXBITS = 15;
 	var ENOUGH_LENS = 852;
@@ -30811,7 +31226,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 
 /***/ },
-/* 95 */
+/* 96 */
 /***/ function(module, exports) {
 
 	module.exports = {
@@ -30864,7 +31279,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 
 /***/ },
-/* 96 */
+/* 97 */
 /***/ function(module, exports, __webpack_require__) {
 
 	var require;var __WEBPACK_AMD_DEFINE_RESULT__;/* WEBPACK VAR INJECTION */(function(process, global, module) {/*!
@@ -30997,7 +31412,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    function lib$es6$promise$asap$$attemptVertx() {
 	      try {
 	        var r = require;
-	        var vertx = __webpack_require__(98);
+	        var vertx = __webpack_require__(99);
 	        lib$es6$promise$asap$$vertxNext = vertx.runOnLoop || vertx.runOnContext;
 	        return lib$es6$promise$asap$$useVertxTimer();
 	      } catch(e) {
@@ -31810,7 +32225,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    };
 
 	    /* global define:true module:true window: true */
-	    if ("function" === 'function' && __webpack_require__(99)['amd']) {
+	    if ("function" === 'function' && __webpack_require__(100)['amd']) {
 	      !(__WEBPACK_AMD_DEFINE_RESULT__ = function() { return lib$es6$promise$umd$$ES6Promise; }.call(exports, __webpack_require__, exports, module), __WEBPACK_AMD_DEFINE_RESULT__ !== undefined && (module.exports = __WEBPACK_AMD_DEFINE_RESULT__));
 	    } else if (typeof module !== 'undefined' && module['exports']) {
 	      module['exports'] = lib$es6$promise$umd$$ES6Promise;
@@ -31822,10 +32237,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	}).call(this);
 
 
-	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(28), (function() { return this; }()), __webpack_require__(97)(module)))
+	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(28), (function() { return this; }()), __webpack_require__(98)(module)))
 
 /***/ },
-/* 97 */
+/* 98 */
 /***/ function(module, exports) {
 
 	module.exports = function(module) {
@@ -31841,13 +32256,13 @@ return /******/ (function(modules) { // webpackBootstrap
 
 
 /***/ },
-/* 98 */
+/* 99 */
 /***/ function(module, exports) {
 
 	/* (ignored) */
 
 /***/ },
-/* 99 */
+/* 100 */
 /***/ function(module, exports) {
 
 	module.exports = function() { throw new Error("define cannot be used indirect"); };

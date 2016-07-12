@@ -17,10 +17,33 @@ var Log = require('./libs/Log.js');
 var db = require('./libs/db.js');
 var NodeRSA = require('node-rsa');
 var CryptoJS = require('node-cryptojs-aes').CryptoJS;
-var async = require("async");
+var async = require('async');
 var Push = require('push.js');
+require('offline-js');
 
 const zlib = require('zlib');
+
+const MESSAGE_EVENT = 'Message';
+const MESSAGE_UNSEND_EVENT = 'MessageUnsend';
+const ACKNOWLEDGE_EVENT = 'Acknowledge';
+const NOTIFICATION_EVENT = 'Notification';
+
+const GROUP_CREATE_EVENT = 'GroupCreate';
+const GROUP_ADD_EVENT = 'GroupAdd';
+const GROUP_REMOVE_EVENT = 'GroupRemove';
+const GROUP_LIST_EVENT = 'GroupList';
+
+const CHANNEL_SUBSCRIBE_EVENT = 'ChannelSubscribe';
+const CHANNEL_MESSAGE_EVENT = 'ChannelMessage';
+
+const SESSION_EVENT = 'Session';
+const CONNECT_EVENT = 'Connect';
+const DISCONNECT_EVENT = 'Disconnect';
+
+const CONVERSATION_OPEN_EVENT = 'ConversationOpen';
+const CONVERSATION_OPEN_RESPONSE_EVENT = 'ConversationOpenResponse';
+const CONVERSATION_CLOSE_EVENT = 'ConversationClose'
+
 
 require('es6-promise').polyfill();
 
@@ -99,15 +122,13 @@ require('es6-promise').polyfill();
 
     callback = (typeof callback == "function") ? callback : function () { };
 
+    if (userObj == null) {
+      userObj = {};
+    }
+
     this.appKey = appKey;
     this.appSecret = appSecret;
     this.autoSync = autoSync;
-
-    //setup session
-    if (userObj != null) {
-      this.session.user = userObj;
-      this.session.id = userObj.monkeyId;
-    }
 
     if (shouldExpireSession) {
       this.session.expireSession = 1;
@@ -127,6 +148,38 @@ require('es6-promise').polyfill();
 
     //setup socketConnection
     this.socketConnection= null
+
+    Offline.options = {checks: {xhr: {url: 'https://query.yahooapis.com/v1/public/yql?q=select%20*%20from%20html%20where%20url=www.google.com&format=json'}}};
+    //setup offline events
+    Offline.on('confirmed-up', function () {
+      console.log('connectivity up!');
+      if (this.socketConnection == null) {
+        this.startConnection(this.session.id);
+      }
+    }.bind(this));
+
+    Offline.on('confirmed-down', function () {
+      console.log('connectivity down');
+      if (this.socketConnection != null) {
+        this.socketConnection.onclose = function(){};
+        this.socketConnection.close();
+        this.socketConnection = null;
+      }
+    }.bind(this));
+
+    var storedMonkeyId = db.getMonkeyId();
+
+    if (storedMonkeyId != null && storedMonkeyId == userObj.monkeyId) {
+      var user = this.getUser();
+
+      this.startConnection(this.session.id);
+      return callback(null, user);
+    }
+
+
+
+    this.session.user = userObj || {};
+    this.session.id = this.session.user.monkeyId;
 
     setTimeout(function(){
       this.requestSession(callback);
@@ -184,6 +237,12 @@ require('es6-promise').polyfill();
     this.sendCommand(this.enums.ProtocolCommand.OPEN, {rid: monkeyId});
   }
 
+  proto.openConversation = alias('sendOpenToUser');
+
+  proto.closeConversation = function closeConversation(monkeyId){
+    this.sendCommand(this.enums.ProtocolCommand.CLOSE, {rid: monkeyId});
+  }
+
   proto.sendMessage = function sendMessage(text, recipientMonkeyId, optionalParams, optionalPush){
     return this.sendText(text, recipientMonkeyId, false, optionalParams, optionalPush);
   }
@@ -234,6 +293,24 @@ require('es6-promise').polyfill();
 
     var args = this.prepareMessageArgs(recipientMonkeyId, props, optionalParams, optionalPush);
     args.type = this.enums.MessageType.NOTIF;
+
+    var message = new MOKMessage(this.enums.ProtocolCommand.MESSAGE, args);
+
+    args.id = message.id;
+    args.oldId = message.oldId;
+
+    this.sendCommand(this.enums.ProtocolCommand.MESSAGE, args);
+
+    return message;
+  }
+
+  proto.sendTemporalNotification = function sendTemporalNotification(recipientMonkeyId, optionalParams, optionalPush){
+    var props = {
+      device: "web"
+    };
+
+    var args = this.prepareMessageArgs(recipientMonkeyId, props, optionalParams, optionalPush);
+    args.type = this.enums.MessageType.TEMP_NOTE;
 
     var message = new MOKMessage(this.enums.ProtocolCommand.MESSAGE, args);
 
@@ -455,16 +532,10 @@ require('es6-promise').polyfill();
     switch(message.protocolType){
       case this.enums.MessageType.TEXT:{
         this.incomingMessage(message);
-        if (this.session.autoSave) {
-          db.storeMessage(message);
-        }
         break;
       }
       case this.enums.MessageType.FILE:{
         this.fileReceived(message);
-        if (this.session.autoSave) {
-          db.storeMessage(message);
-        }
         break;
       }
       default:{
@@ -475,7 +546,7 @@ require('es6-promise').polyfill();
           return;
         }
 
-        this._getEmitter().emit('onNotification', message);
+        this._getEmitter().emit(NOTIFICATION_EVENT, {senderId: message.senderId, recipientId: message.recipientId, params: message.params});
         break;
       }
     }
@@ -491,7 +562,7 @@ require('es6-promise').polyfill();
           'info': message.props.info
         };
 
-        this._getEmitter().emit('onGroupCreate', paramsGroup);
+        this._getEmitter().emit(GROUP_CREATE_EVENT, paramsGroup);
         break;
       }
       case this.enums.GroupAction.NEW_MEMBER:{
@@ -500,7 +571,7 @@ require('es6-promise').polyfill();
           'member': message.props.new_member
         };
 
-        this._getEmitter().emit('onGroupAddMember', paramsGroup);
+        this._getEmitter().emit(GROUP_ADD_EVENT, paramsGroup);
         break;
       }
       case this.enums.GroupAction.REMOVE_MEMBER:{
@@ -509,11 +580,11 @@ require('es6-promise').polyfill();
           'member': message.senderId
         };
 
-        this._getEmitter().emit('onGroupDeleteMember', paramsGroup);
+        this._getEmitter().emit(GROUP_REMOVE_EVENT, paramsGroup);
         break;
       }
       default:{
-        this._getEmitter().emit('onNotification', message);
+        this._getEmitter().emit(NOTIFICATION_EVENT, message);
         break;
       }
     }
@@ -557,13 +628,17 @@ require('es6-promise').polyfill();
       }
     }
 
+    if (this.session.autoSave) {
+      db.storeMessage(message);
+    }
+
     switch (message.protocolCommand){
       case this.enums.ProtocolCommand.MESSAGE:{
-        this._getEmitter().emit('onMessage', message);
+        this._getEmitter().emit(MESSAGE_EVENT, message);
         break;
       }
       case this.enums.ProtocolCommand.PUBLISH:{
-        this._getEmitter().emit('onChannelMessages', message);
+        this._getEmitter().emit(CHANNEL_MESSAGE_EVENT, message);
         break;
       }
     }
@@ -583,7 +658,10 @@ require('es6-promise').polyfill();
     };
 
     if (icon != null) {
-      params.icon = icon;
+      params.icon = {
+        x16: icon,
+        x32: icon
+      };
     }
 
     Push.create(myTitle, params);
@@ -601,7 +679,11 @@ require('es6-promise').polyfill();
       }
     }
 
-    this._getEmitter().emit('onMessage', message);
+    if (this.session.autoSave) {
+      db.storeMessage(message);
+    }
+
+    this._getEmitter().emit(MESSAGE_EVENT, message);
   }
 
   proto.processMOKProtocolACK = function processMOKProtocolACK(message){
@@ -636,7 +718,23 @@ require('es6-promise').polyfill();
 
     }
 
-    this._getEmitter().emit('onAcknowledge', message);
+    var ackParams = {};
+
+    if (message.protocolType == this.enums.ProtocolCommand.OPEN) {
+      ackParams.lastOpenMe = message.props.last_open_me;
+      ackParams.lastSeen = message.props.last_seen;
+      ackParams.online = message.props.online == 1;
+      this._getEmitter().emit(CONVERSATION_OPEN_RESPONSE_EVENT, ackParams);
+      return;
+    }
+
+    ackParams.newId = message.props.new_id;
+    ackParams.oldId = message.props.old_id;
+    ackParams.senderId = message.senderId;
+    ackParams.recipientId = message.recipientId;
+    ackParams.status = message.props.status
+
+    this._getEmitter().emit(ACKNOWLEDGE_EVENT, ackParams);
 
   }
 
@@ -694,7 +792,7 @@ require('es6-promise').polyfill();
         this.session.user = {};
       }
       this.session.user.monkeyId = this.session.id;
-      this._getEmitter().emit('onConnect', this.session.user);
+      this._getEmitter().emit(CONNECT_EVENT, this.session.user);
 
       this.sendCommand(this.enums.ProtocolCommand.SET, {online:1});
 
@@ -717,6 +815,10 @@ require('es6-promise').polyfill();
       var msg = new MOKMessage(jsonres.cmd, jsonres.args);
       switch (parseInt(jsonres.cmd)){
         case this.enums.ProtocolCommand.MESSAGE:{
+          //check if sync is in process, discard any messages if so
+          if (!watchdog.didRespondSync) {
+            return;
+          }
           this.processMOKProtocolMessage(msg);
           break;
         }
@@ -737,7 +839,8 @@ require('es6-promise').polyfill();
             //monkeyType = MOKGroupsJoined;
             msg.text = jsonres.args.messages;
 
-            this._getEmitter().emit('onNotification', msg);
+
+            this._getEmitter().emit(GROUP_LIST_EVENT, {groups: msg.text.split(',')});
           }
 
           break;
@@ -760,7 +863,7 @@ require('es6-promise').polyfill();
               msg.protocolType = this.enums.MessageType.NOTIF;
               //monkeyType = MOKGroupsJoined;
               msg.text = jsonres.args.messages;
-              this._getEmitter().emit('onNotification', msg);
+              this._getEmitter().emit(GROUP_LIST_EVENT, {groups: msg.text.split(',')});
               break;
             }
           }
@@ -769,12 +872,21 @@ require('es6-promise').polyfill();
         }
         case this.enums.ProtocolCommand.OPEN:{
           msg.protocolCommand = this.enums.ProtocolCommand.OPEN;
-          this._getEmitter().emit('onNotification', msg);
+          this._getEmitter().emit(CONVERSATION_OPEN_EVENT, msg);
           db.setAllMessagesToRead(msg.senderId);
           break;
         }
+        case this.enums.ProtocolCommand.DELETE:{
+
+          this._getEmitter().emit(MESSAGE_UNSEND_EVENT, {id: msg.id, senderId: msg.senderId, recipientId: msg.recipientId});
+          break;
+        }
+        case this.enums.ProtocolCommand.CLOSE:{
+          this._getEmitter().emit(CONVERSATION_CLOSE_EVENT, {senderId: msg.senderId, recipientId: msg.recipientId});
+          break;
+        }
         default:{
-          this._getEmitter().emit('onNotification', msg);
+          this._getEmitter().emit(NOTIFICATION_EVENT, msg);
           break;
         }
       }
@@ -792,7 +904,7 @@ require('es6-promise').polyfill();
         this.status=this.enums.Status.CONNECTING;
         setTimeout(this.startConnection(monkey_id), 2000 );
       }
-      this._getEmitter().emit('onDisconnect');
+      this._getEmitter().emit(DISCONNECT_EVENT);
     }.bind(this);
   }
 
@@ -1120,7 +1232,7 @@ require('es6-promise').polyfill();
         monkey_id:this.session.id
       };
 
-      this._getEmitter().emit('onSession', connectParams);
+      this._getEmitter().emit(SESSION_EVENT, connectParams);
 
       var myKeyParams=this.generateAndStoreAES();// generates local AES KEY
 
@@ -1131,14 +1243,16 @@ require('es6-promise').polyfill();
       connectParams.ignore_params = this.session.ignore;
 
       //this.keyStore[this.session.id]={key:this.session.myKey, iv:this.session.myIv};
-      monkeyKeystore.storeData(this.session.id, this.session.myKey+":"+this.session.myIv, this.session.myKey, this.session.myIv);
-      db.storeUser(respObj.data.monkeyId, this.session);
 
       apiconnector.basicRequest('POST', '/user/connect', connectParams, false, function(error){
         if(error){
           Log.m(this.session.debuggingMode, 'Monkey - '+error);
           return callback(error);
         }
+
+        monkeyKeystore.storeData(this.session.id, this.session.myKey+":"+this.session.myIv, this.session.myKey, this.session.myIv);
+        db.storeUser(respObj.data.monkeyId, this.session);
+
         this.startConnection(this.session.id);
         callback(null, this.session.user);
       }.bind(this));
@@ -1153,7 +1267,7 @@ require('es6-promise').polyfill();
         Log.m(this.session.debuggingMode, 'Monkey - '+err);
         return;
       }
-      this._getEmitter().emit('onSubscribe', respObj);
+      this._getEmitter().emit(CHANNEL_SUBSCRIBE_EVENT, respObj);
     }.bind(this));
   }
 

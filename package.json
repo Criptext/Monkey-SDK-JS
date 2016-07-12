@@ -1,6 +1,6 @@
 {
   "name": "monkey-sdk",
-  "version": "0.3.22",
+  "version": "0.4.12",
   "description": "Monkey SDK for web",
   "main": "./dist/monkey.js",
   "scripts": {
@@ -25,6 +25,7 @@
     "isomorphic-fetch": "^2.2.1",
     "node-cryptojs-aes": "^0.4.0",
     "node-rsa": "^0.3.2",
+    "offline-js": "^0.7.18",
     "push.js": "0.0.9",
     "whatwg-fetch": "^0.11.0"
   },

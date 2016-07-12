@@ -126,9 +126,13 @@ compressionMethod(){
   return null;
 }
 
+isGroupMessage(){
+  return this.recipientId.indexOf('G:') > -1
+}
+
 isCompressed(){
   if (this.props == null || typeof(this.props.cmpr) == "undefined" || this.props.cmpr == null) {
-    console.log("MONKEY - props null");
+    console.log('MONKEY - props null');
     return false;
   }
   return this.props.cmpr? true : false;

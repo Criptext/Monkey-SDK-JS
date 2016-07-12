@@ -62,17 +62,17 @@ feature of monkey.
   console.log(monkey.getUser());
 
   //Add listeners
-  monkey.on( "onSession", function( eObject ) {
+  monkey.on( "Session", function( eObject ) {
     console.log("On Session "+ JSON.stringify(eObject));
     changeStatus(getStatus(monkey.status));
   });
 
-  monkey.on( "onConnect", function( eObject ) {
+  monkey.on( "Connect", function( eObject ) {
     console.log("Connected "+JSON.stringify(eObject));
     // In a simple implementation you just need to start sending a message to the other monkedId once you are connected.
     changeStatus(getStatus(monkey.status));
 
-    monkey.getPendingMessages();
+    // monkey.getPendingMessages();
 
     var recipientMonkeyId=$("#recipientMonkeyIdInput").val();
 
@@ -86,11 +86,11 @@ feature of monkey.
       console.log(msg.isEncrypted());
     }
 
-    monkey.getConversationMessages(recipientMonkeyId, 10);
+    // monkey.getConversationMessages(recipientMonkeyId, 10);
 
   });
 
-  monkey.on( "onMessage", function(message ){
+  monkey.on( "Message", function(message ){
     console.log('message arrived '+JSON.stringify(message));
 
     switch(message.protocolType){
@@ -108,19 +108,19 @@ feature of monkey.
 
   });
 
-  monkey.on( "onDisconnect", function( event, eObject ) {
+  monkey.on( "Disconnect", function( event, eObject ) {
     console.log("onDisconnect event");
     changeStatus(getStatus(monkey.status));
   });
 
-  monkey.on( "onNotification", function( notification ) {
+  monkey.on( "Notification", function( notification ) {
     console.log("On Notifcation "+JSON.stringify(notification));
 
   });
 
-  monkey.on( "onAcknowledge", function(acknowledge ) {
+  monkey.on( "Acknowledge", function(acknowledge ) {
 
-    markMessageAs(acknowledge.oldId, acknowledge.props.status);
+    // markMessageAs(acknowledge.oldId, acknowledge.props.status);
 
   });
 

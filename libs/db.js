@@ -49,8 +49,10 @@ module.exports = (function() {
       if (message.recipientId == null) {
         return;
       }
+
+      // (message.recipientId == id && message.senderId == myId) add to mark my own messages
       //check if it's a group
-      if((message.recipientId.indexOf("G:") != -1 && message.recipientId == id) || (message.recipientId == id && message.senderId == myId) || (message.recipientId == myId && message.senderId == id)){
+      if((message.recipientId.indexOf("G:") != -1 && message.recipientId == id && message.senderId != myId) || (message.recipientId == myId && message.senderId == id)){
         if (!message.readByUser) {
           this.updateMessageReadStatus(message);
           count++;
@@ -71,8 +73,9 @@ module.exports = (function() {
         return;
       }
 
+      //(message.recipientId == id && message.senderId == myId) add to count my messages too
       //check if it's a group
-      if((message.recipientId.indexOf("G:") != -1 && message.recipientId == id) || (message.recipientId == id && message.senderId == myId) || (message.recipientId == myId && message.senderId == id)){
+      if((message.recipientId.indexOf("G:") != -1 && message.recipientId == id && message.senderId != myId) || (message.recipientId == myId && message.senderId == id)){
         if (!message.readByUser) {
           count++;
         }
