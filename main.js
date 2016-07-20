@@ -24,6 +24,7 @@ require('offline-js');
 const zlib = require('zlib');
 
 const MESSAGE_EVENT = 'Message';
+const MESSAGE_FAIL_EVENT = 'MessageFail';
 const MESSAGE_UNSEND_EVENT = 'MessageUnsend';
 const ACKNOWLEDGE_EVENT = 'Acknowledge';
 const NOTIFICATION_EVENT = 'Notification';
@@ -35,6 +36,8 @@ const GROUP_LIST_EVENT = 'GroupList';
 
 const CHANNEL_SUBSCRIBE_EVENT = 'ChannelSubscribe';
 const CHANNEL_MESSAGE_EVENT = 'ChannelMessage';
+
+const STATUS_CHANGE_EVENT = 'StatusChange';
 
 const SESSION_EVENT = 'Session';
 const CONNECT_EVENT = 'Connect';
@@ -153,7 +156,9 @@ require('es6-promise').polyfill();
     //setup offline events
     Offline.on('confirmed-up', function () {
       console.log('connectivity up!');
-      if (this.socketConnection == null) {
+      var storedMonkeyId = db.getMonkeyId();
+
+      if (this.socketConnection == null && storedMonkeyId != null && storedMonkeyId != '') {
         this.startConnection(this.session.id);
       }
     }.bind(this));
@@ -165,6 +170,8 @@ require('es6-promise').polyfill();
         this.socketConnection.close();
         this.socketConnection = null;
       }
+
+      this._getEmitter().emit(DISCONNECT_EVENT);
     }.bind(this));
 
     var storedMonkeyId = db.getMonkeyId();
@@ -228,7 +235,14 @@ require('es6-promise').polyfill();
     Log.m(this.session.debuggingMode, "================");
     Log.m(this.session.debuggingMode, "Monkey - sending message: "+finalMessage);
     Log.m(this.session.debuggingMode, "================");
-    this.socketConnection.send(finalMessage);
+
+    try {
+      this.socketConnection.send(finalMessage);
+    } catch (e) {
+      //reset watchdog state, probably there was a disconnection
+      console.log('Monkey - Error sending message: '+e);
+      watchdog.didRespondSync = true;
+    }
 
     return this;
   }
@@ -255,7 +269,14 @@ require('es6-promise').polyfill();
     var props = {
       device: "web",
       encr: shouldEncrypt? 1 : 0,
+      encoding: 'utf8',
     };
+
+    //encode to base64 if not encrypted to preserve special characters
+    if (!shouldEncrypt) {
+      text = new Buffer(text).toString('base64');
+      props.encoding = 'base64';
+    }
     var args = this.prepareMessageArgs(recipientMonkeyId, props, optionalParams, optionalPush);
     args.msg = text;
     args.type = this.enums.MessageType.TEXT;
@@ -279,8 +300,11 @@ require('es6-promise').polyfill();
     this.sendCommand(this.enums.ProtocolCommand.MESSAGE, args);
 
     watchdog.messageInTransit(function(){
+      this.socketConnection.onclose = function(){};
       this.socketConnection.close();
-      setTimeout(this.startConnection(this.session.id), 2000);
+      setTimeout(function(){
+        this.startConnection(this.session.id)
+      }.bind(this), 5000);
     }.bind(this));
 
     return message;
@@ -478,6 +502,7 @@ require('es6-promise').polyfill();
     apiconnector.basicRequest('POST', '/file/new/base64',data, true, function(err,respObj){
       if (err) {
         Log.m(this.session.debuggingMode, 'Monkey - upload file Fail');
+        this._getEmitter().emit(MESSAGE_FAIL_EVENT, message.id);
         return callback(err.toString(), message);
       }
       Log.m(this.session.debuggingMode, 'Monkey - upload file OK');
@@ -538,7 +563,23 @@ require('es6-promise').polyfill();
         this.fileReceived(message);
         break;
       }
+      case this.enums.MessageType.TEMP_NOTE:{
+        this._getEmitter().emit(NOTIFICATION_EVENT, {senderId: message.senderId, recipientId: message.recipientId, params: message.params});
+        break;
+      }
+      case this.enums.ProtocolCommand.DELETE:{
+
+        this._getEmitter().emit(MESSAGE_UNSEND_EVENT, {id: msg.props.message_id, senderId: msg.senderId, recipientId: msg.recipientId});
+        break;
+      }
       default:{
+
+        if (message.id > 0 && message.datetimeCreation > this.session.lastTimestamp) {
+          this.session.lastTimestamp = message.datetimeCreation;
+          if (this.session.autoSave) {
+            db.storeUser(this.session.id, this.session);
+          }
+        }
 
         //check for group notifications
         if (message.props != null && message.props.monkey_action != null) {
@@ -619,10 +660,18 @@ require('es6-promise').polyfill();
       }
     }else{
       message.text = message.encryptedText;
+      //check if it needs decoding
+      if (message.props.encoding != null && message.props.encoding != 'utf8') {
+        let decodedText = new Buffer(message.encryptedText, message.props.encoding).toString('utf8');
+        message.text = decodedText;
+      }
     }
+
+    var currentTimestamp = this.session.lastTimestamp;
 
     if (message.id > 0 && message.datetimeCreation > this.session.lastTimestamp) {
       this.session.lastTimestamp = message.datetimeCreation;
+
       if (this.session.autoSave) {
         db.storeUser(this.session.id, this.session);
       }
@@ -641,6 +690,11 @@ require('es6-promise').polyfill();
         this._getEmitter().emit(CHANNEL_MESSAGE_EVENT, message);
         break;
       }
+    }
+
+    //update last_time_synced if needed
+    if (currentTimestamp == 0 && this.session.lastTimestamp > 0) {
+      this.getPendingMessages();
     }
   }
 
@@ -749,14 +803,24 @@ require('es6-promise').polyfill();
     //set watchdog
     if (arrayMessages.length > 0) {
       watchdog.messageInTransit(function(){
+        this.socketConnection.onclose = function(){};
         this.socketConnection.close();
-        setTimeout(this.startConnection(this.session.id), 2000);
+        setTimeout(function(){
+          this.startConnection(this.session.id);
+        }.bind(this), 5000);
       }.bind(this));
+
+      //resend pending messages just in case
+      setTimeout(function(){
+        this.resendPendingMessages();
+      }.bind(this), 5000);
     }
   }
 
   proto.requestMessagesSinceTimestamp = function requestMessagesSinceTimestamp(lastTimestamp, quantity, withGroups){
+    if (this.socketConnection == null) {
 
+    }
     var args={
       since: lastTimestamp,
       qty: quantity
@@ -767,15 +831,25 @@ require('es6-promise').polyfill();
     }
 
     watchdog.startWatchingSync(function(){
+      this.socketConnection.onclose = function(){};
       this.socketConnection.close();
-      setTimeout(this.startConnection(this.session.id), 2000);
+      setTimeout(function(){
+        this.startConnection(this.session.id)
+      }.bind(this), 5000);
     }.bind(this));
 
     this.sendCommand(this.enums.ProtocolCommand.SYNC, args);
   }
 
   proto.startConnection = function startConnection(monkey_id){
+    var storedMonkeyId = db.getMonkeyId();
+
+    if (storedMonkeyId == null || storedMonkeyId == '') {
+      throw 'Monkey - Trying to connect to socket when there\'s no local session';
+    }
+
     this.status = this.enums.Status.CONNECTING;
+    this._getEmitter().emit(STATUS_CHANGE_EVENT);
     var token=this.appKey+":"+this.appSecret;
 
     if(this.session.debuggingMode){ //no ssl
@@ -787,7 +861,7 @@ require('es6-promise').polyfill();
 
     this.socketConnection.onopen = function () {
       this.status=this.enums.Status.ONLINE;
-
+      this._getEmitter().emit(STATUS_CHANGE_EVENT);
       if (this.session.user == null) {
         this.session.user = {};
       }
@@ -894,6 +968,8 @@ require('es6-promise').polyfill();
 
     this.socketConnection.onclose = function(evt)
     {
+      //reset watchdog state
+      watchdog.didRespondSync = true;
       //check if the web server disconnected me
       if (evt.wasClean) {
         Log.m(this.session.debuggingMode, 'Monkey - Websocket closed - Connection closed... '+ evt);
@@ -902,8 +978,11 @@ require('es6-promise').polyfill();
         //web server crashed, reconnect
         Log.m(this.session.debuggingMode, 'Monkey - Websocket closed - Reconnecting... '+ evt);
         this.status=this.enums.Status.CONNECTING;
-        setTimeout(this.startConnection(monkey_id), 2000 );
+        setTimeout(function(){
+          this.startConnection(monkey_id)
+        }.bind(this), 2000 );
       }
+      this._getEmitter().emit(STATUS_CHANGE_EVENT);
       this._getEmitter().emit(DISCONNECT_EVENT);
     }.bind(this);
   }
@@ -1047,6 +1126,11 @@ require('es6-promise').polyfill();
       }
     }else{
       message.text = message.encryptedText;
+      //check if it needs decoding
+      if (message.props.encoding != null && message.props.encoding != 'utf8') {
+        let decodedText = new Buffer(message.encryptedText, message.props.encoding).toString('utf8');
+        message.text = decodedText;
+      }
     }
 
     decryptedMessages.push(message);
@@ -1176,7 +1260,7 @@ require('es6-promise').polyfill();
     }
 
     this.status = this.enums.Status.HANDSHAKE;
-
+    this._getEmitter().emit(STATUS_CHANGE_EVENT);
     apiconnector.basicRequest('POST', endpoint, params, false, function(err,respObj){
 
       if(err){
@@ -1201,15 +1285,9 @@ require('es6-promise').polyfill();
         this.session.myKey=myAesKeys[0];
         this.session.myIv=myAesKeys[1];
 
+        this.session.lastTimestamp = respObj.data.last_time_synced;
+
         db.storeUser(this.session.id, this.session);
-
-        if (respObj.data.last_time_synced > this.session.lastTimestamp ) {
-          this.session.lastTimestamp = respObj.data.last_time_synced;
-
-          if (this.session.autoSave) {
-            db.storeUser(this.session.id, this.session);
-          }
-        }
 
         monkeyKeystore.storeData(this.session.id, this.session.myKey+":"+this.session.myIv, this.session.myKey, this.session.myIv);
 
@@ -1332,7 +1410,13 @@ require('es6-promise').polyfill();
           }
         }
         else{
+
           message.text = message.encryptedText;
+          //check if it needs decoding
+          if (message.props.encoding != null && message.props.encoding != 'utf8') {
+            let decodedText = new Buffer(message.encryptedText, message.props.encoding).toString('utf8');
+            message.text = decodedText;
+          }
           return callback(null);
         }
       }.bind(this), function(error){
@@ -1695,6 +1779,7 @@ require('es6-promise').polyfill();
     db.clear();
 
     if (this.socketConnection != null) {
+      this.socketConnection.onclose = function(){};
       this.socketConnection.close();
     }
 

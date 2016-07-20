@@ -84,6 +84,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	var zlib = __webpack_require__(69);
 
 	var MESSAGE_EVENT = 'Message';
+	var MESSAGE_FAIL_EVENT = 'MessageFail';
 	var MESSAGE_UNSEND_EVENT = 'MessageUnsend';
 	var ACKNOWLEDGE_EVENT = 'Acknowledge';
 	var NOTIFICATION_EVENT = 'Notification';
@@ -95,6 +96,8 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	var CHANNEL_SUBSCRIBE_EVENT = 'ChannelSubscribe';
 	var CHANNEL_MESSAGE_EVENT = 'ChannelMessage';
+
+	var STATUS_CHANGE_EVENT = 'StatusChange';
 
 	var SESSION_EVENT = 'Session';
 	var CONNECT_EVENT = 'Connect';
@@ -212,7 +215,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	    //setup offline events
 	    Offline.on('confirmed-up', function () {
 	      console.log('connectivity up!');
-	      if (this.socketConnection == null) {
+	      var storedMonkeyId = db.getMonkeyId();
+
+	      if (this.socketConnection == null && storedMonkeyId != null && storedMonkeyId != '') {
 	        this.startConnection(this.session.id);
 	      }
 	    }.bind(this));
@@ -224,6 +229,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	        this.socketConnection.close();
 	        this.socketConnection = null;
 	      }
+
+	      this._getEmitter().emit(DISCONNECT_EVENT);
 	    }.bind(this));
 
 	    var storedMonkeyId = db.getMonkeyId();
@@ -286,7 +293,14 @@ return /******/ (function(modules) { // webpackBootstrap
 	    Log.m(this.session.debuggingMode, "================");
 	    Log.m(this.session.debuggingMode, "Monkey - sending message: " + finalMessage);
 	    Log.m(this.session.debuggingMode, "================");
-	    this.socketConnection.send(finalMessage);
+
+	    try {
+	      this.socketConnection.send(finalMessage);
+	    } catch (e) {
+	      //reset watchdog state, probably there was a disconnection
+	      console.log('Monkey - Error sending message: ' + e);
+	      watchdog.didRespondSync = true;
+	    }
 
 	    return this;
 	  };
@@ -312,8 +326,15 @@ return /******/ (function(modules) { // webpackBootstrap
 	  proto.sendText = function sendText(text, recipientMonkeyId, shouldEncrypt, optionalParams, optionalPush) {
 	    var props = {
 	      device: "web",
-	      encr: shouldEncrypt ? 1 : 0
+	      encr: shouldEncrypt ? 1 : 0,
+	      encoding: 'utf8'
 	    };
+
+	    //encode to base64 if not encrypted to preserve special characters
+	    if (!shouldEncrypt) {
+	      text = new Buffer(text).toString('base64');
+	      props.encoding = 'base64';
+	    }
 	    var args = this.prepareMessageArgs(recipientMonkeyId, props, optionalParams, optionalPush);
 	    args.msg = text;
 	    args.type = this.enums.MessageType.TEXT;
@@ -337,8 +358,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	    this.sendCommand(this.enums.ProtocolCommand.MESSAGE, args);
 
 	    watchdog.messageInTransit(function () {
+	      this.socketConnection.onclose = function () {};
 	      this.socketConnection.close();
-	      setTimeout(this.startConnection(this.session.id), 2000);
+	      setTimeout(function () {
+	        this.startConnection(this.session.id);
+	      }.bind(this), 5000);
 	    }.bind(this));
 
 	    return message;
@@ -532,6 +556,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    apiconnector.basicRequest('POST', '/file/new/base64', data, true, function (err, respObj) {
 	      if (err) {
 	        Log.m(this.session.debuggingMode, 'Monkey - upload file Fail');
+	        this._getEmitter().emit(MESSAGE_FAIL_EVENT, message.id);
 	        return callback(err.toString(), message);
 	      }
 	      Log.m(this.session.debuggingMode, 'Monkey - upload file OK');
@@ -593,8 +618,26 @@ return /******/ (function(modules) { // webpackBootstrap
 	          this.fileReceived(message);
 	          break;
 	        }
+	      case this.enums.MessageType.TEMP_NOTE:
+	        {
+	          this._getEmitter().emit(NOTIFICATION_EVENT, { senderId: message.senderId, recipientId: message.recipientId, params: message.params });
+	          break;
+	        }
+	      case this.enums.ProtocolCommand.DELETE:
+	        {
+
+	          this._getEmitter().emit(MESSAGE_UNSEND_EVENT, { id: msg.props.message_id, senderId: msg.senderId, recipientId: msg.recipientId });
+	          break;
+	        }
 	      default:
 	        {
+
+	          if (message.id > 0 && message.datetimeCreation > this.session.lastTimestamp) {
+	            this.session.lastTimestamp = message.datetimeCreation;
+	            if (this.session.autoSave) {
+	              db.storeUser(this.session.id, this.session);
+	            }
+	          }
 
 	          //check for group notifications
 	          if (message.props != null && message.props.monkey_action != null) {
@@ -678,10 +721,18 @@ return /******/ (function(modules) { // webpackBootstrap
 	      }
 	    } else {
 	      message.text = message.encryptedText;
+	      //check if it needs decoding
+	      if (message.props.encoding != null && message.props.encoding != 'utf8') {
+	        var decodedText = new Buffer(message.encryptedText, message.props.encoding).toString('utf8');
+	        message.text = decodedText;
+	      }
 	    }
+
+	    var currentTimestamp = this.session.lastTimestamp;
 
 	    if (message.id > 0 && message.datetimeCreation > this.session.lastTimestamp) {
 	      this.session.lastTimestamp = message.datetimeCreation;
+
 	      if (this.session.autoSave) {
 	        db.storeUser(this.session.id, this.session);
 	      }
@@ -702,6 +753,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	          this._getEmitter().emit(CHANNEL_MESSAGE_EVENT, message);
 	          break;
 	        }
+	    }
+
+	    //update last_time_synced if needed
+	    if (currentTimestamp == 0 && this.session.lastTimestamp > 0) {
+	      this.getPendingMessages();
 	    }
 	  };
 
@@ -810,14 +866,22 @@ return /******/ (function(modules) { // webpackBootstrap
 	    //set watchdog
 	    if (arrayMessages.length > 0) {
 	      watchdog.messageInTransit(function () {
+	        this.socketConnection.onclose = function () {};
 	        this.socketConnection.close();
-	        setTimeout(this.startConnection(this.session.id), 2000);
+	        setTimeout(function () {
+	          this.startConnection(this.session.id);
+	        }.bind(this), 5000);
 	      }.bind(this));
+
+	      //resend pending messages just in case
+	      setTimeout(function () {
+	        this.resendPendingMessages();
+	      }.bind(this), 5000);
 	    }
 	  };
 
 	  proto.requestMessagesSinceTimestamp = function requestMessagesSinceTimestamp(lastTimestamp, quantity, withGroups) {
-
+	    if (this.socketConnection == null) {}
 	    var args = {
 	      since: lastTimestamp,
 	      qty: quantity
@@ -828,15 +892,25 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }
 
 	    watchdog.startWatchingSync(function () {
+	      this.socketConnection.onclose = function () {};
 	      this.socketConnection.close();
-	      setTimeout(this.startConnection(this.session.id), 2000);
+	      setTimeout(function () {
+	        this.startConnection(this.session.id);
+	      }.bind(this), 5000);
 	    }.bind(this));
 
 	    this.sendCommand(this.enums.ProtocolCommand.SYNC, args);
 	  };
 
 	  proto.startConnection = function startConnection(monkey_id) {
+	    var storedMonkeyId = db.getMonkeyId();
+
+	    if (storedMonkeyId == null || storedMonkeyId == '') {
+	      throw 'Monkey - Trying to connect to socket when there\'s no local session';
+	    }
+
 	    this.status = this.enums.Status.CONNECTING;
+	    this._getEmitter().emit(STATUS_CHANGE_EVENT);
 	    var token = this.appKey + ":" + this.appSecret;
 
 	    if (this.session.debuggingMode) {
@@ -848,7 +922,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	    this.socketConnection.onopen = function () {
 	      this.status = this.enums.Status.ONLINE;
-
+	      this._getEmitter().emit(STATUS_CHANGE_EVENT);
 	      if (this.session.user == null) {
 	        this.session.user = {};
 	      }
@@ -963,6 +1037,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }.bind(this);
 
 	    this.socketConnection.onclose = function (evt) {
+	      //reset watchdog state
+	      watchdog.didRespondSync = true;
 	      //check if the web server disconnected me
 	      if (evt.wasClean) {
 	        Log.m(this.session.debuggingMode, 'Monkey - Websocket closed - Connection closed... ' + evt);
@@ -971,8 +1047,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	        //web server crashed, reconnect
 	        Log.m(this.session.debuggingMode, 'Monkey - Websocket closed - Reconnecting... ' + evt);
 	        this.status = this.enums.Status.CONNECTING;
-	        setTimeout(this.startConnection(monkey_id), 2000);
+	        setTimeout(function () {
+	          this.startConnection(monkey_id);
+	        }.bind(this), 2000);
 	      }
+	      this._getEmitter().emit(STATUS_CHANGE_EVENT);
 	      this._getEmitter().emit(DISCONNECT_EVENT);
 	    }.bind(this);
 	  };
@@ -1115,6 +1194,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	      }
 	    } else {
 	      message.text = message.encryptedText;
+	      //check if it needs decoding
+	      if (message.props.encoding != null && message.props.encoding != 'utf8') {
+	        var decodedText = new Buffer(message.encryptedText, message.props.encoding).toString('utf8');
+	        message.text = decodedText;
+	      }
 	    }
 
 	    decryptedMessages.push(message);
@@ -1242,7 +1326,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }
 
 	    this.status = this.enums.Status.HANDSHAKE;
-
+	    this._getEmitter().emit(STATUS_CHANGE_EVENT);
 	    apiconnector.basicRequest('POST', endpoint, params, false, function (err, respObj) {
 
 	      if (err) {
@@ -1267,15 +1351,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	        this.session.myKey = myAesKeys[0];
 	        this.session.myIv = myAesKeys[1];
 
+	        this.session.lastTimestamp = respObj.data.last_time_synced;
+
 	        db.storeUser(this.session.id, this.session);
-
-	        if (respObj.data.last_time_synced > this.session.lastTimestamp) {
-	          this.session.lastTimestamp = respObj.data.last_time_synced;
-
-	          if (this.session.autoSave) {
-	            db.storeUser(this.session.id, this.session);
-	          }
-	        }
 
 	        monkeyKeystore.storeData(this.session.id, this.session.myKey + ":" + this.session.myIv, this.session.myKey, this.session.myIv);
 
@@ -1394,7 +1472,13 @@ return /******/ (function(modules) { // webpackBootstrap
 	            }.bind(this));
 	          }
 	        } else {
+
 	          message.text = message.encryptedText;
+	          //check if it needs decoding
+	          if (message.props.encoding != null && message.props.encoding != 'utf8') {
+	            var decodedText = new Buffer(message.encryptedText, message.props.encoding).toString('utf8');
+	            message.text = decodedText;
+	          }
 	          return callback(null);
 	        }
 	      }.bind(this), function (error) {
@@ -1754,6 +1838,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    db.clear();
 
 	    if (this.socketConnection != null) {
+	      this.socketConnection.onclose = function () {};
 	      this.socketConnection.close();
 	    }
 
@@ -6946,7 +7031,12 @@ return /******/ (function(modules) { // webpackBootstrap
 	      clearTimeout(myTimeout);
 	    }
 	    myTimeout = window.setTimeout(function(){
-
+	      if (watchdog.checkIfPendingMessages()) {
+	        console.log('Monkey - watchdog says there are pending messages');
+	      }
+	      if (watchdog.didRespondSync) {
+	        console.log('Monkey - didRespondSync = true');
+	      }
 	      if((watchdog.checkIfPendingMessages() || !watchdog.didRespondSync) && reconnect != null){
 	        reconnect();
 	      }
