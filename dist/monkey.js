@@ -910,7 +910,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }
 
 	    this.status = this.enums.Status.CONNECTING;
-	    this._getEmitter().emit(STATUS_CHANGE_EVENT);
+	    this._getEmitter().emit(STATUS_CHANGE_EVENT, this.status);
 	    var token = this.appKey + ":" + this.appSecret;
 
 	    if (this.session.debuggingMode) {
@@ -922,7 +922,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	    this.socketConnection.onopen = function () {
 	      this.status = this.enums.Status.ONLINE;
-	      this._getEmitter().emit(STATUS_CHANGE_EVENT);
+	      this._getEmitter().emit(STATUS_CHANGE_EVENT, this.status);
 	      if (this.session.user == null) {
 	        this.session.user = {};
 	      }
@@ -1042,16 +1042,16 @@ return /******/ (function(modules) { // webpackBootstrap
 	      //check if the web server disconnected me
 	      if (evt.wasClean) {
 	        Log.m(this.session.debuggingMode, 'Monkey - Websocket closed - Connection closed... ' + evt);
-	        this.status = this.enums.Status.OFFLINE;
+	        this.status = this.enums.Status.LOGOUT;
 	      } else {
 	        //web server crashed, reconnect
 	        Log.m(this.session.debuggingMode, 'Monkey - Websocket closed - Reconnecting... ' + evt);
-	        this.status = this.enums.Status.CONNECTING;
+	        this.status = this.enums.Status.OFFLINE;
 	        setTimeout(function () {
 	          this.startConnection(monkey_id);
 	        }.bind(this), 2000);
 	      }
-	      this._getEmitter().emit(STATUS_CHANGE_EVENT);
+	      this._getEmitter().emit(STATUS_CHANGE_EVENT, this.status);
 	      this._getEmitter().emit(DISCONNECT_EVENT);
 	    }.bind(this);
 	  };
@@ -1326,7 +1326,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }
 
 	    this.status = this.enums.Status.HANDSHAKE;
-	    this._getEmitter().emit(STATUS_CHANGE_EVENT);
+	    this._getEmitter().emit(STATUS_CHANGE_EVENT, this.status);
 	    apiconnector.basicRequest('POST', endpoint, params, false, function (err, respObj) {
 
 	      if (err) {
@@ -4070,7 +4070,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	  proto.Status = {
 	    OFFLINE:0,
-	    HANDSHAKE:1,
+	    LOGOUT:1,
 	    CONNECTING:2,
 	    ONLINE:3
 	  }

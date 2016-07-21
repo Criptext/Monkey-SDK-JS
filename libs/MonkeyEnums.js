@@ -13,7 +13,7 @@
 
   proto.Status = {
     OFFLINE:0,
-    HANDSHAKE:1,
+    LOGOUT:1,
     CONNECTING:2,
     ONLINE:3
   }
