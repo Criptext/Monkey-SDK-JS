@@ -1776,7 +1776,7 @@ require('es6-promise').polyfill();
       Log.m(this.session.debuggingMode, 'Monkey - terminating session and clearing data');
     }
 
-    db.clear();
+    db.clear(db.getMonkeyId());
 
     if (this.socketConnection != null) {
       this.socketConnection.onclose = function(){};

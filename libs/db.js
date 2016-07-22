@@ -195,8 +195,15 @@ module.exports = (function() {
     return count;
   }
 
-  db.clear = function(){
-    return store.clear();
+  db.clear = function(monkeyId){
+    store.remove("monkey_id");
+    store.remove("user_"+monkeyId);
+
+    store.forEach(function(key, val) {
+      if(key.indexOf("message_-") != -1){
+        store.remove(key);
+      }
+    });
   }
   return db;
 
