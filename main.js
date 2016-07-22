@@ -160,6 +160,9 @@ require('es6-promise').polyfill();
 
       if (this.socketConnection == null && storedMonkeyId != null && storedMonkeyId != '') {
         this.startConnection(this.session.id);
+      }else{
+        this.status=this.enums.Status.LOGOUT;
+        this._getEmitter().emit(STATUS_CHANGE_EVENT, this.status);
       }
     }.bind(this));
 
@@ -170,8 +173,8 @@ require('es6-promise').polyfill();
         this.socketConnection.close();
         this.socketConnection = null;
       }
-
-      this._getEmitter().emit(DISCONNECT_EVENT);
+      this._getEmitter().emit(STATUS_CHANGE_EVENT, this.status);
+      this._getEmitter().emit(DISCONNECT_EVENT, this.status);
     }.bind(this));
 
     var storedMonkeyId = db.getMonkeyId();
@@ -203,7 +206,6 @@ require('es6-promise').polyfill();
   proto.prepareMessageArgs = function prepareMessageArgs(recipientMonkeyId, props, optionalParams, optionalPush){
     var args = {
       app_id: this.appKey,
-      sid: this.session.id,
       rid: recipientMonkeyId,
       props: JSON.stringify(props),
       params: JSON.stringify(optionalParams)
@@ -983,7 +985,7 @@ require('es6-promise').polyfill();
         }.bind(this), 2000 );
       }
       this._getEmitter().emit(STATUS_CHANGE_EVENT, this.status);
-      this._getEmitter().emit(DISCONNECT_EVENT);
+      this._getEmitter().emit(DISCONNECT_EVENT, this.status);
     }.bind(this);
   }
 
@@ -1349,6 +1351,25 @@ require('es6-promise').polyfill();
     }.bind(this));
   }
 
+  proto.getConversations = function getConversations(since, quantity, onComplete){
+    var params = {
+      'monkeyId': this.session.id,
+      'timestamp': since,
+      'qty': quantity.toString()
+    };
+    apiconnector.basicRequest('POST', '/user/conversations',params, false, function(err,respObj){
+      if (err) {
+        Log.m(this.session.debuggingMode, 'Monkey - FAIL TO GET ALL CONVERSATIONS');
+        onComplete(err.toString());
+        return;
+      }
+      Log.m(this.session.debuggingMode, 'Monkey - GET ALL CONVERSATIONS');
+
+      this.processConversationList(respObj.data.conversations, onComplete);
+    }.bind(this));
+  }
+
+  //deprecated, use for testing purposes only
   proto.getAllConversations = function getAllConversations (onComplete) {
 
     apiconnector.basicRequest('GET', '/user/'+this.session.id+'/conversations',{}, false, function(err,respObj){
@@ -1359,93 +1380,95 @@ require('es6-promise').polyfill();
       }
       Log.m(this.session.debuggingMode, 'Monkey - GET ALL CONVERSATIONS');
 
-      // assuming openFiles is an array of file names
+      this.processConversationList(respObj.data.conversations, onComplete);
+    }.bind(this));
+  }
 
-      async.each(respObj.data.conversations, function(conversation, callback) {
-        if(conversation.last_message == null || Object.keys(conversation.last_message).length == 0){
-          return callback(null);
-        }
+  proto.processConversationList = function processConversationList(conversations, onComplete){
 
-        conversation.last_message = new MOKMessage(this.enums.ProtocolCommand.MESSAGE, conversation.last_message);
+    async.each(conversations, function(conversation, callback) {
+      if(conversation.last_message == null || Object.keys(conversation.last_message).length == 0){
+        return callback(null);
+      }
 
-        var message = conversation.last_message;
-        var gotError = false;
+      conversation.last_message = new MOKMessage(this.enums.ProtocolCommand.MESSAGE, conversation.last_message);
 
-        if (message.isEncrypted() && message.protocolType != this.enums.MessageType.FILE) {
-          try{
-            message.text = this.aesDecryptIncomingMessage(message);
-            if(message.text == null || message.text === ""){
-              throw "Fail decrypt";
-            }
-            return callback(null);
-          }
-          catch(error){
-            gotError = true;
-            Log.m(this.session.debuggingMode, "===========================");
-            Log.m(this.session.debuggingMode, "MONKEY - Fail decrypting: "+message.id+" type: "+message.protocolType);
-            Log.m(this.session.debuggingMode, "===========================");
-            //get keys
-            this.getAESkeyFromUser(message.senderId, message, function(response){
-              if (response != null) {
-                message.text = this.aesDecryptIncomingMessage(message);
-                return callback(null);
-              }
-              else{
-                return callback(null);
-              }
-            }.bind(this));
-          }
+      var message = conversation.last_message;
+      var gotError = false;
 
-          if (!gotError && (message.text == null || message.text === "")) {
-            //get keys
-            this.getAESkeyFromUser(message.senderId, message, function(response){
-              if (response != null) {
-                message.text = this.aesDecryptIncomingMessage(message);
-                return callback(null);
-              }
-              else{
-                return callback(null);
-              }
-            }.bind(this));
-          }
-        }
-        else{
-
-          message.text = message.encryptedText;
-          //check if it needs decoding
-          if (message.props.encoding != null && message.props.encoding != 'utf8') {
-            let decodedText = new Buffer(message.encryptedText, message.props.encoding).toString('utf8');
-            message.text = decodedText;
+      if (message.isEncrypted() && message.protocolType != this.enums.MessageType.FILE) {
+        try{
+          message.text = this.aesDecryptIncomingMessage(message);
+          if(message.text == null || message.text === ""){
+            throw "Fail decrypt";
           }
           return callback(null);
         }
-      }.bind(this), function(error){
-        if(error){
-          onComplete(error.toString(), null);
+        catch(error){
+          gotError = true;
+          Log.m(this.session.debuggingMode, "===========================");
+          Log.m(this.session.debuggingMode, "MONKEY - Fail decrypting: "+message.id+" type: "+message.protocolType);
+          Log.m(this.session.debuggingMode, "===========================");
+          //get keys
+          this.getAESkeyFromUser(message.senderId, message, function(response){
+            if (response != null) {
+              message.text = this.aesDecryptIncomingMessage(message);
+              return callback(null);
+            }
+            else{
+              return callback(null);
+            }
+          }.bind(this));
         }
-        else{
-          //NOW DELETE CONVERSATIONS WITH LASTMESSAGE NO DECRYPTED
-          respObj.data.conversations = respObj.data.conversations.reduce(function(result, conversation){
-            if (conversation.last_message.protocolType == this.enums.MessageType.TEXT && conversation.last_message.isEncrypted() && conversation.last_message.encryptedText == conversation.last_message.text) {
-              return result;
+
+        if (!gotError && (message.text == null || message.text === "")) {
+          //get keys
+          this.getAESkeyFromUser(message.senderId, message, function(response){
+            if (response != null) {
+              message.text = this.aesDecryptIncomingMessage(message);
+              return callback(null);
             }
-
-            if (this.session.autoSave) {
-              let stored = db.getMessageById(conversation.last_message.id);
-              if (stored == null || stored === "") {
-                db.storeMessage(conversation.last_message);
-              }
+            else{
+              return callback(null);
             }
+          }.bind(this));
+        }
+      }
+      else{
 
-            result.push(conversation);
-
+        message.text = message.encryptedText;
+        //check if it needs decoding
+        if (message.props.encoding != null && message.props.encoding != 'utf8') {
+          let decodedText = new Buffer(message.encryptedText, message.props.encoding).toString('utf8');
+          message.text = decodedText;
+        }
+        return callback(null);
+      }
+    }.bind(this), function(error){
+      if(error){
+        onComplete(error.toString(), null);
+      }
+      else{
+        //NOW DELETE CONVERSATIONS WITH LASTMESSAGE NO DECRYPTED
+        conversations = conversations.reduce(function(result, conversation){
+          if (conversation.last_message.protocolType == this.enums.MessageType.TEXT && conversation.last_message.isEncrypted() && conversation.last_message.encryptedText == conversation.last_message.text) {
             return result;
-          }.bind(this),[]);
+          }
 
-          onComplete(null, respObj);
-        }
-      }.bind(this));
+          if (this.session.autoSave) {
+            let stored = db.getMessageById(conversation.last_message.id);
+            if (stored == null || stored === "") {
+              db.storeMessage(conversation.last_message);
+            }
+          }
 
+          result.push(conversation);
+
+          return result;
+        }.bind(this),[]);
+
+        onComplete(null, conversations);
+      }
     }.bind(this));
   }
 
