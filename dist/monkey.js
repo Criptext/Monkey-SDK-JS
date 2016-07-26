@@ -457,9 +457,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	          callbackAsync(error, message);
 	        }
 
-	        if (this.session.autoSave) {
-	          db.storeMessage(message);
-	        }
 	        callbackAsync(null, message);
 	      }.bind(this));
 	    }.bind(this)], function (error, message) {
@@ -511,9 +508,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	          callbackAsync(error, message);
 	        }
 
-	        if (this.session.autoSave) {
-	          db.storeMessage(message);
-	        }
 	        callbackAsync(null, message);
 	      }.bind(this));
 	    }.bind(this)], function (error, message) {
@@ -740,10 +734,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	      }
 	    }
 
-	    if (this.session.autoSave) {
-	      db.storeMessage(message);
-	    }
-
 	    switch (message.protocolCommand) {
 	      case this.enums.ProtocolCommand.MESSAGE:
 	        {
@@ -800,10 +790,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	      }
 	    }
 
-	    if (this.session.autoSave) {
-	      db.storeMessage(message);
-	    }
-
 	    this._getEmitter().emit(MESSAGE_EVENT, message);
 	  };
 
@@ -831,10 +817,6 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	        storedMessage.id = message.id;
 	        db.deleteMessageById(message.oldId);
-
-	        if (this.session.autoSave) {
-	          db.storeMessage(storedMessage);
-	        }
 	      }
 	    }
 
@@ -1420,9 +1402,12 @@ return /******/ (function(modules) { // webpackBootstrap
 	  proto.getConversations = function getConversations(since, quantity, onComplete) {
 	    var params = {
 	      'monkeyId': this.session.id,
-	      'timestamp': since,
 	      'qty': quantity.toString()
 	    };
+
+	    if (since != null) {
+	      params.timestamp = since;
+	    }
 	    apiconnector.basicRequest('POST', '/user/conversations', params, false, function (err, respObj) {
 	      if (err) {
 	        Log.m(this.session.debuggingMode, 'Monkey - FAIL TO GET ALL CONVERSATIONS');
@@ -1516,13 +1501,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	            return result;
 	          }
 
-	          if (this.session.autoSave) {
-	            var stored = db.getMessageById(conversation.last_message.id);
-	            if (stored == null || stored === "") {
-	              db.storeMessage(conversation.last_message);
-	            }
-	          }
-
 	          result.push(conversation);
 
 	          return result;
@@ -1560,15 +1538,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	      }.bind(this), []);
 
 	      this.decryptBulkMessages(messagesArray, [], function (decryptedMessages) {
-	        for (var i = 0; i < decryptedMessages.length; i++) {
-	          var msg = decryptedMessages[i];
-	          if (this.session.autoSave) {
-	            var stored = db.getMessageById(msg.id);
-	            if (stored == null || stored === "") {
-	              db.storeMessage(msg);
-	            }
-	          }
-	        }
 	        onComplete(null, decryptedMessages);
 	      }.bind(this));
 	    }.bind(this));

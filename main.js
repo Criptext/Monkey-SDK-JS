@@ -401,9 +401,6 @@ require('es6-promise').polyfill();
             callbackAsync(error, message);
           }
 
-          if (this.session.autoSave) {
-            db.storeMessage(message);
-          }
           callbackAsync(null, message);
         }.bind(this));
       }.bind(this)],function(error, message){
@@ -457,9 +454,6 @@ require('es6-promise').polyfill();
             callbackAsync(error, message);
           }
 
-          if (this.session.autoSave) {
-            db.storeMessage(message);
-          }
           callbackAsync(null, message);
         }.bind(this));
       }.bind(this)],function(error, message){
@@ -679,10 +673,6 @@ require('es6-promise').polyfill();
       }
     }
 
-    if (this.session.autoSave) {
-      db.storeMessage(message);
-    }
-
     switch (message.protocolCommand){
       case this.enums.ProtocolCommand.MESSAGE:{
         this._getEmitter().emit(MESSAGE_EVENT, message);
@@ -735,10 +725,6 @@ require('es6-promise').polyfill();
       }
     }
 
-    if (this.session.autoSave) {
-      db.storeMessage(message);
-    }
-
     this._getEmitter().emit(MESSAGE_EVENT, message);
   }
 
@@ -766,10 +752,6 @@ require('es6-promise').polyfill();
 
         storedMessage.id = message.id;
         db.deleteMessageById(message.oldId);
-
-        if (this.session.autoSave) {
-          db.storeMessage(storedMessage);
-        }
       }
 
     }
@@ -1354,9 +1336,12 @@ require('es6-promise').polyfill();
   proto.getConversations = function getConversations(since, quantity, onComplete){
     var params = {
       'monkeyId': this.session.id,
-      'timestamp': since,
       'qty': quantity.toString()
     };
+
+    if (since != null) {
+      params.timestamp = since;
+    }
     apiconnector.basicRequest('POST', '/user/conversations',params, false, function(err,respObj){
       if (err) {
         Log.m(this.session.debuggingMode, 'Monkey - FAIL TO GET ALL CONVERSATIONS');
@@ -1455,13 +1440,6 @@ require('es6-promise').polyfill();
             return result;
           }
 
-          if (this.session.autoSave) {
-            let stored = db.getMessageById(conversation.last_message.id);
-            if (stored == null || stored === "") {
-              db.storeMessage(conversation.last_message);
-            }
-          }
-
           result.push(conversation);
 
           return result;
@@ -1499,15 +1477,6 @@ require('es6-promise').polyfill();
       }.bind(this),[]);
 
       this.decryptBulkMessages(messagesArray, [], function(decryptedMessages){
-        for (var i = 0; i < decryptedMessages.length; i++) {
-          var msg = decryptedMessages[i];
-          if (this.session.autoSave) {
-            let stored = db.getMessageById(msg.id);
-            if (stored == null || stored === "") {
-              db.storeMessage(msg);
-            }
-          }
-        }
         onComplete(null, decryptedMessages);
       }.bind(this));
     }.bind(this));
