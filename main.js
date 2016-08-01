@@ -175,6 +175,8 @@ require('es6-promise').polyfill();
         this.socketConnection.close();
         this.socketConnection = null;
       }
+
+      this.status=this.enums.Status.OFFLINE;
       this._getEmitter().emit(STATUS_CHANGE_EVENT, this.status);
       this._getEmitter().emit(DISCONNECT_EVENT, this.status);
     }.bind(this));
