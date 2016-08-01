@@ -44,8 +44,10 @@ const CONNECT_EVENT = 'Connect';
 const DISCONNECT_EVENT = 'Disconnect';
 
 const CONVERSATION_OPEN_EVENT = 'ConversationOpen';
-const CONVERSATION_OPEN_RESPONSE_EVENT = 'ConversationOpenResponse';
-const CONVERSATION_CLOSE_EVENT = 'ConversationClose'
+const CONVERSATION_STATUS_CHANGE_EVENT = 'ConversationStatusChange';
+const CONVERSATION_CLOSE_EVENT = 'ConversationClose';
+
+const EXIT_EVENT = 'Exit';
 
 
 require('es6-promise').polyfill();
@@ -159,7 +161,7 @@ require('es6-promise').polyfill();
       var storedMonkeyId = db.getMonkeyId();
 
       if (this.socketConnection == null && storedMonkeyId != null && storedMonkeyId != '') {
-        this.startConnection(this.session.id);
+        this.startConnection();
       }else{
         this.status=this.enums.Status.LOGOUT;
         this._getEmitter().emit(STATUS_CHANGE_EVENT, this.status);
@@ -182,7 +184,7 @@ require('es6-promise').polyfill();
     if (storedMonkeyId != null && storedMonkeyId == userObj.monkeyId) {
       var user = this.getUser();
 
-      this.startConnection(this.session.id);
+      this.startConnection();
       return callback(null, user);
     }
 
@@ -233,6 +235,17 @@ require('es6-promise').polyfill();
   }
 
   proto.sendCommand = function sendCommand(command, args){
+
+    var storedMonkeyId = db.getMonkeyId();
+
+    if (storedMonkeyId == null || storedMonkeyId == '') {
+      this.socketConnection.onclose = function(){};
+      this.socketConnection.close();
+      //emit event
+      this._getEmitter().emit(EXIT_EVENT, this.session.user);
+      return;
+    }
+
     var finalMessage = JSON.stringify({cmd:command,args:args});
     Log.m(this.session.debuggingMode, "================");
     Log.m(this.session.debuggingMode, "Monkey - sending message: "+finalMessage);
@@ -305,7 +318,7 @@ require('es6-promise').polyfill();
       this.socketConnection.onclose = function(){};
       this.socketConnection.close();
       setTimeout(function(){
-        this.startConnection(this.session.id)
+        this.startConnection()
       }.bind(this), 5000);
     }.bind(this));
 
@@ -469,6 +482,7 @@ require('es6-promise').polyfill();
 
     var args = this.prepareMessageArgs(recipientMonkeyId, props, optionalParams, optionalPush);
     args.msg = fileName;
+    args.sid = this.session.id;
     args.type = this.enums.MessageType.FILE;
 
     var message = new MOKMessage(this.enums.ProtocolCommand.MESSAGE, args);
@@ -514,6 +528,8 @@ require('es6-promise').polyfill();
 
     var args = this.prepareMessageArgs(recipientMonkeyId, props, optionalParams, optionalPush);
     args.msg = fileName;
+    //set sid only for files
+    args.sid = this.session.id;
     args.type = this.enums.MessageType.FILE;
 
     var message = new MOKMessage(this.enums.ProtocolCommand.MESSAGE, args);
@@ -762,7 +778,7 @@ require('es6-promise').polyfill();
       ackParams.lastOpenMe = message.props.last_open_me;
       ackParams.lastSeen = message.props.last_seen;
       ackParams.online = message.props.online == 1;
-      this._getEmitter().emit(CONVERSATION_OPEN_RESPONSE_EVENT, ackParams);
+      this._getEmitter().emit(CONVERSATION_STATUS_CHANGE_EVENT, ackParams);
       return;
     }
 
@@ -790,7 +806,7 @@ require('es6-promise').polyfill();
         this.socketConnection.onclose = function(){};
         this.socketConnection.close();
         setTimeout(function(){
-          this.startConnection(this.session.id);
+          this.startConnection();
         }.bind(this), 5000);
       }.bind(this));
 
@@ -818,18 +834,25 @@ require('es6-promise').polyfill();
       this.socketConnection.onclose = function(){};
       this.socketConnection.close();
       setTimeout(function(){
-        this.startConnection(this.session.id)
+        this.startConnection()
       }.bind(this), 5000);
     }.bind(this));
 
     this.sendCommand(this.enums.ProtocolCommand.SYNC, args);
   }
 
-  proto.startConnection = function startConnection(monkey_id){
-    var storedMonkeyId = db.getMonkeyId();
+  proto.startConnection = function startConnection(){
+    var monkey_id = db.getMonkeyId();
 
-    if (storedMonkeyId == null || storedMonkeyId == '') {
+    if (monkey_id == null || monkey_id == '') {
       throw 'Monkey - Trying to connect to socket when there\'s no local session';
+    }
+
+    //disconnect socket if it's already connected
+    if (this.socketConnection != null) {
+      this.socketConnection.onclose = function(){};
+      this.socketConnection.close();
+      this.socketConnection = null;
     }
 
     this.status = this.enums.Status.CONNECTING;
@@ -863,6 +886,16 @@ require('es6-promise').polyfill();
 
     this.socketConnection.onmessage = function (evt)
     {
+      var storedMonkeyId = db.getMonkeyId();
+
+      if (storedMonkeyId == null || storedMonkeyId == '') {
+        this.socketConnection.onclose = function(){};
+        this.socketConnection.close();
+        //emit event
+        this._getEmitter().emit(EXIT_EVENT, this.session.user);
+        return;
+      }
+
       Log.m(this.session.debuggingMode, 'Monkey - incoming message: '+evt.data);
       var jsonres=JSON.parse(evt.data);
 
@@ -963,7 +996,7 @@ require('es6-promise').polyfill();
         Log.m(this.session.debuggingMode, 'Monkey - Websocket closed - Reconnecting... '+ evt);
         this.status=this.enums.Status.OFFLINE;
         setTimeout(function(){
-          this.startConnection(monkey_id)
+          this.startConnection()
         }.bind(this), 2000 );
       }
       this._getEmitter().emit(STATUS_CHANGE_EVENT, this.status);
@@ -985,10 +1018,17 @@ require('es6-promise').polyfill();
         return callback(null);
       }
 
+      var oldParamKeys = monkeyKeystore.getData(monkeyId, this.session.myKey, this.session.myIv);
+
       Log.m(this.session.debuggingMode, 'Monkey - Received new aes keys');
       var newParamKeys = this.aesDecrypt(respObj.data.convKey, this.session.id).split(":");
       var newAESkey = newParamKeys[0];
       var newIv = newParamKeys[1];
+
+      //same keys
+      if (oldParamKeys.key == newAESkey && oldParamKeys.iv == newIv) {
+        return callback(null);
+      }
 
       //this.keyStore[respObj.data.session_to] = {key:newParamKeys[0],iv:newParamKeys[1]};
       monkeyKeystore.storeData(respObj.data.session_to, newAESkey+":"+newIv, this.session.myKey, this.session.myIv);
@@ -1104,7 +1144,7 @@ require('es6-promise').polyfill();
             messages.unshift(message);
           }
 
-          this.decryptBulkMessages(message, decryptedMessages, onComplete);
+          this.decryptBulkMessages(messages, decryptedMessages, onComplete);
         }.bind(this));
         return;
       }
@@ -1275,7 +1315,7 @@ require('es6-promise').polyfill();
 
         monkeyKeystore.storeData(this.session.id, this.session.myKey+":"+this.session.myIv, this.session.myKey, this.session.myIv);
 
-        this.startConnection(this.session.id);
+        this.startConnection();
 
         callback(null, this.session.user);
         return;
@@ -1315,7 +1355,7 @@ require('es6-promise').polyfill();
         monkeyKeystore.storeData(this.session.id, this.session.myKey+":"+this.session.myIv, this.session.myKey, this.session.myIv);
         db.storeUser(respObj.data.monkeyId, this.session);
 
-        this.startConnection(this.session.id);
+        this.startConnection();
         callback(null, this.session.user);
       }.bind(this));
     }.bind(this));
@@ -1450,14 +1490,14 @@ require('es6-promise').polyfill();
     }.bind(this));
   }
 
-  proto.getConversationMessages = function getConversationMessages(conversationId, numberOfMessages, lastMessageId, onComplete) {
+  proto.getConversationMessages = function getConversationMessages(conversationId, numberOfMessages, lastTimestamp, onComplete) {
 
     onComplete = (typeof onComplete == "function") ? onComplete : function () { };
-    if (lastMessageId == null) {
-      lastMessageId = '';
+    if (lastTimestamp == null) {
+      lastTimestamp = '';
     }
 
-    apiconnector.basicRequest('GET', '/conversation/messages/'+this.session.id+'/'+conversationId+'/'+numberOfMessages+'/'+lastMessageId,{}, false, function(err,respObj){
+    apiconnector.basicRequest('GET', '/conversation/messages/'+this.session.id+'/'+conversationId+'/'+numberOfMessages+'/'+lastTimestamp,{}, false, function(err,respObj){
       if (err) {
         Log.m(this.session.debuggingMode, 'FAIL TO GET CONVERSATION MESSAGES');
         onComplete(err.toString());
