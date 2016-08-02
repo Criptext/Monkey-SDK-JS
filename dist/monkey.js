@@ -221,7 +221,13 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	      if (this.socketConnection == null && storedMonkeyId != null && storedMonkeyId != '') {
 	        this.startConnection();
-	      } else {
+	        return;
+	      }
+
+	      if (storedMonkeyId == null || storedMonkeyId === '') {
+	        this.socketConnection.onclose = function () {};
+	        this.socketConnection.close();
+	        this.socketConnection = null;
 	        this.status = this.enums.Status.LOGOUT;
 	        this._getEmitter().emit(STATUS_CHANGE_EVENT, this.status);
 	      }
