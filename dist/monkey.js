@@ -216,25 +216,21 @@ return /******/ (function(modules) { // webpackBootstrap
 	    Offline.options = { checks: { xhr: { url: 'https://query.yahooapis.com/v1/public/yql?q=select%20*%20from%20html%20where%20url=www.google.com&format=json' } } };
 	    //setup offline events
 	    Offline.on('confirmed-up', function () {
-	      console.log('connectivity up!');
 	      var storedMonkeyId = db.getMonkeyId();
+
+	      //if no user logged in, do nothing
+	      if (storedMonkeyId == null || storedMonkeyId === '') {
+	        return;
+	      }
 
 	      if (this.socketConnection == null && storedMonkeyId != null && storedMonkeyId != '') {
 	        this.startConnection();
 	        return;
 	      }
-
-	      if (storedMonkeyId == null || storedMonkeyId === '') {
-	        this.socketConnection.onclose = function () {};
-	        this.socketConnection.close();
-	        this.socketConnection = null;
-	        this.status = this.enums.Status.LOGOUT;
-	        this._getEmitter().emit(STATUS_CHANGE_EVENT, this.status);
-	      }
 	    }.bind(this));
 
 	    Offline.on('confirmed-down', function () {
-	      console.log('connectivity down');
+	      console.log('Monkey - detected connectivity down');
 	      if (this.socketConnection != null) {
 	        this.socketConnection.onclose = function () {};
 	        this.socketConnection.close();
@@ -646,7 +642,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	      case this.enums.ProtocolCommand.DELETE:
 	        {
 
-	          this._getEmitter().emit(MESSAGE_UNSEND_EVENT, { id: msg.props.message_id, senderId: msg.senderId, recipientId: msg.recipientId });
+	          this._getEmitter().emit(MESSAGE_UNSEND_EVENT, { id: message.props.message_id, senderId: message.senderId, recipientId: message.recipientId });
 	          break;
 	        }
 	      default:
