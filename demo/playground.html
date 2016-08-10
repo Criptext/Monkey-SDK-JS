@@ -191,7 +191,7 @@ feature of monkey.
       userObj = { name:"pablo"};
     }
 
-    if (userObj.monkeyId == null) {
+    if (userObj.monkeyId == null && monkeyId) {
       userObj.monkeyId = monkeyId;
     }
     // appKey, appSecret, userObj, ignoreHook, shouldExpireSession, isDebugging, autoSync, autoSave, callback

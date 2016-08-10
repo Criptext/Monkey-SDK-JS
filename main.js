@@ -49,7 +49,6 @@ const CONVERSATION_CLOSE_EVENT = 'ConversationClose';
 
 const EXIT_EVENT = 'Exit';
 
-
 require('es6-promise').polyfill();
 
 ;(function () {
@@ -247,6 +246,11 @@ require('es6-promise').polyfill();
       this.socketConnection.close();
       //emit event
       this._getEmitter().emit(EXIT_EVENT, this.session.user);
+      return;
+    }
+
+    if(this.status != this.enums.Status.ONLINE){
+      console.log('sendCommand - not connected!');
       return;
     }
 
@@ -781,7 +785,11 @@ require('es6-promise').polyfill();
     if (message.protocolType == this.enums.ProtocolCommand.OPEN) {
       ackParams.lastOpenMe = message.props.last_open_me;
       ackParams.lastSeen = message.props.last_seen;
-      ackParams.online = message.props.online == 1;
+      if (message.props.members_online){
+        ackParams.online = message.props.members_online;
+      }else{
+        ackParams.online = message.props.online == 1;
+      }
       this._getEmitter().emit(CONVERSATION_STATUS_CHANGE_EVENT, ackParams);
       return;
     }
@@ -994,6 +1002,7 @@ require('es6-promise').polyfill();
       //check if the web server disconnected me
       if (evt.wasClean) {
         Log.m(this.session.debuggingMode, 'Monkey - Websocket closed - Connection closed... '+ evt);
+        this.socketConnection = null;
         this.status=this.enums.Status.LOGOUT;
       }else{
         //web server crashed, reconnect
@@ -1817,6 +1826,7 @@ require('es6-promise').polyfill();
     if (this.socketConnection != null) {
       this.socketConnection.onclose = function(){};
       this.socketConnection.close();
+      this.socketConnection = null;
     }
 
     this.session = {};
