@@ -49,7 +49,6 @@ const CONVERSATION_CLOSE_EVENT = 'ConversationClose';
 
 const EXIT_EVENT = 'Exit';
 
-
 require('es6-promise').polyfill();
 
 ;(function () {
@@ -171,7 +170,6 @@ require('es6-promise').polyfill();
     }.bind(this));
 
     Offline.on('confirmed-down', function () {
-      console.log('Monkey - detected connectivity down');
       if (this.socketConnection != null) {
         this.socketConnection.onclose = function(){};
         this.socketConnection.close();
@@ -250,6 +248,10 @@ require('es6-promise').polyfill();
       return;
     }
 
+    if(this.status != this.enums.Status.ONLINE){
+      return;
+    }
+
     var finalMessage = JSON.stringify({cmd:command,args:args});
     Log.m(this.session.debuggingMode, "================");
     Log.m(this.session.debuggingMode, "Monkey - sending message: "+finalMessage);
@@ -259,7 +261,7 @@ require('es6-promise').polyfill();
       this.socketConnection.send(finalMessage);
     } catch (e) {
       //reset watchdog state, probably there was a disconnection
-      console.log('Monkey - Error sending message: '+e);
+      Log.m(this.session.debuggingMode, 'Monkey - Error sending message: '+e);
       watchdog.didRespondSync = true;
     }
 
@@ -781,7 +783,11 @@ require('es6-promise').polyfill();
     if (message.protocolType == this.enums.ProtocolCommand.OPEN) {
       ackParams.lastOpenMe = message.props.last_open_me;
       ackParams.lastSeen = message.props.last_seen;
-      ackParams.online = message.props.online == 1;
+      if (message.props.members_online){
+        ackParams.online = message.props.members_online;
+      }else{
+        ackParams.online = message.props.online == 1;
+      }
       this._getEmitter().emit(CONVERSATION_STATUS_CHANGE_EVENT, ackParams);
       return;
     }
@@ -994,6 +1000,7 @@ require('es6-promise').polyfill();
       //check if the web server disconnected me
       if (evt.wasClean) {
         Log.m(this.session.debuggingMode, 'Monkey - Websocket closed - Connection closed... '+ evt);
+        this.socketConnection = null;
         this.status=this.enums.Status.LOGOUT;
       }else{
         //web server crashed, reconnect
@@ -1817,6 +1824,7 @@ require('es6-promise').polyfill();
     if (this.socketConnection != null) {
       this.socketConnection.onclose = function(){};
       this.socketConnection.close();
+      this.socketConnection = null;
     }
 
     this.session = {};

@@ -132,7 +132,6 @@ isGroupMessage(){
 
 isCompressed(){
   if (this.props == null || typeof(this.props.cmpr) == "undefined" || this.props.cmpr == null) {
-    console.log('MONKEY - props null');
     return false;
   }
   return this.props.cmpr? true : false;
@@ -140,7 +139,6 @@ isCompressed(){
 
 isEncrypted(){
   if (this.props == null || typeof(this.props.encr) == "undefined" || this.props.encr == null) {
-    console.log("MONKEY - props null");
     return false;
   }
   return this.props.encr == 1? true : false;

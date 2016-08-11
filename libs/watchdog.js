@@ -54,12 +54,6 @@ module.exports = (function() {
       clearTimeout(myTimeout);
     }
     myTimeout = window.setTimeout(function(){
-      if (watchdog.checkIfPendingMessages()) {
-        console.log('Monkey - watchdog says there are pending messages');
-      }
-      if (watchdog.didRespondSync) {
-        console.log('Monkey - didRespondSync = true');
-      }
       if((watchdog.checkIfPendingMessages() || !watchdog.didRespondSync) && reconnect != null){
         reconnect();
       }

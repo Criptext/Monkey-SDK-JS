@@ -1,10 +1,10 @@
 {
   "name": "monkey-sdk",
-  "version": "0.5.17",
+  "version": "0.5.18",
   "description": "Monkey SDK for web",
   "main": "./dist/monkey.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "webpack --progress --colors --watch"
   },
   "devDependencies": {
     "babel-loader": "^6.2.4",
@@ -26,7 +26,7 @@
     "node-cryptojs-aes": "^0.4.0",
     "node-rsa": "^0.3.2",
     "offline-js": "^0.7.18",
-    "push.js": "0.0.9",
+    "push.js": "^0.0.10",
     "whatwg-fetch": "^0.11.0"
   },
   "author": "Criptext <gianni@criptext.com>",
