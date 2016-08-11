@@ -170,7 +170,6 @@ require('es6-promise').polyfill();
     }.bind(this));
 
     Offline.on('confirmed-down', function () {
-      console.log('Monkey - detected connectivity down');
       if (this.socketConnection != null) {
         this.socketConnection.onclose = function(){};
         this.socketConnection.close();
@@ -250,7 +249,6 @@ require('es6-promise').polyfill();
     }
 
     if(this.status != this.enums.Status.ONLINE){
-      console.log('sendCommand - not connected!');
       return;
     }
 
@@ -263,7 +261,7 @@ require('es6-promise').polyfill();
       this.socketConnection.send(finalMessage);
     } catch (e) {
       //reset watchdog state, probably there was a disconnection
-      console.log('Monkey - Error sending message: '+e);
+      Log.m(this.session.debuggingMode, 'Monkey - Error sending message: '+e);
       watchdog.didRespondSync = true;
     }
 
