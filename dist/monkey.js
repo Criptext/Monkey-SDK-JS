@@ -230,7 +230,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }.bind(this));
 
 	    Offline.on('confirmed-down', function () {
-	      console.log('Monkey - detected connectivity down');
 	      if (this.socketConnection != null) {
 	        this.socketConnection.onclose = function () {};
 	        this.socketConnection.close();
@@ -309,7 +308,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }
 
 	    if (this.status != this.enums.Status.ONLINE) {
-	      console.log('sendCommand - not connected!');
 	      return;
 	    }
 
@@ -322,7 +320,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	      this.socketConnection.send(finalMessage);
 	    } catch (e) {
 	      //reset watchdog state, probably there was a disconnection
-	      console.log('Monkey - Error sending message: ' + e);
+	      Log.m(this.session.debuggingMode, 'Monkey - Error sending message: ' + e);
 	      watchdog.didRespondSync = true;
 	    }
 
@@ -4370,7 +4368,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	    key: "isEncrypted",
 	    value: function isEncrypted() {
 	      if (this.props == null || typeof this.props.encr == "undefined" || this.props.encr == null) {
-	        console.log("MONKEY - props null");
 	        return false;
 	      }
 	      return this.props.encr == 1 ? true : false;
@@ -7083,12 +7080,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	      clearTimeout(myTimeout);
 	    }
 	    myTimeout = window.setTimeout(function(){
-	      if (watchdog.checkIfPendingMessages()) {
-	        console.log('Monkey - watchdog says there are pending messages');
-	      }
-	      if (watchdog.didRespondSync) {
-	        console.log('Monkey - didRespondSync = true');
-	      }
 	      if((watchdog.checkIfPendingMessages() || !watchdog.didRespondSync) && reconnect != null){
 	        reconnect();
 	      }
