@@ -19,7 +19,7 @@ module.exports = (function() {
 
     var parseAsJson = true;
 
-    if (main.session.debuggingMode) {
+    if (main.session.debug) {
       reqUrl = 'http://'+reqUrl;
     }else{
       reqUrl = 'https://'+reqUrl;

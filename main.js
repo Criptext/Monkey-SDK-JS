@@ -111,7 +111,8 @@ require('es6-promise').polyfill();
     user: null,
     lastTimestamp: 0,
     expireSession: 0,
-    debuggingMode: false,
+    debug: false,
+    stage: false,
     autoSave: true
   }
 
@@ -119,7 +120,7 @@ require('es6-promise').polyfill();
   * Session stuff
   */
 
-  proto.init = function init(appKey, appSecret, userObj, ignoreHook, shouldExpireSession, isDebugging, autoSync, autoSave, callback){
+  proto.init = function init(appKey, appSecret, userObj, ignoreHook, shouldExpireSession, isStaging, autoSync, autoSave, callback){
     if (appKey == null || appSecret == null) {
       throw 'Monkey - To initialize Monkey, you must provide your App Id and App Secret';
     }
@@ -142,8 +143,9 @@ require('es6-promise').polyfill();
     this.domainUrl = 'monkey.criptext.com';
     this.session.ignore = ignoreHook;
 
-    if (isDebugging) {
-      this.session.debuggingMode = true;
+    if (isStaging) {
+      this.session.debug = true;
+      this.session.stage = true;
       this.domainUrl = 'stage.monkey.criptext.com'
     }
 
@@ -253,15 +255,15 @@ require('es6-promise').polyfill();
     }
 
     var finalMessage = JSON.stringify({cmd:command,args:args});
-    Log.m(this.session.debuggingMode, "================");
-    Log.m(this.session.debuggingMode, "Monkey - sending message: "+finalMessage);
-    Log.m(this.session.debuggingMode, "================");
+    Log.m(this.session.debug, "================");
+    Log.m(this.session.debug, "Monkey - sending message: "+finalMessage);
+    Log.m(this.session.debug, "================");
 
     try {
       this.socketConnection.send(finalMessage);
     } catch (e) {
       //reset watchdog state, probably there was a disconnection
-      Log.m(this.session.debuggingMode, 'Monkey - Error sending message: '+e);
+      Log.m(this.session.debug, 'Monkey - Error sending message: '+e);
       watchdog.didRespondSync = true;
     }
 
@@ -517,11 +519,11 @@ require('es6-promise').polyfill();
 
     apiconnector.basicRequest('POST', '/file/new/base64',data, true, function(err,respObj){
       if (err) {
-        Log.m(this.session.debuggingMode, 'Monkey - upload file Fail');
+        Log.m(this.session.debug, 'Monkey - upload file Fail');
         this._getEmitter().emit(MESSAGE_FAIL_EVENT, message.id);
         return callback(err.toString(), message);
       }
-      Log.m(this.session.debuggingMode, 'Monkey - upload file OK');
+      Log.m(this.session.debug, 'Monkey - upload file OK');
       message.id = respObj.data.messageId;
       callback(null, message);
 
@@ -568,9 +570,9 @@ require('es6-promise').polyfill();
   }
 
   proto.processMOKProtocolMessage = function processMOKProtocolMessage(message){
-    Log.m(this.session.debuggingMode, "===========================");
-    Log.m(this.session.debuggingMode, "MONKEY - Message in process: "+message.id+" type: "+message.protocolType);
-    Log.m(this.session.debuggingMode, "===========================");
+    Log.m(this.session.debug, "===========================");
+    Log.m(this.session.debug, "MONKEY - Message in process: "+message.id+" type: "+message.protocolType);
+    Log.m(this.session.debug, "===========================");
 
     switch(message.protocolType){
       case this.enums.MessageType.TEXT:{
@@ -655,9 +657,9 @@ require('es6-promise').polyfill();
         message.text = this.aesDecryptIncomingMessage(message);
       }
       catch(error){
-        Log.m(this.session.debuggingMode, "===========================");
-        Log.m(this.session.debuggingMode, "MONKEY - Fail decrypting: "+message.id+" type: "+message.protocolType);
-        Log.m(this.session.debuggingMode, "===========================");
+        Log.m(this.session.debug, "===========================");
+        Log.m(this.session.debug, "MONKEY - Fail decrypting: "+message.id+" type: "+message.protocolType);
+        Log.m(this.session.debug, "===========================");
         //get keys
         this.getAESkeyFromUser(message.senderId, message, function(response){
           if (response != null) {
@@ -751,9 +753,9 @@ require('es6-promise').polyfill();
   }
 
   proto.processMOKProtocolACK = function processMOKProtocolACK(message){
-    Log.m(this.session.debuggingMode, "===========================");
-    Log.m(this.session.debuggingMode, "MONKEY - ACK in process");
-    Log.m(this.session.debuggingMode, "===========================");
+    Log.m(this.session.debug, "===========================");
+    Log.m(this.session.debug, "MONKEY - ACK in process");
+    Log.m(this.session.debug, "===========================");
 
     if(message.props.status == "52"){
       message.readByUser = true;
@@ -869,7 +871,7 @@ require('es6-promise').polyfill();
     this._getEmitter().emit(STATUS_CHANGE_EVENT, this.status);
     var token=this.appKey+":"+this.appSecret;
 
-    if(this.session.debuggingMode){ //no ssl
+    if(this.session.debug){ //no ssl
       this.socketConnection = new WebSocket('ws://'+this.domainUrl+'/websockets?monkey_id='+monkey_id+'&p='+token,'criptext-protocol');
     }
     else{
@@ -906,7 +908,7 @@ require('es6-promise').polyfill();
         return;
       }
 
-      Log.m(this.session.debuggingMode, 'Monkey - incoming message: '+evt.data);
+      Log.m(this.session.debug, 'Monkey - incoming message: '+evt.data);
       var jsonres=JSON.parse(evt.data);
 
       if (jsonres.args.app_id == null) {
@@ -999,12 +1001,12 @@ require('es6-promise').polyfill();
       watchdog.didRespondSync = true;
       //check if the web server disconnected me
       if (evt.wasClean) {
-        Log.m(this.session.debuggingMode, 'Monkey - Websocket closed - Connection closed... '+ evt);
+        Log.m(this.session.debug, 'Monkey - Websocket closed - Connection closed... '+ evt);
         this.socketConnection = null;
         this.status=this.enums.Status.LOGOUT;
       }else{
         //web server crashed, reconnect
-        Log.m(this.session.debuggingMode, 'Monkey - Websocket closed - Reconnecting... '+ evt);
+        Log.m(this.session.debug, 'Monkey - Websocket closed - Reconnecting... '+ evt);
         this.status=this.enums.Status.OFFLINE;
         setTimeout(function(){
           this.startConnection()
@@ -1025,13 +1027,13 @@ require('es6-promise').polyfill();
     apiconnector.basicRequest('POST', '/user/key/exchange',{ monkey_id:this.session.id, user_to:monkeyId}, false, function(err,respObj){
 
       if(err){
-        Log.m(this.session.debuggingMode, 'Monkey - error on getting aes keys '+err);
+        Log.m(this.session.debug, 'Monkey - error on getting aes keys '+err);
         return callback(null);
       }
 
       var oldParamKeys = monkeyKeystore.getData(monkeyId, this.session.myKey, this.session.myIv);
 
-      Log.m(this.session.debuggingMode, 'Monkey - Received new aes keys');
+      Log.m(this.session.debug, 'Monkey - Received new aes keys');
       var newParamKeys = this.aesDecrypt(respObj.data.convKey, this.session.id).split(":");
       var newAESkey = newParamKeys[0];
       var newIv = newParamKeys[1];
@@ -1053,7 +1055,7 @@ require('es6-promise').polyfill();
     callback = (typeof callback == "function") ? callback : function () { };
     apiconnector.basicRequest('GET', '/message/'+message.id+'/open/secure',{}, false, function(err,respObj){
       if(err){
-        Log.m(this.session.debuggingMode, 'Monkey - error on requestEncryptedTextForMessage: '+err);
+        Log.m(this.session.debug, 'Monkey - error on requestEncryptedTextForMessage: '+err);
         return callback(null);
       }
 
@@ -1106,7 +1108,7 @@ require('es6-promise').polyfill();
 
     var decrypted = CryptoJS.AES.decrypt(fileToDecrypt, aesKey, { iv: initV }).toString(CryptoJS.enc.Base64);
 
-    // Log.m(this.session.debuggingMode, 'el tipo del archivo decriptado: '+ typeof(decrypted));
+    // Log.m(this.session.debug, 'el tipo del archivo decriptado: '+ typeof(decrypted));
     return decrypted;
   }
 
@@ -1134,9 +1136,9 @@ require('es6-promise').polyfill();
         message.text = this.aesDecryptIncomingMessage(message);
       }
       catch(error){
-        Log.m(this.session.debuggingMode, "===========================");
-        Log.m(this.session.debuggingMode, "MONKEY - Fail decrypting: "+message.id+" type: "+message.protocolType);
-        Log.m(this.session.debuggingMode, "===========================");
+        Log.m(this.session.debug, "===========================");
+        Log.m(this.session.debug, "MONKEY - Fail decrypting: "+message.id+" type: "+message.protocolType);
+        Log.m(this.session.debug, "===========================");
         //get keys
         this.getAESkeyFromUser(message.senderId, message, function(response){
           if (response != null) {
@@ -1180,7 +1182,7 @@ require('es6-promise').polyfill();
       var decryptedData = null;
       try{
         var currentSize = fileData.length;
-        Log.m(this.session.debuggingMode, "Monkey - encrypted file size: "+currentSize);
+        Log.m(this.session.debug, "Monkey - encrypted file size: "+currentSize);
 
         //temporal fix for media sent from web
         if (message.props.device == "web") {
@@ -1190,12 +1192,12 @@ require('es6-promise').polyfill();
         }
 
         var newSize = decryptedData.length;
-        Log.m(this.session.debuggingMode, "Monkey - decrypted file size: "+newSize);
+        Log.m(this.session.debug, "Monkey - decrypted file size: "+newSize);
       }
       catch(error){
-        Log.m(this.session.debuggingMode, "===========================");
-        Log.m(this.session.debuggingMode, "MONKEY - Fail decrypting: "+message.id+" type: "+message.protocolType);
-        Log.m(this.session.debuggingMode, "===========================");
+        Log.m(this.session.debug, "===========================");
+        Log.m(this.session.debug, "MONKEY - Fail decrypting: "+message.id+" type: "+message.protocolType);
+        Log.m(this.session.debug, "===========================");
         //get keys
         this.getAESkeyFromUser(message.senderId, message, function(response){
           if (response != null) {
@@ -1299,12 +1301,12 @@ require('es6-promise').polyfill();
     apiconnector.basicRequest('POST', endpoint, params, false, function(err,respObj){
 
       if(err){
-        Log.m(this.session.debuggingMode, 'Monkey - '+err);
+        Log.m(this.session.debug, 'Monkey - '+err);
         return callback(err);
       }
 
       if (isSync) {
-        Log.m(this.session.debuggingMode, 'Monkey - reusing Monkey ID : '+this.session.id);
+        Log.m(this.session.debug, 'Monkey - reusing Monkey ID : '+this.session.id);
 
         if (respObj.data.info != null) {
           this.session.user = respObj.data.info;
@@ -1333,7 +1335,7 @@ require('es6-promise').polyfill();
       }
 
       if (respObj.data.monkeyId == null) {
-        Log.m(this.session.debuggingMode, 'Monkey - no Monkey ID returned');
+        Log.m(this.session.debug, 'Monkey - no Monkey ID returned');
         return;
       }
 
@@ -1359,7 +1361,7 @@ require('es6-promise').polyfill();
 
       apiconnector.basicRequest('POST', '/user/connect', connectParams, false, function(error){
         if(error){
-          Log.m(this.session.debuggingMode, 'Monkey - '+error);
+          Log.m(this.session.debug, 'Monkey - '+error);
           return callback(error);
         }
 
@@ -1377,7 +1379,7 @@ require('es6-promise').polyfill();
     callback = (typeof callback == "function") ? callback : function () { };
     apiconnector.basicRequest('POST', '/channel/subscribe/'+channel ,{ monkey_id:this.session.id}, false, function(err,respObj){
       if(err){
-        Log.m(this.session.debuggingMode, 'Monkey - '+err);
+        Log.m(this.session.debug, 'Monkey - '+err);
         return;
       }
       this._getEmitter().emit(CHANNEL_SUBSCRIBE_EVENT, respObj);
@@ -1395,11 +1397,11 @@ require('es6-promise').polyfill();
     }
     apiconnector.basicRequest('POST', '/user/conversations',params, false, function(err,respObj){
       if (err) {
-        Log.m(this.session.debuggingMode, 'Monkey - FAIL TO GET ALL CONVERSATIONS');
+        Log.m(this.session.debug, 'Monkey - FAIL TO GET ALL CONVERSATIONS');
         onComplete(err.toString());
         return;
       }
-      Log.m(this.session.debuggingMode, 'Monkey - GET ALL CONVERSATIONS');
+      Log.m(this.session.debug, 'Monkey - GET ALL CONVERSATIONS');
 
       this.processConversationList(respObj.data.conversations, onComplete);
     }.bind(this));
@@ -1410,11 +1412,11 @@ require('es6-promise').polyfill();
 
     apiconnector.basicRequest('GET', '/user/'+this.session.id+'/conversations',{}, false, function(err,respObj){
       if (err) {
-        Log.m(this.session.debuggingMode, 'Monkey - FAIL TO GET ALL CONVERSATIONS');
+        Log.m(this.session.debug, 'Monkey - FAIL TO GET ALL CONVERSATIONS');
         onComplete(err.toString());
         return;
       }
-      Log.m(this.session.debuggingMode, 'Monkey - GET ALL CONVERSATIONS');
+      Log.m(this.session.debug, 'Monkey - GET ALL CONVERSATIONS');
 
       this.processConversationList(respObj.data.conversations, onComplete);
     }.bind(this));
@@ -1442,9 +1444,9 @@ require('es6-promise').polyfill();
         }
         catch(error){
           gotError = true;
-          Log.m(this.session.debuggingMode, "===========================");
-          Log.m(this.session.debuggingMode, "MONKEY - Fail decrypting: "+message.id+" type: "+message.protocolType);
-          Log.m(this.session.debuggingMode, "===========================");
+          Log.m(this.session.debug, "===========================");
+          Log.m(this.session.debug, "MONKEY - Fail decrypting: "+message.id+" type: "+message.protocolType);
+          Log.m(this.session.debug, "===========================");
           //get keys
           this.getAESkeyFromUser(message.senderId, message, function(response){
             if (response != null) {
@@ -1510,11 +1512,11 @@ require('es6-promise').polyfill();
 
     apiconnector.basicRequest('GET', '/conversation/messages/'+this.session.id+'/'+conversationId+'/'+numberOfMessages+'/'+lastTimestamp,{}, false, function(err,respObj){
       if (err) {
-        Log.m(this.session.debuggingMode, 'FAIL TO GET CONVERSATION MESSAGES');
+        Log.m(this.session.debug, 'FAIL TO GET CONVERSATION MESSAGES');
         onComplete(err.toString());
         return;
       }
-      Log.m(this.session.debuggingMode, 'GET CONVERSATION MESSAGES');
+      Log.m(this.session.debug, 'GET CONVERSATION MESSAGES');
 
       var messages = respObj.data.messages;
 
@@ -1537,11 +1539,11 @@ require('es6-promise').polyfill();
     onComplete = (typeof onComplete == "function") ? onComplete : function () { };
     apiconnector.basicRequest('GET', '/user/'+this.session.id+'/messages/'+timestamp,{}, false, function(err,respObj){
       if (err) {
-        Log.m(this.session.debuggingMode, 'Monkey - FAIL TO GET MESSAGES');
+        Log.m(this.session.debug, 'Monkey - FAIL TO GET MESSAGES');
         onComplete(err.toString());
         return;
       }
-      Log.m(this.session.debuggingMode, 'Monkey - GET MESSAGES');
+      Log.m(this.session.debug, 'Monkey - GET MESSAGES');
       onComplete(null, respObj);
     }.bind(this));
   }
@@ -1550,14 +1552,14 @@ require('es6-promise').polyfill();
     onComplete = (typeof onComplete == "function") ? onComplete : function () { };
     apiconnector.basicRequest('GET', '/file/open/'+message.text+'/base64',{}, true, function(err,fileData){
       if (err) {
-        Log.m(this.session.debuggingMode, 'Monkey - Download File Fail');
+        Log.m(this.session.debug, 'Monkey - Download File Fail');
         onComplete(err.toString());
         return;
       }
-      Log.m(this.session.debuggingMode, 'Monkey - Download File OK');
+      Log.m(this.session.debug, 'Monkey - Download File OK');
       this.decryptDownloadedFile(fileData, message, function(error, finalData){
         if (error) {
-          Log.m(this.session.debuggingMode, 'Monkey - Fail to decrypt downloaded file');
+          Log.m(this.session.debug, 'Monkey - Fail to decrypt downloaded file');
           onComplete(error);
           return;
         }
@@ -1577,7 +1579,7 @@ require('es6-promise').polyfill();
 
     apiconnector.basicRequest('POST', '/user/update' ,paramsRequest, false, function(err,respObj){
       if(err){
-        Log.m(this.session.debuggingMode, 'Monkey - error update user info: '+err);
+        Log.m(this.session.debug, 'Monkey - error update user info: '+err);
         return callback(err);
       }
 
@@ -1592,19 +1594,19 @@ require('es6-promise').polyfill();
   proto.postMessage = function postMessage(messageObj){
     apiconnector.basicRequest('POST', '/message/new',messageObj, false, function(err,respObj){
       if(err){
-        Log.m(this.session.debuggingMode, err);
+        Log.m(this.session.debug, err);
         return;
       }
 
       if(parseInt(respObj.status)==0){
         // now you can start the long polling calls or the websocket connection you are ready.
         // we need to do a last validation here with an encrypted data that is sent from the server at this response, to validate keys are correct and the session too.
-        Log.m(this.session.debuggingMode, "Message sent is "+JSON.stringify(respObj));
-        Log.m(this.session.debuggingMode, "Message sent is "+respObj.data.messageId);
+        Log.m(this.session.debug, "Message sent is "+JSON.stringify(respObj));
+        Log.m(this.session.debug, "Message sent is "+respObj.data.messageId);
       }
       else{
         //throw error
-        Log.m(this.session.debuggingMode, "Error in postMessage "+respObj.message);
+        Log.m(this.session.debug, "Error in postMessage "+respObj.message);
       }
     }.bind(this));
   }
@@ -1614,13 +1616,13 @@ require('es6-promise').polyfill();
     callback = (typeof callback == "function") ? callback : function () { };
 
     if (conversationId == null) {
-      Log.m(this.session.debuggingMode, 'ConversationId to delete is undefined');
+      Log.m(this.session.debug, 'ConversationId to delete is undefined');
       return callback('ConversationId to delete is undefined');
     }
 
     apiconnector.basicRequest('POST', '/user/delete/conversation',{conversation_id: conversationId, monkey_id: this.session.id}, false, function(err, respObj){
       if (err) {
-        Log.m(this.session.debuggingMode, "Monkey - error creating group: "+err);
+        Log.m(this.session.debug, "Monkey - error creating group: "+err);
         return callback(err);
       }
 
@@ -1646,10 +1648,10 @@ require('es6-promise').polyfill();
 
     apiconnector.basicRequest('POST', '/group/create',params, false, function(err,respObj){
       if(err){
-        Log.m(this.session.debuggingMode, "Monkey - error creating group: "+err);
+        Log.m(this.session.debug, "Monkey - error creating group: "+err);
         return callback(err);
       }
-      Log.m(this.session.debuggingMode, "Monkey - Success creating group"+ respObj.data.group_id);
+      Log.m(this.session.debug, "Monkey - Success creating group"+ respObj.data.group_id);
 
       return callback(null, respObj.data);
     }.bind(this));
@@ -1668,7 +1670,7 @@ require('es6-promise').polyfill();
 
     apiconnector.basicRequest('POST', '/group/addmember', params, false, function(err,respObj){
         if(err){
-          Log.m(this.session.debuggingMode, 'Monkey - error adding member: '+err);
+          Log.m(this.session.debug, 'Monkey - error adding member: '+err);
           return callback(err);
         }
 
@@ -1681,7 +1683,7 @@ require('es6-promise').polyfill();
     callback = (typeof callback == "function") ? callback : function () { };
     apiconnector.basicRequest('POST', '/group/delete',{ monkey_id:memberId, group_id:groupId }, false, function(err,respObj){
       if(err){
-        Log.m(this.session.debuggingMode, 'Monkey - error removing member: '+err);
+        Log.m(this.session.debug, 'Monkey - error removing member: '+err);
         return callback(err);
       }
 
@@ -1693,7 +1695,7 @@ require('es6-promise').polyfill();
     callback = (typeof callback == "function") ? callback : function () { };
     apiconnector.basicRequest('POST', '/group/update',{ group_id:groupId, info:newInfo }, false, function(err,respObj){
       if(err){
-        Log.m(this.session.debuggingMode, 'Monkey - error updating group: '+err);
+        Log.m(this.session.debug, 'Monkey - error updating group: '+err);
         return callback(err);
       }
 
@@ -1715,7 +1717,7 @@ require('es6-promise').polyfill();
 
     apiconnector.basicRequest('GET', endpoint ,{}, false, function(err,respObj){
       if(err){
-        Log.m(this.session.debuggingMode, 'Monkey - error get info: '+err);
+        Log.m(this.session.debug, 'Monkey - error get info: '+err);
         return callback(err);
       }
 
@@ -1737,7 +1739,7 @@ require('es6-promise').polyfill();
 
     apiconnector.basicRequest('POST', '/users/info/' ,{monkey_ids: monkeyIds}, false, function(err,respObj){
       if(err){
-        Log.m(this.session.debuggingMode, 'Monkey - error get users info: '+err);
+        Log.m(this.session.debug, 'Monkey - error get users info: '+err);
         return callback(err);
       }
 
@@ -1828,7 +1830,7 @@ require('es6-promise').polyfill();
 
   proto.logout = function logout(){
     if (this.session != null) {
-      Log.m(this.session.debuggingMode, 'Monkey - terminating session and clearing data');
+      Log.m(this.session.debug, 'Monkey - terminating session and clearing data');
     }
 
     db.clear(db.getMonkeyId());
