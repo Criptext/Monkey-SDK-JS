@@ -1750,6 +1750,18 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }.bind(this));
 	  };
 
+	  proto.editGroupInfo = function editGroupInfo(groupId, newInfo, callback) {
+	    callback = typeof callback == "function" ? callback : function () {};
+	    apiconnector.basicRequest('POST', '/group/update', { group_id: groupId, info: newInfo }, false, function (err, respObj) {
+	      if (err) {
+	        Log.m(this.session.debuggingMode, 'Monkey - error updating group: ' + err);
+	        return callback(err);
+	      }
+
+	      return callback(null, respObj.data);
+	    }.bind(this));
+	  };
+
 	  proto.getInfoById = function getInfoById(monkeyId, callback) {
 
 	    callback = typeof callback == "function" ? callback : function () {};
