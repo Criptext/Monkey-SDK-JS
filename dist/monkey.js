@@ -604,7 +604,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	  };
 
 	  proto.getPendingMessages = function getPendingMessages(timestamp) {
-	    var finalTimestamp = timestamp || this.session.lastTimestamp;
+	    var finalTimestamp = Math.trunc(timestamp) || this.session.lastTimestamp;
 	    this.requestMessagesSinceTimestamp(finalTimestamp, 15, false);
 	  };
 
@@ -654,7 +654,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        {
 
 	          if (message.id > 0 && message.datetimeCreation > this.session.lastTimestamp) {
-	            this.session.lastTimestamp = message.datetimeCreation;
+	            this.session.lastTimestamp = Math.trunc(message.datetimeCreation);
 	            if (this.session.autoSave) {
 	              db.storeUser(this.session.id, this.session);
 	            }
@@ -752,7 +752,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    var currentTimestamp = this.session.lastTimestamp;
 
 	    if (message.id > 0 && message.datetimeCreation > this.session.lastTimestamp) {
-	      this.session.lastTimestamp = message.datetimeCreation;
+	      this.session.lastTimestamp = Math.trunc(message.datetimeCreation);
 
 	      if (this.session.autoSave) {
 	        db.storeUser(this.session.id, this.session);
@@ -809,7 +809,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	  proto.fileReceived = function fileReceived(message) {
 	    if (message.id > 0 && message.datetimeCreation > this.session.lastTimestamp) {
-	      this.session.lastTimestamp = message.datetimeCreation;
+	      this.session.lastTimestamp = Math.trunc(message.datetimeCreation);
 	      if (this.session.autoSave) {
 	        db.storeUser(this.session.id, this.session);
 	      }
@@ -1141,7 +1141,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	      if (message.encryptedText == null) {
 	        if (message.id > 0 && message.datetimeCreation > this.session.lastTimestamp) {
-	          this.session.lastTimestamp = message.datetimeCreation;
+	          this.session.lastTimestamp = Math.trunc(message.datetimeCreation);
 	          if (this.session.autoSave) {
 	            db.storeUser(this.session.id, this.session);
 	          }
@@ -1389,7 +1389,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        this.session.myKey = myAesKeys[0];
 	        this.session.myIv = myAesKeys[1];
 
-	        this.session.lastTimestamp = respObj.data.last_time_synced;
+	        this.session.lastTimestamp = Math.trunc(respObj.data.last_time_synced);
 
 	        db.storeUser(this.session.id, this.session);
 
@@ -7147,7 +7147,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	    var parseAsJson = true;
 
-	    if (main.session.debug) {
+	    if (main.session.stage) {
 	      reqUrl = 'http://'+reqUrl;
 	    }else{
 	      reqUrl = 'https://'+reqUrl;

@@ -551,7 +551,7 @@ require('es6-promise').polyfill();
 
   proto.getPendingMessages = function getPendingMessages(timestamp){
     var finalTimestamp = timestamp || this.session.lastTimestamp;
-    this.requestMessagesSinceTimestamp(finalTimestamp, 15, false);
+    this.requestMessagesSinceTimestamp(Math.trunc(finalTimestamp), 15, false);
   }
 
   proto.processSyncMessages = function processSyncMessages(messages, remaining){
@@ -595,7 +595,7 @@ require('es6-promise').polyfill();
       default:{
 
         if (message.id > 0 && message.datetimeCreation > this.session.lastTimestamp) {
-          this.session.lastTimestamp = message.datetimeCreation;
+          this.session.lastTimestamp = Math.trunc(message.datetimeCreation);
           if (this.session.autoSave) {
             db.storeUser(this.session.id, this.session);
           }
@@ -690,7 +690,7 @@ require('es6-promise').polyfill();
     var currentTimestamp = this.session.lastTimestamp;
 
     if (message.id > 0 && message.datetimeCreation > this.session.lastTimestamp) {
-      this.session.lastTimestamp = message.datetimeCreation;
+      this.session.lastTimestamp = Math.trunc(message.datetimeCreation);
 
       if (this.session.autoSave) {
         db.storeUser(this.session.id, this.session);
@@ -743,7 +743,7 @@ require('es6-promise').polyfill();
 
   proto.fileReceived = function fileReceived(message){
     if (message.id > 0 && message.datetimeCreation > this.session.lastTimestamp) {
-      this.session.lastTimestamp = message.datetimeCreation;
+      this.session.lastTimestamp = Math.trunc(message.datetimeCreation);
       if (this.session.autoSave) {
         db.storeUser(this.session.id, this.session);
       }
@@ -1071,7 +1071,7 @@ require('es6-promise').polyfill();
 
       if (message.encryptedText == null) {
         if (message.id > 0 && message.datetimeCreation > this.session.lastTimestamp) {
-          this.session.lastTimestamp = message.datetimeCreation;
+          this.session.lastTimestamp = Math.trunc(message.datetimeCreation);
           if (this.session.autoSave) {
             db.storeUser(this.session.id, this.session);
           }
@@ -1322,7 +1322,7 @@ require('es6-promise').polyfill();
         this.session.myKey=myAesKeys[0];
         this.session.myIv=myAesKeys[1];
 
-        this.session.lastTimestamp = respObj.data.last_time_synced;
+        this.session.lastTimestamp = Math.trunc(respObj.data.last_time_synced);
 
         db.storeUser(this.session.id, this.session);
 
