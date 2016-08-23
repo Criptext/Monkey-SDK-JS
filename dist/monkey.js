@@ -933,7 +933,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    this._getEmitter().emit(STATUS_CHANGE_EVENT, this.status);
 	    var token = this.appKey + ":" + this.appSecret;
 
-	    if (this.session.debug) {
+	    if (this.session.stage) {
 	      //no ssl
 	      this.socketConnection = new WebSocket('ws://' + this.domainUrl + '/websockets?monkey_id=' + monkey_id + '&p=' + token, 'criptext-protocol');
 	    } else {
