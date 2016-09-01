@@ -1703,6 +1703,25 @@ require('es6-promise').polyfill();
     }.bind(this));
   }
 
+  proto.editUserInfo = function editUserInfo(newParams, callback){
+    callback = (typeof callback == "function") ? callback : function () { };
+
+    apiconnector.basicRequest('POST', '/user/update',{ monkeyId:this.session.id, params:newParams }, false, function(err,respObj){
+      if(err){
+        Log.m(this.session.debug, 'Monkey - error updating user: '+err);
+        return callback(err);
+      }
+    
+      Object.keys(newParams).forEach(function(param){
+        this.session.user[param] = newParams[param];
+      }.bind(this)); 
+
+      db.storeUser(this.session.id, this.session);
+
+      return callback(null, respObj.data);
+    }.bind(this));
+  }
+
   proto.getInfoById = function getInfoById(monkeyId, callback){
 
     callback = (typeof callback == "function") ? callback : function () { };
