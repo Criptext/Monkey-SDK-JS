@@ -1764,21 +1764,18 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }.bind(this));
 	  };
 
-	  proto.editUserInfo = function editUserInfo(monkeyId, newParams, callback) {
+	  proto.editUserInfo = function editUserInfo(newParams, callback) {
 	    callback = typeof callback == "function" ? callback : function () {};
-	    apiconnector.basicRequest('POST', '/user/update', { monkeyId: monkeyId, params: newParams }, false, function (err, respObj) {
+
+	    apiconnector.basicRequest('POST', '/user/update', { monkeyId: this.session.id, params: newParams }, false, function (err, respObj) {
 	      if (err) {
 	        Log.m(this.session.debug, 'Monkey - error updating user: ' + err);
 	        return callback(err);
 	      }
 
-	      if (monkeyId == this.session.id) {
-	        Object.keys(newParams).forEach(function (param) {
-	          if (this.session.user[param]) {
-	            this.session.user[param] = newParams[param];
-	          }
-	        }.bind(this));
-	      }
+	      Object.keys(newParams).forEach(function (param) {
+	        this.session.user[param] = newParams[param];
+	      }.bind(this));
 
 	      db.storeUser(this.session.id, this.session);
 
