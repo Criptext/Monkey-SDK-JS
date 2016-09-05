@@ -4,8 +4,8 @@
 module.exports = (function() {
 
   require('isomorphic-fetch');
-  var apiconnector = {};
-  var main;
+  let apiconnector = {};
+  let main;
 
   apiconnector.init = function(mainObject){
     main = mainObject;
@@ -13,11 +13,11 @@ module.exports = (function() {
 
   apiconnector.basicRequest = function(method, endpoint, params, isFile, callback){
 
-    var basic= this.getAuthParamsBtoA(main.appKey+":"+main.appSecret);
+    let basic= this.getAuthParamsBtoA(main.appKey+":"+main.appSecret);
 
-    var reqUrl = main.domainUrl+endpoint;
+    let reqUrl = main.domainUrl+endpoint;
 
-    var parseAsJson = true;
+    let parseAsJson = true;
 
     if (main.session.stage) {
       reqUrl = 'http://'+reqUrl;
@@ -25,29 +25,29 @@ module.exports = (function() {
       reqUrl = 'https://'+reqUrl;
     }
 
-    var headersReq = {
+    let headersReq = {
       'Accept': '*/*',
       'Authorization': 'Basic '+ basic
     };
 
-    var data = params;
+    let data = params;
     //check if it's not file
     if (!isFile) {
       headersReq['Content-Type'] = 'application/json';
       data = JSON.stringify({ data: JSON.stringify(params) });
     }
 
-    var bodyReq = {
+    let bodyReq = {
       method: method,
       credentials: 'include',
       headers: headersReq
     };
 
-    if (method != 'GET') {
+    if (method !== 'GET') {
       bodyReq.body = data
     }
 
-    if(method == 'GET' && isFile){
+    if(method === 'GET' && isFile){
       parseAsJson = false;
     }
 
@@ -65,13 +65,13 @@ module.exports = (function() {
   apiconnector.getAuthParamsBtoA = function(connectAuthParamsString){
 
     //window.btoa not supported in <=IE9
-    var basic;
+    let basic;
     if (window.btoa) {
       basic = window.btoa(connectAuthParamsString);
     }
     else{
       //for <= IE9
-      var base64 = {};
+      let base64 = {};
       base64.PADCHAR = '=';
       base64.ALPHA = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 
@@ -84,7 +84,7 @@ module.exports = (function() {
           // not available, just passback a duck-typed equiv
           // https://developer.mozilla.org/en/Core_JavaScript_1.5_Reference/Global_Objects/Error
           // https://developer.mozilla.org/en/Core_JavaScript_1.5_Reference/Global_Objects/Error/prototype
-          var ex = new Error("DOM Exception 5");
+          let ex = new Error("DOM Exception 5");
 
           // ex.number and ex.description is IE-specific.
           ex.code = ex.number = 5;
@@ -100,7 +100,7 @@ module.exports = (function() {
         // This is oddly fast, except on Chrome/V8.
         //  Minimal or no improvement in performance by using a
         //   object with properties mapping chars to value (eg. 'A': 0)
-        var idx = base64.ALPHA.indexOf(s.charAt(i));
+        let idx = base64.ALPHA.indexOf(s.charAt(i));
         if (idx === -1) {
           throw base64.makeDOMException();
         }
@@ -110,9 +110,9 @@ module.exports = (function() {
       base64.decode = function(s) {
         // convert to string
         s = '' + s;
-        var getbyte64 = base64.getbyte64;
-        var pads, i, b10;
-        var imax = s.length
+        let getbyte64 = base64.getbyte64;
+        let pads, i, b10;
+        let imax = s.length
         if (imax === 0) {
           return s;
         }
@@ -131,28 +131,28 @@ module.exports = (function() {
           imax -= 4;
         }
 
-        var x = [];
+        let x = [];
         for (i = 0; i < imax; i += 4) {
-          b10 = (getbyte64(s,i) << 18) | (getbyte64(s,i+1) << 12) |
-          (getbyte64(s,i+2) << 6) | getbyte64(s,i+3);
-          x.push(String.fromCharCode(b10 >> 16, (b10 >> 8) & 0xff, b10 & 0xff));
+          b10 = getbyte64(s,i) << 18 | getbyte64(s,i+1) << 12 |
+          getbyte64(s,i+2) << 6 | getbyte64(s,i+3);
+          x.push(String.fromCharCode(b10 >> 16, 0xff & b10 >> 8, b10 & 0xff));
         }
 
         switch (pads) {
           case 1:
-          b10 = (getbyte64(s,i) << 18) | (getbyte64(s,i+1) << 12) | (getbyte64(s,i+2) << 6);
-          x.push(String.fromCharCode(b10 >> 16, (b10 >> 8) & 0xff));
-          break;
+            b10 = getbyte64(s,i) << 18 | getbyte64(s,i+1) << 12 | getbyte64(s,i+2) << 6;
+            x.push(String.fromCharCode(b10 >> 16, 0xff & b10 >> 8));
+            break;
           case 2:
-          b10 = (getbyte64(s,i) << 18) | (getbyte64(s,i+1) << 12);
-          x.push(String.fromCharCode(b10 >> 16));
-          break;
+            b10 = getbyte64(s,i) << 18 | getbyte64(s,i+1) << 12;
+            x.push(String.fromCharCode(b10 >> 16));
+            break;
         }
         return x.join('');
       }
 
       base64.getbyte = function(s,i) {
-        var x = s.charCodeAt(i);
+        let x = s.charCodeAt(i);
         if (x > 255) {
           throw base64.makeDOMException();
         }
@@ -163,39 +163,39 @@ module.exports = (function() {
         if (arguments.length !== 1) {
           throw new SyntaxError("Not enough arguments");
         }
-        var padchar = base64.PADCHAR;
-        var alpha   = base64.ALPHA;
-        var getbyte = base64.getbyte;
+        let padchar = base64.PADCHAR;
+        let alpha = base64.ALPHA;
+        let getbyte = base64.getbyte;
 
-        var i, b10;
-        var x = [];
+        let i, b10;
+        let x = [];
 
         // convert to string
         s = '' + s;
 
-        var imax = s.length - s.length % 3;
+        let imax = s.length - s.length % 3;
 
         if (s.length === 0) {
           return s;
         }
         for (i = 0; i < imax; i += 3) {
-          b10 = (getbyte(s,i) << 16) | (getbyte(s,i+1) << 8) | getbyte(s,i+2);
+          b10 = getbyte(s,i) << 16 | getbyte(s,i+1) << 8 | getbyte(s,i+2);
           x.push(alpha.charAt(b10 >> 18));
-          x.push(alpha.charAt((b10 >> 12) & 0x3F));
-          x.push(alpha.charAt((b10 >> 6) & 0x3f));
+          x.push(alpha.charAt(0x3F & b10 >> 12));
+          x.push(alpha.charAt(0x3f & b10 >> 6));
           x.push(alpha.charAt(b10 & 0x3f));
         }
         switch (s.length - imax) {
           case 1:
-          b10 = getbyte(s,i) << 16;
-          x.push(alpha.charAt(b10 >> 18) + alpha.charAt((b10 >> 12) & 0x3F) +
-          padchar + padchar);
-          break;
+            b10 = getbyte(s,i) << 16;
+            x.push(alpha.charAt(b10 >> 18) + alpha.charAt(0x3F & b10 >> 12) +
+            padchar + padchar);
+            break;
           case 2:
-          b10 = (getbyte(s,i) << 16) | (getbyte(s,i+1) << 8);
-          x.push(alpha.charAt(b10 >> 18) + alpha.charAt((b10 >> 12) & 0x3F) +
-          alpha.charAt((b10 >> 6) & 0x3f) + padchar);
-          break;
+            b10 = getbyte(s,i) << 16 | getbyte(s,i+1) << 8;
+            x.push(alpha.charAt(b10 >> 18) + alpha.charAt(0x3F & b10 >> 12) +
+            alpha.charAt(0x3f & b10 >> 6) + padchar);
+            break;
         }
         return x.join('');
       }
