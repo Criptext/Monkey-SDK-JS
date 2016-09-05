@@ -717,6 +717,38 @@ return /******/ (function(modules) { // webpackBootstrap
 	  };
 
 	  proto.incomingMessage = function incomingMessage(message) {
+	    var msg = this.decryptMessage(message);
+
+	    var currentTimestamp = this.session.lastTimestamp;
+
+	    if (msg.id > 0 && msg.datetimeCreation > this.session.lastTimestamp) {
+	      this.session.lastTimestamp = Math.trunc(msg.datetimeCreation);
+
+	      if (this.session.autoSave) {
+	        db.storeUser(this.session.id, this.session);
+	      }
+	    }
+
+	    switch (msg.protocolCommand) {
+	      case this.enums.ProtocolCommand.MESSAGE:
+	        {
+	          this._getEmitter().emit(MESSAGE_EVENT, msg);
+	          break;
+	        }
+	      case this.enums.ProtocolCommand.PUBLISH:
+	        {
+	          this._getEmitter().emit(CHANNEL_MESSAGE_EVENT, msg);
+	          break;
+	        }
+	    }
+
+	    //update last_time_synced if needed
+	    if (currentTimestamp === 0 && this.session.lastTimestamp > 0) {
+	      this.getPendingMessages();
+	    }
+	  };
+
+	  proto.decryptMessage = function decryptMessage(message) {
 	    if (message.isEncrypted()) {
 	      try {
 	        message.text = this.aesDecryptIncomingMessage(message);
@@ -727,7 +759,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        //get keys
 	        this.getAESkeyFromUser(message.senderId, message, function (response) {
 	          if (response != null) {
-	            this.incomingMessage(message);
+	            this.decryptMessage(message);
 	          }
 	        }.bind(this));
 	        return;
@@ -737,7 +769,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        //get keys
 	        this.getAESkeyFromUser(message.senderId, message, function (response) {
 	          if (response != null) {
-	            this.incomingMessage(message);
+	            this.decryptMessage(message);
 	          }
 	        }.bind(this));
 	        return;
@@ -751,33 +783,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	      }
 	    }
 
-	    var currentTimestamp = this.session.lastTimestamp;
-
-	    if (message.id > 0 && message.datetimeCreation > this.session.lastTimestamp) {
-	      this.session.lastTimestamp = Math.trunc(message.datetimeCreation);
-
-	      if (this.session.autoSave) {
-	        db.storeUser(this.session.id, this.session);
-	      }
-	    }
-
-	    switch (message.protocolCommand) {
-	      case this.enums.ProtocolCommand.MESSAGE:
-	        {
-	          this._getEmitter().emit(MESSAGE_EVENT, message);
-	          break;
-	        }
-	      case this.enums.ProtocolCommand.PUBLISH:
-	        {
-	          this._getEmitter().emit(CHANNEL_MESSAGE_EVENT, message);
-	          break;
-	        }
-	    }
-
-	    //update last_time_synced if needed
-	    if (currentTimestamp === 0 && this.session.lastTimestamp > 0) {
-	      this.getPendingMessages();
-	    }
+	    return message;
 	  };
 
 	  proto.createPush = function createPush(title, body, timeout, tag, icon, onClick) {
@@ -1174,6 +1180,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	    return decrypted;
 	  };
 
+	  proto.decryptText = alias('aesDecrypt');
+
 	  proto.decryptFile = function decryptFile(fileToDecrypt, monkeyId) {
 	    //var aesObj = this.keyStore[monkeyId];
 	    var aesObj = monkeyKeystore.getData(monkeyId, this.session.myKey, this.session.myIv);
@@ -1551,21 +1559,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	      }
 	    }.bind(this), function (error) {
 	      if (error) {
-	        onComplete(error.toString(), null);
-	      } else {
-	        //NOW DELETE CONVERSATIONS WITH LASTMESSAGE NO DECRYPTED
-	        conversations = conversations.reduce(function (result, conversation) {
-	          if (conversation.last_message.protocolType === this.enums.MessageType.TEXT && conversation.last_message.isEncrypted() && conversation.last_message.encryptedText === conversation.last_message.text) {
-	            return result;
-	          }
-
-	          result.push(conversation);
-
-	          return result;
-	        }.bind(this), []);
-
-	        onComplete(null, conversations);
+	        return onComplete(error.toString(), null);
 	      }
+
+	      onComplete(null, conversations);
 	    }.bind(this));
 	  };
 
