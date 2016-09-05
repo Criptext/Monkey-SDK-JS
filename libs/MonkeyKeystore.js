@@ -3,10 +3,10 @@
 
 module.exports = (function() {
 
-  var monkeyKeystore = {};
+  let monkeyKeystore = {};
 
-  var store = require('./store.js');
-  var CryptoJS = require('node-cryptojs-aes').CryptoJS;
+  const store = require('./store.js');
+  const CryptoJS = require('node-cryptojs-aes').CryptoJS;
 
   monkeyKeystore.storeData = function(key, value, myaeskey, myaesiv){
     store.set(key, this.aesEncrypt(value, myaeskey, myaesiv));
@@ -17,13 +17,13 @@ module.exports = (function() {
   }
 
   monkeyKeystore.getData = function(key, myaeskey, myaesiv){
-    var encrypted = store.get(key, "");
-    if(encrypted.length == 0){
+    let encrypted = store.get(key, "");
+    if(encrypted.length === 0){
       return {key: "", iv: ""};
     }
 
-    var decrypted = this.aesDecrypt(encrypted, myaeskey, myaesiv);
-    if(decrypted.length == 0){
+    let decrypted = this.aesDecrypt(encrypted, myaeskey, myaesiv);
+    if(decrypted.length === 0){
       return {key: "", iv: ""};
     }
 
@@ -36,9 +36,9 @@ module.exports = (function() {
 
   monkeyKeystore.aesEncrypt = function(dataToEncrypt, key, iv){
 
-    var aesKey=CryptoJS.enc.Base64.parse(key);
-    var initV= CryptoJS.enc.Base64.parse(iv);
-    var encryptedData = CryptoJS.AES.encrypt(dataToEncrypt, aesKey, { iv: initV });
+    let aesKey=CryptoJS.enc.Base64.parse(key);
+    let initV= CryptoJS.enc.Base64.parse(iv);
+    let encryptedData = CryptoJS.AES.encrypt(dataToEncrypt, aesKey, { iv: initV });
 
     return encryptedData.toString();
 
@@ -47,10 +47,10 @@ module.exports = (function() {
   monkeyKeystore.aesDecrypt = function(dataToDecrypt, key, iv){
 
     try{
-      var aesKey = CryptoJS.enc.Base64.parse(key);
-      var initV = CryptoJS.enc.Base64.parse(iv);
-      var cipherParams = CryptoJS.lib.CipherParams.create({ ciphertext: CryptoJS.enc.Base64.parse(dataToDecrypt) });
-      var decrypted = CryptoJS.AES.decrypt(cipherParams, aesKey, { iv: initV }).toString(CryptoJS.enc.Utf8);
+      let aesKey = CryptoJS.enc.Base64.parse(key);
+      let initV = CryptoJS.enc.Base64.parse(iv);
+      let cipherParams = CryptoJS.lib.CipherParams.create({ ciphertext: CryptoJS.enc.Base64.parse(dataToDecrypt) });
+      let decrypted = CryptoJS.AES.decrypt(cipherParams, aesKey, { iv: initV }).toString(CryptoJS.enc.Utf8);
       return decrypted;
     }
     catch(e){
