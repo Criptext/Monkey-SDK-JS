@@ -800,6 +800,7 @@ require('es6-promise').polyfill();
     ackParams.oldId = message.props.old_id;
     ackParams.senderId = message.senderId;
     ackParams.recipientId = message.recipientId;
+    ackParams.conversationId = message.conversationId(this.session.user.monkeyId);
     ackParams.status = message.props.status
 
     this._getEmitter().emit(ACKNOWLEDGE_EVENT, ackParams);
