@@ -1102,6 +1102,8 @@ require('es6-promise').polyfill();
     return decrypted;
   }
 
+  proto.decryptText = alias('aesDecrypt');
+
   proto.decryptFile = function decryptFile (fileToDecrypt, monkeyId) {
     //var aesObj = this.keyStore[monkeyId];
     let aesObj = monkeyKeystore.getData(monkeyId, this.session.myKey, this.session.myIv);
@@ -1486,22 +1488,10 @@ require('es6-promise').polyfill();
       }
     }.bind(this), function(error){
       if(error){
-        onComplete(error.toString(), null);
+        return onComplete(error.toString(), null);
       }
-      else{
-        //NOW DELETE CONVERSATIONS WITH LASTMESSAGE NO DECRYPTED
-        conversations = conversations.reduce(function(result, conversation){
-          if (conversation.last_message.protocolType === this.enums.MessageType.TEXT && conversation.last_message.isEncrypted() && conversation.last_message.encryptedText === conversation.last_message.text) {
-            return result;
-          }
 
-          result.push(conversation);
-
-          return result;
-        }.bind(this),[]);
-
-        onComplete(null, conversations);
-      }
+      onComplete(null, conversations);
     }.bind(this));
   }
 
