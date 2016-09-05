@@ -106,20 +106,7 @@ feature of monkey.
 
   monkey.on( "Message", function(message ){
     console.log('message arrived '+JSON.stringify(message));
-
-    switch(message.protocolType){
-      // Text
-      case monkey.enums.MessageType.MESSAGE:
-
-      addHTMLMessage(message.id, message.senderId,message.text)
-
-      break;
-      // File
-      case monkey.enums.MessageType.FILE:
-      break;
-    }
-
-
+    addHTMLMessage(message.id, message.senderId,message.text);
   });
 
   monkey.on( "Disconnect", function( event, eObject ) {

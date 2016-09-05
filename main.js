@@ -654,6 +654,36 @@ require('es6-promise').polyfill();
   }
 
   proto.incomingMessage = function incomingMessage(message){
+    let msg = this.decryptMessage(message);
+
+    let currentTimestamp = this.session.lastTimestamp;
+
+    if (msg.id > 0 && msg.datetimeCreation > this.session.lastTimestamp) {
+      this.session.lastTimestamp = Math.trunc(msg.datetimeCreation);
+
+      if (this.session.autoSave) {
+        db.storeUser(this.session.id, this.session);
+      }
+    }
+
+    switch (msg.protocolCommand){
+      case this.enums.ProtocolCommand.MESSAGE:{
+        this._getEmitter().emit(MESSAGE_EVENT, msg);
+        break;
+      }
+      case this.enums.ProtocolCommand.PUBLISH:{
+        this._getEmitter().emit(CHANNEL_MESSAGE_EVENT, msg);
+        break;
+      }
+    }
+
+    //update last_time_synced if needed
+    if (currentTimestamp === 0 && this.session.lastTimestamp > 0) {
+      this.getPendingMessages();
+    }
+  }
+
+  proto.decryptMessage = function decryptMessage(message){
     if (message.isEncrypted()) {
       try{
         message.text = this.aesDecryptIncomingMessage(message);
@@ -665,7 +695,7 @@ require('es6-promise').polyfill();
         //get keys
         this.getAESkeyFromUser(message.senderId, message, function(response){
           if (response != null) {
-            this.incomingMessage(message);
+            this.decryptMessage(message);
           }
         }.bind(this));
         return;
@@ -675,7 +705,7 @@ require('es6-promise').polyfill();
         //get keys
         this.getAESkeyFromUser(message.senderId, message, function(response){
           if (response != null) {
-            this.incomingMessage(message);
+            this.decryptMessage(message);
           }
         }.bind(this));
         return;
@@ -689,31 +719,7 @@ require('es6-promise').polyfill();
       }
     }
 
-    let currentTimestamp = this.session.lastTimestamp;
-
-    if (message.id > 0 && message.datetimeCreation > this.session.lastTimestamp) {
-      this.session.lastTimestamp = Math.trunc(message.datetimeCreation);
-
-      if (this.session.autoSave) {
-        db.storeUser(this.session.id, this.session);
-      }
-    }
-
-    switch (message.protocolCommand){
-      case this.enums.ProtocolCommand.MESSAGE:{
-        this._getEmitter().emit(MESSAGE_EVENT, message);
-        break;
-      }
-      case this.enums.ProtocolCommand.PUBLISH:{
-        this._getEmitter().emit(CHANNEL_MESSAGE_EVENT, message);
-        break;
-      }
-    }
-
-    //update last_time_synced if needed
-    if (currentTimestamp === 0 && this.session.lastTimestamp > 0) {
-      this.getPendingMessages();
-    }
+    return message
   }
 
   proto.createPush = function createPush(title, body, timeout, tag, icon, onClick){
