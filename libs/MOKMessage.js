@@ -81,6 +81,14 @@ module.exports = class MOKMessage{
   getCurrentTimestamp(){
     return new Date().getTime() / 1000;
   }
+
+  conversationId(myMonkeyId){
+    if (this.isGroupMessage() || myMonkeyId != null && myMonkeyId === this.senderId) {
+      return this.recipientId;
+    }
+    return this.senderId;
+  }
+
   buildFromDB(storedArgs){
     this.args = storedArgs.args;
 
