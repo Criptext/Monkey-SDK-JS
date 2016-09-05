@@ -146,7 +146,7 @@ require('es6-promise').polyfill();
     if (isStaging) {
       this.session.debug = true;
       this.session.stage = true;
-      this.domainUrl = 'stage.monkey.criptext.com'
+      this.domainUrl = 'monkey.criptext.com'
     }
 
     //this.keyStore={};
@@ -1711,10 +1711,10 @@ require('es6-promise').polyfill();
         Log.m(this.session.debug, 'Monkey - error updating user: '+err);
         return callback(err);
       }
-    
+
       Object.keys(newParams).forEach(function(param){
         this.session.user[param] = newParams[param];
-      }.bind(this)); 
+      }.bind(this));
 
       db.storeUser(this.session.id, this.session);
 

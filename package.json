@@ -1,6 +1,6 @@
 {
   "name": "monkey-sdk",
-  "version": "0.5.30",
+  "version": "0.5.32",
   "description": "Monkey SDK for web",
   "main": "./dist/monkey.js",
   "scripts": {
