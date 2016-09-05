@@ -11,8 +11,8 @@
   // Shortcuts to improve speed and size
   let proto = MonkeyEnums.prototype;
   let exports = this;
-  
-  let originalGlobalValue = exports.Monkey;
+
+  // let originalGlobalValue = exports.MonkeyEnums;
 
   proto.Status = {
     OFFLINE:0,
@@ -74,10 +74,10 @@
   *
   * @return {Function} Non conflicting EventEmitter class.
   */
-  MonkeyEnums.noConflict = function noConflict() {
-    exports.MonkeyEnums = originalGlobalValue;
-    return MonkeyEnums;
-  };
+  // MonkeyEnums.noConflict = function noConflict() {
+  //   exports.MonkeyEnums = originalGlobalValue;
+  //   return MonkeyEnums;
+  // };
 
   // Expose the class either via AMD, CommonJS or the global object
   /* global define */

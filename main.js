@@ -19,7 +19,9 @@ const NodeRSA = require('node-rsa');
 const CryptoJS = require('node-cryptojs-aes').CryptoJS;
 const async = require('async');
 const Push = require('push.js');
-const Offline = require('offline-js');
+
+/* global Offline */
+require('offline-js');
 
 const zlib = require('zlib');
 
@@ -68,7 +70,7 @@ require('es6-promise').polyfill();
 
 
   proto.enums = new MonkeyEnums();
-  let originalGlobalValue = exports.Monkey;
+  // let originalGlobalValue = exports.Monkey;
   /**
   * Alias a method while keeping the context correct, to allow for overwriting of target method.
   *
@@ -1963,10 +1965,10 @@ require('es6-promise').polyfill();
   *
   * @return {Function} Non conflicting EventEmitter class.
   */
-  Monkey.noConflict = function noConflict() {
-    exports.Monkey = originalGlobalValue;
-    return Monkey;
-  };
+  // Monkey.noConflict = function noConflict() {
+  //   exports.Monkey = originalGlobalValue;
+  //   return Monkey;
+  // };
 
   // Expose the class either via AMD, CommonJS or the global object
 
