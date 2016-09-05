@@ -9,7 +9,10 @@
   function MonkeyEnums() {}
 
   // Shortcuts to improve speed and size
-  var proto = MonkeyEnums.prototype;
+  let proto = MonkeyEnums.prototype;
+  let exports = this;
+
+  // let originalGlobalValue = exports.MonkeyEnums;
 
   proto.Status = {
     OFFLINE:0,
@@ -71,12 +74,13 @@
   *
   * @return {Function} Non conflicting EventEmitter class.
   */
-  MonkeyEnums.noConflict = function noConflict() {
-    exports.MonkeyEnums = originalGlobalValue;
-    return MonkeyEnums;
-  };
+  // MonkeyEnums.noConflict = function noConflict() {
+  //   exports.MonkeyEnums = originalGlobalValue;
+  //   return MonkeyEnums;
+  // };
 
   // Expose the class either via AMD, CommonJS or the global object
+  /* global define */
   if (typeof define === 'function' && define.amd) {
     define(function () {
       return MonkeyEnums;

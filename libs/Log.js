@@ -3,11 +3,11 @@
 
 module.exports = (function() {
 
-  var Log = {};
-  
+  let Log = {};
+
   Log.m = function(debugmode, message){
     if(debugmode)
-      console.log(message);
+      console.log(message); //eslint-disable-line no-console
   }
 
   return Log;

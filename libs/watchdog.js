@@ -3,12 +3,12 @@
 
 module.exports = (function() {
 
-  var store = require('./store.js');
-  var watchdog = {};
-  var working = false;
-  var TIMEOUT = 5000;
-  var myTimeout;
-  var reconnect;
+  const store = require('./store.js');
+  let watchdog = {};
+  let working = false;
+  let TIMEOUT = 5000;
+  let myTimeout;
+  let reconnect;
 
   watchdog.didRespondSync = true;
 
@@ -31,7 +31,7 @@ module.exports = (function() {
   watchdog.removeAllMessagesFromWatchdog = function(){
 
     store.forEach(function(key, val) {
-      if(key.indexOf('message_-') != -1){
+      if(key.indexOf('message_-') !== -1){
         store.remove(key);
       }
     });
@@ -72,9 +72,9 @@ module.exports = (function() {
 
   watchdog.getTotalPendingMessages = function(){
 
-    var total=0;
+    let total=0;
     store.forEach(function(key, val) {
-      if(key.indexOf('message_-') != -1){
+      if(key.indexOf('message_-') !== -1){
         total++;
       }
     });
