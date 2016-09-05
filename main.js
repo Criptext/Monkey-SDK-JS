@@ -834,7 +834,7 @@ require('es6-promise').polyfill();
 
     }
     var args={
-      since: lastTimestamp,
+      since: lastTimestamp || 0,
       qty: quantity
     };
 
