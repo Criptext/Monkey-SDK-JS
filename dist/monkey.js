@@ -4140,7 +4140,11 @@ return /******/ (function(modules) { // webpackBootstrap
 /* 6 */
 /***/ function(module, exports, __webpack_require__) {
 
-	var __WEBPACK_AMD_DEFINE_RESULT__;(function () {
+	var __WEBPACK_AMD_DEFINE_RESULT__;'use strict';
+
+	var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol" ? function (obj) { return typeof obj; } : function (obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol ? "symbol" : typeof obj; };
+
+	(function () {
 	  'use strict';
 
 	  /**
@@ -4148,68 +4152,69 @@ return /******/ (function(modules) { // webpackBootstrap
 	  *
 	  * @class MonkeyEnums Manages Monkey declared enums.
 	  */
+
 	  function MonkeyEnums() {}
 
 	  // Shortcuts to improve speed and size
-	  let proto = MonkeyEnums.prototype;
-	  let exports = this;
+	  var proto = MonkeyEnums.prototype;
+	  var exports = this;
 
 	  // let originalGlobalValue = exports.MonkeyEnums;
 
 	  proto.Status = {
-	    OFFLINE:0,
-	    LOGOUT:1,
-	    CONNECTING:2,
-	    ONLINE:3
-	  }
+	    OFFLINE: 0,
+	    LOGOUT: 1,
+	    CONNECTING: 2,
+	    ONLINE: 3
+	  };
 
 	  proto.ProtocolCommand = {
-	    MESSAGE:200,
-	    GET:201,
-	    TRANSACTION:202,
-	    OPEN:203,
-	    SET:204,
-	    ACK:205,
-	    PUBLISH:206,
-	    DELETE:207,
-	    CLOSE:208,
-	    SYNC:209,
-	    MESSAGENOTDELIVERED:50,
-	    MESSAGEDELIVERED:51,
-	    MESSAGEREAD:52
-	  }
+	    MESSAGE: 200,
+	    GET: 201,
+	    TRANSACTION: 202,
+	    OPEN: 203,
+	    SET: 204,
+	    ACK: 205,
+	    PUBLISH: 206,
+	    DELETE: 207,
+	    CLOSE: 208,
+	    SYNC: 209,
+	    MESSAGENOTDELIVERED: 50,
+	    MESSAGEDELIVERED: 51,
+	    MESSAGEREAD: 52
+	  };
 
 	  proto.MessageType = {
-	    TEXT:1,
-	    FILE:2,
-	    TEMP_NOTE:3,
-	    NOTIF:4,
-	    ALERT:5
-	  }
+	    TEXT: 1,
+	    FILE: 2,
+	    TEMP_NOTE: 3,
+	    NOTIF: 4,
+	    ALERT: 5
+	  };
 
 	  proto.FileType = {
-	    AUDIO:1,
-	    VIDEO:2,
-	    PHOTO:3,
-	    ARCHIVE:4
-	  }
+	    AUDIO: 1,
+	    VIDEO: 2,
+	    PHOTO: 3,
+	    ARCHIVE: 4
+	  };
 
 	  proto.GetType = {
-	    HISTORY:1,
-	    GROUPS:2
-	  }
+	    HISTORY: 1,
+	    GROUPS: 2
+	  };
 
 	  proto.SyncType = {
-	    HISTORY:1,
-	    GROUPS:2
-	  }
+	    HISTORY: 1,
+	    GROUPS: 2
+	  };
 
 	  proto.GroupAction = {
-	    CREATE:1,
-	    DELETE:2,
-	    NEW_MEMBER:3,
-	    REMOVE_MEMBER:4
-	  }
+	    CREATE: 1,
+	    DELETE: 2,
+	    NEW_MEMBER: 3,
+	    REMOVE_MEMBER: 4
+	  };
 
 	  /**
 	  * Reverts the global {@link MonkeyEnums} to its previous value and returns a reference to this version.
@@ -4227,15 +4232,12 @@ return /******/ (function(modules) { // webpackBootstrap
 	    !(__WEBPACK_AMD_DEFINE_RESULT__ = function () {
 	      return MonkeyEnums;
 	    }.call(exports, __webpack_require__, exports, module), __WEBPACK_AMD_DEFINE_RESULT__ !== undefined && (module.exports = __WEBPACK_AMD_DEFINE_RESULT__));
-	  }
-	  else if (typeof module === 'object' && module.exports){
+	  } else if ((typeof module === 'undefined' ? 'undefined' : _typeof(module)) === 'object' && module.exports) {
 	    module.exports = MonkeyEnums;
-	  }
-	  else {
+	  } else {
 	    exports.MonkeyEnums = MonkeyEnums;
 	  }
 	})();
-
 
 /***/ },
 /* 7 */
@@ -4435,68 +4437,63 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	'use strict';
 
-	module.exports = (function() {
+	module.exports = function () {
 
-	  let monkeyKeystore = {};
+	  var monkeyKeystore = {};
 
-	  const store = __webpack_require__(9);
-	  const CryptoJS = __webpack_require__(10).CryptoJS;
+	  var store = __webpack_require__(9);
+	  var CryptoJS = __webpack_require__(10).CryptoJS;
 
-	  monkeyKeystore.storeData = function(key, value, myaeskey, myaesiv){
+	  monkeyKeystore.storeData = function (key, value, myaeskey, myaesiv) {
 	    store.set(key, this.aesEncrypt(value, myaeskey, myaesiv));
-	  }
+	  };
 
-	  monkeyKeystore.storeMessage = function(key, value){
+	  monkeyKeystore.storeMessage = function (key, value) {
 	    store.set(key, value);
-	  }
+	  };
 
-	  monkeyKeystore.getData = function(key, myaeskey, myaesiv){
-	    let encrypted = store.get(key, "");
-	    if(encrypted.length === 0){
-	      return {key: "", iv: ""};
+	  monkeyKeystore.getData = function (key, myaeskey, myaesiv) {
+	    var encrypted = store.get(key, "");
+	    if (encrypted.length === 0) {
+	      return { key: "", iv: "" };
 	    }
 
-	    let decrypted = this.aesDecrypt(encrypted, myaeskey, myaesiv);
-	    if(decrypted.length === 0){
-	      return {key: "", iv: ""};
+	    var decrypted = this.aesDecrypt(encrypted, myaeskey, myaesiv);
+	    if (decrypted.length === 0) {
+	      return { key: "", iv: "" };
 	    }
 
-	    return {key: decrypted.split(":")[0], iv: decrypted.split(":")[1]};
-	  }
+	    return { key: decrypted.split(":")[0], iv: decrypted.split(":")[1] };
+	  };
 
-	  monkeyKeystore.getMessage = function(key){
+	  monkeyKeystore.getMessage = function (key) {
 	    return store.get(key, "");
-	  }
+	  };
 
-	  monkeyKeystore.aesEncrypt = function(dataToEncrypt, key, iv){
+	  monkeyKeystore.aesEncrypt = function (dataToEncrypt, key, iv) {
 
-	    let aesKey=CryptoJS.enc.Base64.parse(key);
-	    let initV= CryptoJS.enc.Base64.parse(iv);
-	    let encryptedData = CryptoJS.AES.encrypt(dataToEncrypt, aesKey, { iv: initV });
+	    var aesKey = CryptoJS.enc.Base64.parse(key);
+	    var initV = CryptoJS.enc.Base64.parse(iv);
+	    var encryptedData = CryptoJS.AES.encrypt(dataToEncrypt, aesKey, { iv: initV });
 
 	    return encryptedData.toString();
+	  };
 
-	  }
+	  monkeyKeystore.aesDecrypt = function (dataToDecrypt, key, iv) {
 
-	  monkeyKeystore.aesDecrypt = function(dataToDecrypt, key, iv){
-
-	    try{
-	      let aesKey = CryptoJS.enc.Base64.parse(key);
-	      let initV = CryptoJS.enc.Base64.parse(iv);
-	      let cipherParams = CryptoJS.lib.CipherParams.create({ ciphertext: CryptoJS.enc.Base64.parse(dataToDecrypt) });
-	      let decrypted = CryptoJS.AES.decrypt(cipherParams, aesKey, { iv: initV }).toString(CryptoJS.enc.Utf8);
+	    try {
+	      var aesKey = CryptoJS.enc.Base64.parse(key);
+	      var initV = CryptoJS.enc.Base64.parse(iv);
+	      var cipherParams = CryptoJS.lib.CipherParams.create({ ciphertext: CryptoJS.enc.Base64.parse(dataToDecrypt) });
+	      var decrypted = CryptoJS.AES.decrypt(cipherParams, aesKey, { iv: initV }).toString(CryptoJS.enc.Utf8);
 	      return decrypted;
-	    }
-	    catch(e){
+	    } catch (e) {
 	      return "";
 	    }
-
-	  }
+	  };
 
 	  return monkeyKeystore;
-
-	}())
-
+	}();
 
 /***/ },
 /* 9 */
@@ -7073,91 +7070,82 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	'use strict';
 
-	module.exports = (function() {
+	module.exports = function () {
 
-	  const store = __webpack_require__(9);
-	  let watchdog = {};
-	  let working = false;
-	  let TIMEOUT = 5000;
-	  let myTimeout;
-	  let reconnect;
+	  var store = __webpack_require__(9);
+	  var watchdog = {};
+	  var working = false;
+	  var TIMEOUT = 5000;
+	  var myTimeout = void 0;
+	  var reconnect = void 0;
 
 	  watchdog.didRespondSync = true;
 
-	  watchdog.messageInTransit = function(reconnectFunction){
+	  watchdog.messageInTransit = function (reconnectFunction) {
 
 	    reconnect = reconnectFunction;
 
-	    if(!working){
+	    if (!working) {
 	      this.startWatching();
 	    }
+	  };
 
-	  }
+	  watchdog.removeMessageFromWatchdog = function (messageid) {
 
-	  watchdog.removeMessageFromWatchdog = function(messageid){
+	    store.remove('message_-' + messageid);
+	  };
 
-	    store.remove('message_-'+messageid);
+	  watchdog.removeAllMessagesFromWatchdog = function () {
 
-	  }
-
-	  watchdog.removeAllMessagesFromWatchdog = function(){
-
-	    store.forEach(function(key, val) {
-	      if(key.indexOf('message_-') !== -1){
+	    store.forEach(function (key, val) {
+	      if (key.indexOf('message_-') !== -1) {
 	        store.remove(key);
 	      }
 	    });
+	  };
 
-	  }
-
-	  watchdog.startWatchingSync = function(reconnectFunction){
+	  watchdog.startWatchingSync = function (reconnectFunction) {
 
 	    reconnect = reconnectFunction;
 	    watchdog.didRespondSync = false;
-	    if(!working){
+	    if (!working) {
 	      this.startWatching();
 	    }
+	  };
 
-	  }
+	  watchdog.startWatching = function () {
 
-	  watchdog.startWatching = function(){
-
-	    if(myTimeout!=null){
+	    if (myTimeout != null) {
 	      clearTimeout(myTimeout);
 	    }
-	    myTimeout = window.setTimeout(function(){
-	      if((watchdog.checkIfPendingMessages() || !watchdog.didRespondSync) && reconnect != null){
+	    myTimeout = window.setTimeout(function () {
+	      if ((watchdog.checkIfPendingMessages() || !watchdog.didRespondSync) && reconnect != null) {
 	        reconnect();
 	      }
 
 	      working = false;
-
 	    }, TIMEOUT);
 
 	    working = true;
+	  };
 
-	  }
-
-	  watchdog.checkIfPendingMessages = function(){
+	  watchdog.checkIfPendingMessages = function () {
 	    return store.exists('message_-');
-	  }
+	  };
 
-	  watchdog.getTotalPendingMessages = function(){
+	  watchdog.getTotalPendingMessages = function () {
 
-	    let total=0;
-	    store.forEach(function(key, val) {
-	      if(key.indexOf('message_-') !== -1){
+	    var total = 0;
+	    store.forEach(function (key, val) {
+	      if (key.indexOf('message_-') !== -1) {
 	        total++;
 	      }
 	    });
 	    return total;
-
-	  }
+	  };
 
 	  return watchdog;
-
-	}())
-
+	}();
 
 /***/ },
 /* 19 */
@@ -7166,214 +7154,219 @@ return /******/ (function(modules) { // webpackBootstrap
 	/* WEBPACK VAR INJECTION */(function(fetch) {
 	'use strict';
 
-	module.exports = (function() {
+	var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol" ? function (obj) { return typeof obj; } : function (obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol ? "symbol" : typeof obj; };
+
+	module.exports = function () {
 
 	  __webpack_require__(21);
-	  let apiconnector = {};
-	  let main;
+	  var apiconnector = {};
+	  var main = void 0;
 
-	  apiconnector.init = function(mainObject){
+	  apiconnector.init = function (mainObject) {
 	    main = mainObject;
-	  }
+	  };
 
-	  apiconnector.basicRequest = function(method, endpoint, params, isFile, callback){
+	  apiconnector.basicRequest = function (method, endpoint, params, isFile, callback) {
 
-	    let basic= this.getAuthParamsBtoA(main.appKey+":"+main.appSecret);
+	    var basic = this.getAuthParamsBtoA(main.appKey + ":" + main.appSecret);
 
-	    let reqUrl = main.domainUrl+endpoint;
+	    var reqUrl = main.domainUrl + endpoint;
 
-	    let parseAsJson = true;
+	    var parseAsJson = true;
 
 	    if (main.session.stage) {
-	      reqUrl = 'http://'+reqUrl;
-	    }else{
-	      reqUrl = 'https://'+reqUrl;
+	      reqUrl = 'http://' + reqUrl;
+	    } else {
+	      reqUrl = 'https://' + reqUrl;
 	    }
 
-	    let headersReq = {
+	    var headersReq = {
 	      'Accept': '*/*',
-	      'Authorization': 'Basic '+ basic
+	      'Authorization': 'Basic ' + basic
 	    };
 
-	    let data = params;
+	    var data = params;
 	    //check if it's not file
 	    if (!isFile) {
 	      headersReq['Content-Type'] = 'application/json';
 	      data = JSON.stringify({ data: JSON.stringify(params) });
 	    }
 
-	    let bodyReq = {
+	    var bodyReq = {
 	      method: method,
 	      credentials: 'include',
 	      headers: headersReq
 	    };
 
 	    if (method !== 'GET') {
-	      bodyReq.body = data
+	      bodyReq.body = data;
 	    }
 
-	    if(method === 'GET' && isFile){
+	    if (method === 'GET' && isFile) {
 	      parseAsJson = false;
 	    }
 
-	    fetch(reqUrl, bodyReq)
-	    .then(main.checkStatus)
-	    .then(parseAsJson ? main.parseJSON : main.parseFile)
-	    .then(function(respObj) {
-	      callback(null,respObj);
-	    }).catch(function(error) {
+	    fetch(reqUrl, bodyReq).then(main.checkStatus).then(parseAsJson ? main.parseJSON : main.parseFile).then(function (respObj) {
+	      callback(null, respObj);
+	    }).catch(function (error) {
 	      callback(error);
-	    });// end of AJAX CALL
+	    }); // end of AJAX CALL
+	  };
 
-	  }
-
-	  apiconnector.getAuthParamsBtoA = function(connectAuthParamsString){
+	  apiconnector.getAuthParamsBtoA = function (connectAuthParamsString) {
 
 	    //window.btoa not supported in <=IE9
-	    let basic;
+	    var basic = void 0;
 	    if (window.btoa) {
 	      basic = window.btoa(connectAuthParamsString);
-	    }
-	    else{
-	      //for <= IE9
-	      let base64 = {};
-	      base64.PADCHAR = '=';
-	      base64.ALPHA = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+	    } else {
+	      (function () {
+	        //for <= IE9
+	        var base64 = {};
+	        base64.PADCHAR = '=';
+	        base64.ALPHA = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 
-	      base64.makeDOMException = function() {
-	        // sadly in FF,Safari,Chrome you can't make a DOMException
+	        base64.makeDOMException = function () {
+	          // sadly in FF,Safari,Chrome you can't make a DOMException
 
-	        try {
-	          return new DOMException(DOMException.INVALID_CHARACTER_ERR);
-	        } catch (tmp) {
-	          // not available, just passback a duck-typed equiv
-	          // https://developer.mozilla.org/en/Core_JavaScript_1.5_Reference/Global_Objects/Error
-	          // https://developer.mozilla.org/en/Core_JavaScript_1.5_Reference/Global_Objects/Error/prototype
-	          let ex = new Error("DOM Exception 5");
+	          try {
+	            return new DOMException(DOMException.INVALID_CHARACTER_ERR);
+	          } catch (tmp) {
+	            var _ret2 = function () {
+	              // not available, just passback a duck-typed equiv
+	              // https://developer.mozilla.org/en/Core_JavaScript_1.5_Reference/Global_Objects/Error
+	              // https://developer.mozilla.org/en/Core_JavaScript_1.5_Reference/Global_Objects/Error/prototype
+	              var ex = new Error("DOM Exception 5");
 
-	          // ex.number and ex.description is IE-specific.
-	          ex.code = ex.number = 5;
-	          ex.name = ex.description = "INVALID_CHARACTER_ERR";
+	              // ex.number and ex.description is IE-specific.
+	              ex.code = ex.number = 5;
+	              ex.name = ex.description = "INVALID_CHARACTER_ERR";
 
-	          // Safari/Chrome output format
-	          ex.toString = function() { return 'Error: ' + ex.name + ': ' + ex.message; };
-	          return ex;
-	        }
-	      }
+	              // Safari/Chrome output format
+	              ex.toString = function () {
+	                return 'Error: ' + ex.name + ': ' + ex.message;
+	              };
+	              return {
+	                v: ex
+	              };
+	            }();
 
-	      base64.getbyte64 = function(s,i) {
-	        // This is oddly fast, except on Chrome/V8.
-	        //  Minimal or no improvement in performance by using a
-	        //   object with properties mapping chars to value (eg. 'A': 0)
-	        let idx = base64.ALPHA.indexOf(s.charAt(i));
-	        if (idx === -1) {
-	          throw base64.makeDOMException();
-	        }
-	        return idx;
-	      }
-
-	      base64.decode = function(s) {
-	        // convert to string
-	        s = '' + s;
-	        let getbyte64 = base64.getbyte64;
-	        let pads, i, b10;
-	        let imax = s.length
-	        if (imax === 0) {
-	          return s;
-	        }
-
-	        if (imax % 4 !== 0) {
-	          throw base64.makeDOMException();
-	        }
-
-	        pads = 0
-	        if (s.charAt(imax - 1) === base64.PADCHAR) {
-	          pads = 1;
-	          if (s.charAt(imax - 2) === base64.PADCHAR) {
-	            pads = 2;
+	            if ((typeof _ret2 === 'undefined' ? 'undefined' : _typeof(_ret2)) === "object") return _ret2.v;
 	          }
-	          // either way, we want to ignore this last block
-	          imax -= 4;
-	        }
+	        };
 
-	        let x = [];
-	        for (i = 0; i < imax; i += 4) {
-	          b10 = getbyte64(s,i) << 18 | getbyte64(s,i+1) << 12 |
-	          getbyte64(s,i+2) << 6 | getbyte64(s,i+3);
-	          x.push(String.fromCharCode(b10 >> 16, 0xff & b10 >> 8, b10 & 0xff));
-	        }
+	        base64.getbyte64 = function (s, i) {
+	          // This is oddly fast, except on Chrome/V8.
+	          //  Minimal or no improvement in performance by using a
+	          //   object with properties mapping chars to value (eg. 'A': 0)
+	          var idx = base64.ALPHA.indexOf(s.charAt(i));
+	          if (idx === -1) {
+	            throw base64.makeDOMException();
+	          }
+	          return idx;
+	        };
 
-	        switch (pads) {
-	          case 1:
-	            b10 = getbyte64(s,i) << 18 | getbyte64(s,i+1) << 12 | getbyte64(s,i+2) << 6;
-	            x.push(String.fromCharCode(b10 >> 16, 0xff & b10 >> 8));
-	            break;
-	          case 2:
-	            b10 = getbyte64(s,i) << 18 | getbyte64(s,i+1) << 12;
-	            x.push(String.fromCharCode(b10 >> 16));
-	            break;
-	        }
-	        return x.join('');
-	      }
+	        base64.decode = function (s) {
+	          // convert to string
+	          s = '' + s;
+	          var getbyte64 = base64.getbyte64;
+	          var pads = void 0,
+	              i = void 0,
+	              b10 = void 0;
+	          var imax = s.length;
+	          if (imax === 0) {
+	            return s;
+	          }
 
-	      base64.getbyte = function(s,i) {
-	        let x = s.charCodeAt(i);
-	        if (x > 255) {
-	          throw base64.makeDOMException();
-	        }
-	        return x;
-	      }
+	          if (imax % 4 !== 0) {
+	            throw base64.makeDOMException();
+	          }
 
-	      base64.encode = function(s) {
-	        if (arguments.length !== 1) {
-	          throw new SyntaxError("Not enough arguments");
-	        }
-	        let padchar = base64.PADCHAR;
-	        let alpha = base64.ALPHA;
-	        let getbyte = base64.getbyte;
+	          pads = 0;
+	          if (s.charAt(imax - 1) === base64.PADCHAR) {
+	            pads = 1;
+	            if (s.charAt(imax - 2) === base64.PADCHAR) {
+	              pads = 2;
+	            }
+	            // either way, we want to ignore this last block
+	            imax -= 4;
+	          }
 
-	        let i, b10;
-	        let x = [];
+	          var x = [];
+	          for (i = 0; i < imax; i += 4) {
+	            b10 = getbyte64(s, i) << 18 | getbyte64(s, i + 1) << 12 | getbyte64(s, i + 2) << 6 | getbyte64(s, i + 3);
+	            x.push(String.fromCharCode(b10 >> 16, 0xff & b10 >> 8, b10 & 0xff));
+	          }
 
-	        // convert to string
-	        s = '' + s;
+	          switch (pads) {
+	            case 1:
+	              b10 = getbyte64(s, i) << 18 | getbyte64(s, i + 1) << 12 | getbyte64(s, i + 2) << 6;
+	              x.push(String.fromCharCode(b10 >> 16, 0xff & b10 >> 8));
+	              break;
+	            case 2:
+	              b10 = getbyte64(s, i) << 18 | getbyte64(s, i + 1) << 12;
+	              x.push(String.fromCharCode(b10 >> 16));
+	              break;
+	          }
+	          return x.join('');
+	        };
 
-	        let imax = s.length - s.length % 3;
+	        base64.getbyte = function (s, i) {
+	          var x = s.charCodeAt(i);
+	          if (x > 255) {
+	            throw base64.makeDOMException();
+	          }
+	          return x;
+	        };
 
-	        if (s.length === 0) {
-	          return s;
-	        }
-	        for (i = 0; i < imax; i += 3) {
-	          b10 = getbyte(s,i) << 16 | getbyte(s,i+1) << 8 | getbyte(s,i+2);
-	          x.push(alpha.charAt(b10 >> 18));
-	          x.push(alpha.charAt(0x3F & b10 >> 12));
-	          x.push(alpha.charAt(0x3f & b10 >> 6));
-	          x.push(alpha.charAt(b10 & 0x3f));
-	        }
-	        switch (s.length - imax) {
-	          case 1:
-	            b10 = getbyte(s,i) << 16;
-	            x.push(alpha.charAt(b10 >> 18) + alpha.charAt(0x3F & b10 >> 12) +
-	            padchar + padchar);
-	            break;
-	          case 2:
-	            b10 = getbyte(s,i) << 16 | getbyte(s,i+1) << 8;
-	            x.push(alpha.charAt(b10 >> 18) + alpha.charAt(0x3F & b10 >> 12) +
-	            alpha.charAt(0x3f & b10 >> 6) + padchar);
-	            break;
-	        }
-	        return x.join('');
-	      }
-	      basic = base64.encode(connectAuthParamsString);
+	        base64.encode = function (s) {
+	          if (arguments.length !== 1) {
+	            throw new SyntaxError("Not enough arguments");
+	          }
+	          var padchar = base64.PADCHAR;
+	          var alpha = base64.ALPHA;
+	          var getbyte = base64.getbyte;
+
+	          var i = void 0,
+	              b10 = void 0;
+	          var x = [];
+
+	          // convert to string
+	          s = '' + s;
+
+	          var imax = s.length - s.length % 3;
+
+	          if (s.length === 0) {
+	            return s;
+	          }
+	          for (i = 0; i < imax; i += 3) {
+	            b10 = getbyte(s, i) << 16 | getbyte(s, i + 1) << 8 | getbyte(s, i + 2);
+	            x.push(alpha.charAt(b10 >> 18));
+	            x.push(alpha.charAt(0x3F & b10 >> 12));
+	            x.push(alpha.charAt(0x3f & b10 >> 6));
+	            x.push(alpha.charAt(b10 & 0x3f));
+	          }
+	          switch (s.length - imax) {
+	            case 1:
+	              b10 = getbyte(s, i) << 16;
+	              x.push(alpha.charAt(b10 >> 18) + alpha.charAt(0x3F & b10 >> 12) + padchar + padchar);
+	              break;
+	            case 2:
+	              b10 = getbyte(s, i) << 16 | getbyte(s, i + 1) << 8;
+	              x.push(alpha.charAt(b10 >> 18) + alpha.charAt(0x3F & b10 >> 12) + alpha.charAt(0x3f & b10 >> 6) + padchar);
+	              break;
+	          }
+	          return x.join('');
+	        };
+	        basic = base64.encode(connectAuthParamsString);
+	      })();
 	    }
 
 	    return basic;
-	  }
+	  };
 
 	  return apiconnector;
-
-	}())
-
+	}();
 	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(20)))
 
 /***/ },
@@ -8193,19 +8186,16 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	'use strict';
 
-	module.exports = (function() {
+	module.exports = function () {
 
-	  let Log = {};
+	  var Log = {};
 
-	  Log.m = function(debugmode, message){
-	    if(debugmode)
-	      console.log(message); //eslint-disable-line no-console
-	  }
+	  Log.m = function (debugmode, message) {
+	    if (debugmode) console.log(message); //eslint-disable-line no-console
+	  };
 
 	  return Log;
-
-	}())
-
+	}();
 
 /***/ },
 /* 24 */
@@ -8214,81 +8204,78 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	'use strict';
 
-	module.exports = (function() {
+	module.exports = function () {
 
 	  var db = {};
 	  var store = __webpack_require__(9);
 
 	  //SETTERS
 
-	  db.storeMessage = function(mokmessage){
-	    store.set("message_"+mokmessage.id, mokmessage);
-	  }
+	  db.storeMessage = function (mokmessage) {
+	    store.set("message_" + mokmessage.id, mokmessage);
+	  };
 
-	  db.storeMonkeyId = function(monkey_id){
+	  db.storeMonkeyId = function (monkey_id) {
 	    store.set("monkey_id", monkey_id);
-	  }
+	  };
 
-	  db.storeUser = function(monkey_id, userObj){
+	  db.storeUser = function (monkey_id, userObj) {
 	    store.set("monkey_id", monkey_id);
-	    store.set("user_"+monkey_id, userObj);
-	  }
+	    store.set("user_" + monkey_id, userObj);
+	  };
 
 	  //UPDATERS
 
-	  db.updateMessageReadStatus = function(mokmessage){
-	    if(mokmessage !== ""){
+	  db.updateMessageReadStatus = function (mokmessage) {
+	    if (mokmessage !== "") {
 	      mokmessage.readByUser = true;
 	      this.storeMessage(mokmessage);
 	    }
-	  }
+	  };
 
-	  db.setAllMessagesToRead = function(id){
+	  db.setAllMessagesToRead = function (id) {
 
 	    var arrayMessages = this.getAllStoredMessages();
-	    arrayMessages.reduce(function(result, message){
-	      if(message.senderId == id && !message.readByUser){
+	    arrayMessages.reduce(function (result, message) {
+	      if (message.senderId === id && !message.readByUser) {
 	        this.updateMessageReadStatus(message);
 	      }
 	      return result;
-	    }.bind(this),0);
+	    }.bind(this), 0);
+	  };
 
-	  }
-
-	  db.markReadConversationStoredMessages = function(myId, id){
+	  db.markReadConversationStoredMessages = function (myId, id) {
 
 	    var count = 0;
-	    store.forEach(function(key, message) {
+	    store.forEach(function (key, message) {
 	      if (message.recipientId == null) {
 	        return;
 	      }
 
 	      // (message.recipientId == id && message.senderId == myId) add to mark my own messages
 	      //check if it's a group
-	      if((message.recipientId.indexOf("G:") != -1 && message.recipientId == id && message.senderId != myId) || (message.recipientId == myId && message.senderId == id)){
+	      if (message.recipientId.indexOf("G:") !== -1 && message.recipientId === id && message.senderId !== myId || message.recipientId === myId && message.senderId === id) {
 	        if (!message.readByUser) {
 	          this.updateMessageReadStatus(message);
 	          count++;
 	        }
-
 	      }
 	    }.bind(this));
 
 	    return count;
+	  };
 
-	  }
-
-	  db.countUnreadConversationStoredMessages = function(myId, id){
+	  db.countUnreadConversationStoredMessages = function (myId, id) {
 
 	    var count = 0;
-	    store.forEach(function(key, message) {
+	    store.forEach(function (key, message) {
 	      if (message.recipientId == null) {
 	        return;
 	      }
 
 	      //(message.recipientId == id && message.senderId == myId) add to count my messages too
 	      //check if it's a group
-	      if((message.recipientId.indexOf("G:") != -1 && message.recipientId == id && message.senderId != myId) || (message.recipientId == myId && message.senderId == id)){
+	      if (message.recipientId.indexOf("G:") !== -1 && message.recipientId === id && message.senderId !== myId || message.recipientId === myId && message.senderId === id) {
 	        if (!message.readByUser) {
 	          count++;
 	        }
@@ -8296,132 +8283,127 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }.bind(this));
 
 	    return count;
-	  }
+	  };
 
-	  db.markReadStoredMessage = function(id){
+	  db.markReadStoredMessage = function (id) {
 	    var mokmessage = this.getMessageById(id);
 
 	    this.updateMessageReadStatus(mokmessage);
-	  }
+	  };
 
 	  //GETTERS
 
-	  db.getMessageById = function(id){
-	    return store.get("message_"+id, "");
-	  }
+	  db.getMessageById = function (id) {
+	    return store.get("message_" + id, "");
+	  };
 
-	  db.getAllStoredMessages = function(){
+	  db.getAllStoredMessages = function () {
 
 	    var arrayMessages = [];
 
-	    store.forEach(function(key, val) {
-	      if(key.indexOf("message_") != -1){
+	    store.forEach(function (key, val) {
+	      if (key.indexOf("message_") !== -1) {
 	        arrayMessages.push(val);
 	      }
 	    });
 
 	    return arrayMessages;
-	  }
+	  };
 
-	  db.getPendingMessages = function(){
+	  db.getPendingMessages = function () {
 	    var arrayMessages = [];
 
-	    store.forEach(function(key, val) {
-	      if(key.indexOf("message_-") != -1){
+	    store.forEach(function (key, val) {
+	      if (key.indexOf("message_-") !== -1) {
 	        arrayMessages.push(val);
 	      }
 	    });
 
 	    return arrayMessages;
-	  }
+	  };
 
-	  db.getConversationStoredMessages = function(myId, id){
+	  db.getConversationStoredMessages = function (myId, id) {
 
 	    var arrayMessages = [];
 
-	    store.forEach(function(key, message) {
+	    store.forEach(function (key, message) {
 	      if (message.recipientId == null) {
 	        return;
 	      }
 	      //check if it's a group
-	      if((message.recipientId.indexOf("G:") != -1 && message.recipientId == id) || (message.recipientId == id && message.senderId == myId) || (message.recipientId == myId && message.senderId == id)){
+	      if (message.recipientId.indexOf("G:") !== -1 && message.recipientId === id || message.recipientId === id && message.senderId === myId || message.recipientId === myId && message.senderId === id) {
 	        arrayMessages.push(message);
 	      }
 	    });
 
 	    return arrayMessages;
+	  };
 
-	  }
-
-	  db.getMessagesInTransit = function(){
+	  db.getMessagesInTransit = function () {
 
 	    var arrayMessages = [];
-	    store.forEach(function(key, val) {
-	      if(key.indexOf("message_-") != -1){
+	    store.forEach(function (key, val) {
+	      if (key.indexOf("message_-") !== -1) {
 	        arrayMessages.push(val);
 	      }
 	    });
 
 	    return arrayMessages;
+	  };
 
-	  }
-
-	  db.getTotalWithoutRead = function(id){
+	  db.getTotalWithoutRead = function (id) {
 
 	    var arrayMessages = this.getAllStoredMessages();
-	    var total = arrayMessages.reduce(function(result, message){
-	      if(message.senderId == id && !message.readByUser){
+	    var total = arrayMessages.reduce(function (result, message) {
+	      if (message.senderId === id && !message.readByUser) {
 	        result++;
 	      }
 	      return result;
-	    },0);
+	    }, 0);
 
 	    return total;
+	  };
 
-	  }
-
-	  db.getMonkeyId = function(){
+	  db.getMonkeyId = function () {
 	    return store.get("monkey_id", null);
-	  }
+	  };
 
-	  db.getUser = function(monkey_id){
-	    return store.get("user_"+monkey_id, null);
-	  }
+	  db.getUser = function (monkey_id) {
+	    return store.get("user_" + monkey_id, null);
+	  };
 
 	  //DELETERS
 
-	  db.deleteMessageById = function(id){
-	    store.remove("message_"+id);
-	  }
+	  db.deleteMessageById = function (id) {
+	    store.remove("message_" + id);
+	  };
 
-	  db.deleteStoredMessagesOfConversation = function(myId, id) {
+	  db.deleteStoredMessagesOfConversation = function (myId, id) {
 
 	    var arrayMessages = this.getConversationStoredMessages(myId, id);
 
 	    var count = arrayMessages.length;
 
-	    arrayMessages.reduce(function(result, message){
+	    arrayMessages.reduce(function (result, message) {
 	      this.deleteMessageById(message.id);
 	      return result;
-	    }.bind(this),[]);
+	    }.bind(this), []);
 
 	    return count;
-	  }
+	  };
 
-	  db.clear = function(monkeyId){
+	  db.clear = function (monkeyId) {
 	    store.remove("monkey_id");
-	    store.remove("user_"+monkeyId);
+	    store.remove("user_" + monkeyId);
 
-	    store.forEach(function(key, val) {
-	      if(key.indexOf("message_-") != -1){
+	    store.forEach(function (key, val) {
+	      if (key.indexOf("message_-") !== -1) {
 	        store.remove(key);
 	      }
 	    });
-	  }
+	  };
 	  return db;
-
-	}())
-
+	}();
 
 /***/ },
 /* 25 */

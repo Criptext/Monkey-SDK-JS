@@ -9,6 +9,11 @@ The changelog for `Monkey-SDK-JS`. Also see the [releases](https://github.com/Cr
 
 - [Github release notes](https://github.com/Criptext/Monkey-SDK-JS/tag/0.6.0)
 
+0.6.1
+-----
+
+- [Github release notes](https://github.com/Criptext/Monkey-SDK-JS/tag/0.6.1)
+
 All previous versions
 ---------------------
 
