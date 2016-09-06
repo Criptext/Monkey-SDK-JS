@@ -12,9 +12,9 @@ module.exports = {
   },
   module: {
     loaders: [
-      { test: /(main\.js|MOKMessage\.js)$/,
+      { test: /\.js$/,
         loader: 'babel-loader',
-        exclude: /(node_modules|bower_components)/,
+        exclude: /(node_modules|bower_components|libs)/,
         query: {
           presets: ['es2015']
         }

@@ -3,8 +3,8 @@
 
 module.exports = (function() {
 
-  var db = {};
-  var store = require('./store.js');
+  let db = {};
+  const store = require('../libs/store.js');
 
   //SETTERS
 
@@ -32,9 +32,9 @@ module.exports = (function() {
 
   db.setAllMessagesToRead = function(id){
 
-    var arrayMessages = this.getAllStoredMessages();
+    let arrayMessages = this.getAllStoredMessages();
     arrayMessages.reduce(function(result, message){
-      if(message.senderId == id && !message.readByUser){
+      if(message.senderId === id && !message.readByUser){
         this.updateMessageReadStatus(message);
       }
       return result;
@@ -44,7 +44,7 @@ module.exports = (function() {
 
   db.markReadConversationStoredMessages = function(myId, id){
 
-    var count = 0;
+    let count = 0;
     store.forEach(function(key, message) {
       if (message.recipientId == null) {
         return;
@@ -52,7 +52,7 @@ module.exports = (function() {
 
       // (message.recipientId == id && message.senderId == myId) add to mark my own messages
       //check if it's a group
-      if((message.recipientId.indexOf("G:") != -1 && message.recipientId == id && message.senderId != myId) || (message.recipientId == myId && message.senderId == id)){
+      if(message.recipientId.indexOf("G:") !== -1 && message.recipientId === id && message.senderId !== myId || message.recipientId === myId && message.senderId === id){
         if (!message.readByUser) {
           this.updateMessageReadStatus(message);
           count++;
@@ -67,7 +67,7 @@ module.exports = (function() {
 
   db.countUnreadConversationStoredMessages = function(myId, id){
 
-    var count = 0;
+    let count = 0;
     store.forEach(function(key, message) {
       if (message.recipientId == null) {
         return;
@@ -75,7 +75,7 @@ module.exports = (function() {
 
       //(message.recipientId == id && message.senderId == myId) add to count my messages too
       //check if it's a group
-      if((message.recipientId.indexOf("G:") != -1 && message.recipientId == id && message.senderId != myId) || (message.recipientId == myId && message.senderId == id)){
+      if(message.recipientId.indexOf("G:") !== -1 && message.recipientId === id && message.senderId !== myId || message.recipientId === myId && message.senderId === id){
         if (!message.readByUser) {
           count++;
         }
@@ -86,7 +86,7 @@ module.exports = (function() {
   }
 
   db.markReadStoredMessage = function(id){
-    var mokmessage = this.getMessageById(id);
+    let mokmessage = this.getMessageById(id);
 
     this.updateMessageReadStatus(mokmessage);
   }
@@ -99,10 +99,10 @@ module.exports = (function() {
 
   db.getAllStoredMessages = function(){
 
-    var arrayMessages = [];
+    let arrayMessages = [];
 
     store.forEach(function(key, val) {
-      if(key.indexOf("message_") != -1){
+      if(key.indexOf("message_") !== -1){
         arrayMessages.push(val);
       }
     });
@@ -111,10 +111,10 @@ module.exports = (function() {
   }
 
   db.getPendingMessages = function(){
-    var arrayMessages = [];
+    let arrayMessages = [];
 
     store.forEach(function(key, val) {
-      if(key.indexOf("message_-") != -1){
+      if(key.indexOf("message_-") !== -1){
         arrayMessages.push(val);
       }
     });
@@ -124,14 +124,14 @@ module.exports = (function() {
 
   db.getConversationStoredMessages = function(myId, id){
 
-    var arrayMessages = [];
+    let arrayMessages = [];
 
     store.forEach(function(key, message) {
       if (message.recipientId == null) {
         return;
       }
       //check if it's a group
-      if((message.recipientId.indexOf("G:") != -1 && message.recipientId == id) || (message.recipientId == id && message.senderId == myId) || (message.recipientId == myId && message.senderId == id)){
+      if(message.recipientId.indexOf("G:") !== -1 && message.recipientId === id || message.recipientId === id && message.senderId === myId || message.recipientId === myId && message.senderId === id){
         arrayMessages.push(message);
       }
     });
@@ -142,9 +142,9 @@ module.exports = (function() {
 
   db.getMessagesInTransit = function(){
 
-    var arrayMessages = [];
+    let arrayMessages = [];
     store.forEach(function(key, val) {
-      if(key.indexOf("message_-") != -1){
+      if(key.indexOf("message_-") !== -1){
         arrayMessages.push(val);
       }
     });
@@ -155,9 +155,9 @@ module.exports = (function() {
 
   db.getTotalWithoutRead = function(id){
 
-    var arrayMessages = this.getAllStoredMessages();
-    var total = arrayMessages.reduce(function(result, message){
-      if(message.senderId == id && !message.readByUser){
+    let arrayMessages = this.getAllStoredMessages();
+    let total = arrayMessages.reduce(function(result, message){
+      if(message.senderId === id && !message.readByUser){
         result++;
       }
       return result;
@@ -183,9 +183,9 @@ module.exports = (function() {
 
   db.deleteStoredMessagesOfConversation = function(myId, id) {
 
-    var arrayMessages = this.getConversationStoredMessages(myId, id);
+    let arrayMessages = this.getConversationStoredMessages(myId, id);
 
-    var count = arrayMessages.length;
+    let count = arrayMessages.length;
 
     arrayMessages.reduce(function(result, message){
       this.deleteMessageById(message.id);
@@ -200,7 +200,7 @@ module.exports = (function() {
     store.remove("user_"+monkeyId);
 
     store.forEach(function(key, val) {
-      if(key.indexOf("message_-") != -1){
+      if(key.indexOf("message_-") !== -1){
         store.remove(key);
       }
     });

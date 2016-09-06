@@ -3,7 +3,7 @@
 
 module.exports = (function() {
 
-  const store = require('./store.js');
+  const store = require('../libs/store.js');
   let watchdog = {};
   let working = false;
   let TIMEOUT = 5000;

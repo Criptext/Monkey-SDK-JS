@@ -4,7 +4,8 @@
   "description": "Monkey SDK for web",
   "main": "./dist/monkey.js",
   "scripts": {
-    "test": "webpack --progress --colors --watch"
+    "build": "webpack",
+    "prepublish": "npm run build"
   },
   "devDependencies": {
     "babel-eslint": "^6.1.2",

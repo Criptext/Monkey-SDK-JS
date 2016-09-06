@@ -5,7 +5,7 @@ module.exports = (function() {
 
   let monkeyKeystore = {};
 
-  const store = require('./store.js');
+  const store = require('../libs/store.js');
   const CryptoJS = require('node-cryptojs-aes').CryptoJS;
 
   monkeyKeystore.storeData = function(key, value, myaeskey, myaesiv){

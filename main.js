@@ -8,13 +8,13 @@
 */
 
 const EventEmitter = require('events');
-const MonkeyEnums = require('./libs/MonkeyEnums.js');
-const MOKMessage = require('./libs/MOKMessage.js');
-const monkeyKeystore = require('./libs/MonkeyKeystore.js');
-const watchdog = require('./libs/watchdog.js');
-const apiconnector = require('./libs/ApiConnector.js');
-const Log = require('./libs/Log.js');
-const db = require('./libs/db.js');
+const MonkeyEnums = require('./source/MonkeyEnums.js');
+const MOKMessage = require('./source/MOKMessage.js');
+const monkeyKeystore = require('./source/MonkeyKeystore.js');
+const watchdog = require('./source/watchdog.js');
+const apiconnector = require('./source/ApiConnector.js');
+const Log = require('./source/Log.js');
+const db = require('./source/db.js');
 const NodeRSA = require('node-rsa');
 const CryptoJS = require('node-cryptojs-aes').CryptoJS;
 const async = require('async');
