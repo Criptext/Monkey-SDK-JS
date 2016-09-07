@@ -717,38 +717,41 @@ return /******/ (function(modules) { // webpackBootstrap
 	  };
 
 	  proto.incomingMessage = function incomingMessage(message) {
-	    var msg = this.decryptMessage(message);
+	    this.decryptMessage(message, function (error, decryptedMessage) {
+	      var currentTimestamp = this.session.lastTimestamp;
 
-	    var currentTimestamp = this.session.lastTimestamp;
+	      if (decryptedMessage.id > 0 && decryptedMessage.datetimeCreation > this.session.lastTimestamp) {
+	        this.session.lastTimestamp = Math.trunc(decryptedMessage.datetimeCreation);
 
-	    if (msg.id > 0 && msg.datetimeCreation > this.session.lastTimestamp) {
-	      this.session.lastTimestamp = Math.trunc(msg.datetimeCreation);
-
-	      if (this.session.autoSave) {
-	        db.storeUser(this.session.id, this.session);
+	        if (this.session.autoSave) {
+	          db.storeUser(this.session.id, this.session);
+	        }
 	      }
-	    }
 
-	    switch (msg.protocolCommand) {
-	      case this.enums.ProtocolCommand.MESSAGE:
-	        {
-	          this._getEmitter().emit(MESSAGE_EVENT, msg);
-	          break;
-	        }
-	      case this.enums.ProtocolCommand.PUBLISH:
-	        {
-	          this._getEmitter().emit(CHANNEL_MESSAGE_EVENT, msg);
-	          break;
-	        }
-	    }
+	      switch (decryptedMessage.protocolCommand) {
+	        case this.enums.ProtocolCommand.MESSAGE:
+	          {
+	            this._getEmitter().emit(MESSAGE_EVENT, decryptedMessage);
+	            break;
+	          }
+	        case this.enums.ProtocolCommand.PUBLISH:
+	          {
+	            this._getEmitter().emit(CHANNEL_MESSAGE_EVENT, decryptedMessage);
+	            break;
+	          }
+	      }
 
-	    //update last_time_synced if needed
-	    if (currentTimestamp === 0 && this.session.lastTimestamp > 0) {
-	      this.getPendingMessages();
-	    }
+	      //update last_time_synced if needed
+	      if (currentTimestamp === 0 && this.session.lastTimestamp > 0) {
+	        this.getPendingMessages();
+	      }
+	    }.bind(this));
 	  };
 
-	  proto.decryptMessage = function decryptMessage(message) {
+	  proto.decryptMessage = function decryptMessage(message, callback) {
+
+	    callback = typeof callback === "function" ? callback : function () {};
+
 	    if (message.isEncrypted()) {
 	      try {
 	        message.text = this.aesDecryptIncomingMessage(message);
@@ -758,9 +761,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	        Log.m(this.session.debug, "===========================");
 	        //get keys
 	        this.getAESkeyFromUser(message.senderId, message, function (response) {
-	          if (response != null) {
-	            this.decryptMessage(message);
+	          if (response == null) {
+	            return callback("Fail to fetch keys to decrypt message", message);
 	          }
+	          this.decryptMessage(message, callback);
 	        }.bind(this));
 	        return;
 	      }
@@ -768,9 +772,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	      if (message.text == null || message.text === "") {
 	        //get keys
 	        this.getAESkeyFromUser(message.senderId, message, function (response) {
-	          if (response != null) {
-	            this.decryptMessage(message);
+	          if (response == null) {
+	            return callback("Fail to fetch keys to decrypt message", message);
 	          }
+	          this.decryptMessage(message, callback);
 	        }.bind(this));
 	        return;
 	      }
@@ -783,7 +788,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	      }
 	    }
 
-	    return message;
+	    callback(null, message);
 	  };
 
 	  proto.createPush = function createPush(title, body, timeout, tag, icon, onClick) {
