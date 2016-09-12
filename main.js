@@ -1404,7 +1404,8 @@ require('es6-promise').polyfill();
   proto.getConversations = function getConversations(since, quantity, onComplete){
     let params = {
       'monkeyId': this.session.id,
-      'qty': quantity.toString()
+      'qty': quantity.toString(),
+      'syncTimestamp' : this.session.lastTimestamp
     };
 
     if (since != null) {
