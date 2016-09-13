@@ -1473,7 +1473,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	  proto.getConversations = function getConversations(since, quantity, onComplete) {
 	    var params = {
 	      'monkeyId': this.session.id,
-	      'qty': quantity.toString()
+	      'qty': quantity.toString(),
+	      'syncTimestamp': this.session.lastTimestamp
 	    };
 
 	    if (since != null) {
@@ -3900,8 +3901,12 @@ return /******/ (function(modules) { // webpackBootstrap
 	      er = arguments[1];
 	      if (er instanceof Error) {
 	        throw er; // Unhandled 'error' event
+	      } else {
+	        // At least give some kind of context to the user
+	        var err = new Error('Uncaught, unspecified "error" event. (' + er + ')');
+	        err.context = er;
+	        throw err;
 	      }
-	      throw TypeError('Uncaught, unspecified "error" event.');
 	    }
 	  }
 
@@ -7493,7 +7498,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	  var support = {
 	    blob: 'FileReader' in self && 'Blob' in self && (function() {
 	      try {
-	        new Blob();
+	        new Blob()
 	        return true
 	      } catch(e) {
 	        return false
@@ -7650,7 +7655,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	  function headers(xhr) {
 	    var head = new Headers()
-	    var pairs = xhr.getAllResponseHeaders().trim().split('\n')
+	    var pairs = (xhr.getAllResponseHeaders() || '').trim().split('\n')
 	    pairs.forEach(function(header) {
 	      var split = header.trim().split(':')
 	      var key = split.shift().trim()
@@ -7703,9 +7708,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	    return new Response(null, {status: status, headers: {location: url}})
 	  }
 
-	  self.Headers = Headers;
-	  self.Request = Request;
-	  self.Response = Response;
+	  self.Headers = Headers
+	  self.Request = Request
+	  self.Response = Response
 
 	  self.fetch = function(input, init) {
 	    return new Promise(function(resolve, reject) {
@@ -7728,7 +7733,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	          return xhr.getResponseHeader('X-Request-URL')
 	        }
 
-	        return;
+	        return
 	      }
 
 	      xhr.onload = function() {
@@ -7743,11 +7748,15 @@ return /******/ (function(modules) { // webpackBootstrap
 	          headers: headers(xhr),
 	          url: responseURL()
 	        }
-	        var body = 'response' in xhr ? xhr.response : xhr.responseText;
+	        var body = 'response' in xhr ? xhr.response : xhr.responseText
 	        resolve(new Response(body, options))
 	      }
 
 	      xhr.onerror = function() {
+	        reject(new TypeError('Network request failed'))
+	      }
+
+	      xhr.ontimeout = function() {
 	        reject(new TypeError('Network request failed'))
 	      }
 
@@ -7905,7 +7914,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	  var support = {
 	    blob: 'FileReader' in self && 'Blob' in self && (function() {
 	      try {
-	        new Blob();
+	        new Blob()
 	        return true
 	      } catch(e) {
 	        return false
@@ -8062,7 +8071,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	  function headers(xhr) {
 	    var head = new Headers()
-	    var pairs = xhr.getAllResponseHeaders().trim().split('\n')
+	    var pairs = (xhr.getAllResponseHeaders() || '').trim().split('\n')
 	    pairs.forEach(function(header) {
 	      var split = header.trim().split(':')
 	      var key = split.shift().trim()
@@ -8115,9 +8124,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	    return new Response(null, {status: status, headers: {location: url}})
 	  }
 
-	  self.Headers = Headers;
-	  self.Request = Request;
-	  self.Response = Response;
+	  self.Headers = Headers
+	  self.Request = Request
+	  self.Response = Response
 
 	  self.fetch = function(input, init) {
 	    return new Promise(function(resolve, reject) {
@@ -8140,7 +8149,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	          return xhr.getResponseHeader('X-Request-URL')
 	        }
 
-	        return;
+	        return
 	      }
 
 	      xhr.onload = function() {
@@ -8155,11 +8164,15 @@ return /******/ (function(modules) { // webpackBootstrap
 	          headers: headers(xhr),
 	          url: responseURL()
 	        }
-	        var body = 'response' in xhr ? xhr.response : xhr.responseText;
+	        var body = 'response' in xhr ? xhr.response : xhr.responseText
 	        resolve(new Response(body, options))
 	      }
 
 	      xhr.onerror = function() {
+	        reject(new TypeError('Network request failed'))
+	      }
+
+	      xhr.ontimeout = function() {
 	        reject(new TypeError('Network request failed'))
 	      }
 
@@ -9230,14 +9243,83 @@ return /******/ (function(modules) { // webpackBootstrap
 /***/ function(module, exports) {
 
 	// shim for using process in browser
-
 	var process = module.exports = {};
+
+	// cached from whatever global is present so that test runners that stub it
+	// don't break things.  But we need to wrap it in a try catch in case it is
+	// wrapped in strict mode code which doesn't define any globals.  It's inside a
+	// function because try/catches deoptimize in certain engines.
+
+	var cachedSetTimeout;
+	var cachedClearTimeout;
+
+	(function () {
+	    try {
+	        cachedSetTimeout = setTimeout;
+	    } catch (e) {
+	        cachedSetTimeout = function () {
+	            throw new Error('setTimeout is not defined');
+	        }
+	    }
+	    try {
+	        cachedClearTimeout = clearTimeout;
+	    } catch (e) {
+	        cachedClearTimeout = function () {
+	            throw new Error('clearTimeout is not defined');
+	        }
+	    }
+	} ())
+	function runTimeout(fun) {
+	    if (cachedSetTimeout === setTimeout) {
+	        //normal enviroments in sane situations
+	        return setTimeout(fun, 0);
+	    }
+	    try {
+	        // when when somebody has screwed with setTimeout but no I.E. maddness
+	        return cachedSetTimeout(fun, 0);
+	    } catch(e){
+	        try {
+	            // When we are in I.E. but the script has been evaled so I.E. doesn't trust the global object when called normally
+	            return cachedSetTimeout.call(null, fun, 0);
+	        } catch(e){
+	            // same as above but when it's a version of I.E. that must have the global object for 'this', hopfully our context correct otherwise it will throw a global error
+	            return cachedSetTimeout.call(this, fun, 0);
+	        }
+	    }
+
+
+	}
+	function runClearTimeout(marker) {
+	    if (cachedClearTimeout === clearTimeout) {
+	        //normal enviroments in sane situations
+	        return clearTimeout(marker);
+	    }
+	    try {
+	        // when when somebody has screwed with setTimeout but no I.E. maddness
+	        return cachedClearTimeout(marker);
+	    } catch (e){
+	        try {
+	            // When we are in I.E. but the script has been evaled so I.E. doesn't  trust the global object when called normally
+	            return cachedClearTimeout.call(null, marker);
+	        } catch (e){
+	            // same as above but when it's a version of I.E. that must have the global object for 'this', hopfully our context correct otherwise it will throw a global error.
+	            // Some versions of I.E. have different rules for clearTimeout vs setTimeout
+	            return cachedClearTimeout.call(this, marker);
+	        }
+	    }
+
+
+
+	}
 	var queue = [];
 	var draining = false;
 	var currentQueue;
 	var queueIndex = -1;
 
 	function cleanUpNextTick() {
+	    if (!draining || !currentQueue) {
+	        return;
+	    }
 	    draining = false;
 	    if (currentQueue.length) {
 	        queue = currentQueue.concat(queue);
@@ -9253,7 +9335,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    if (draining) {
 	        return;
 	    }
-	    var timeout = setTimeout(cleanUpNextTick);
+	    var timeout = runTimeout(cleanUpNextTick);
 	    draining = true;
 
 	    var len = queue.length;
@@ -9270,7 +9352,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }
 	    currentQueue = null;
 	    draining = false;
-	    clearTimeout(timeout);
+	    runClearTimeout(timeout);
 	}
 
 	process.nextTick = function (fun) {
@@ -9282,7 +9364,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }
 	    queue.push(new Item(fun, args));
 	    if (queue.length === 1 && !draining) {
-	        setTimeout(drainQueue, 0);
+	        runTimeout(drainQueue);
 	    }
 	};
 
@@ -13290,6 +13372,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	    /**
 	     * @param key
+	     * @param options
 	     * options    [Object]    An object that contains the following keys that specify certain options for encoding.
 	     *  └>signingSchemeOptions
 	     *     ├>hash    [String]    Hash function to use when encoding and generating masks. Must be a string accepted by node's crypto.createHash function. (default = "sha1")
@@ -13303,9 +13386,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }
 
 	    Scheme.prototype.sign = function (buffer) {
-	        var encoded = this.emsa_pss_encode(buffer, this.key.keySize - 1);
-	        var res = this.key.$doPrivate(new BigInteger(encoded)).toBuffer(this.key.encryptedDataLength);
-	        return res;
+	        var mHash = crypt.createHash(this.options.signingSchemeOptions.hash || DEFAULT_HASH_FUNCTION);
+	        mHash.update(buffer);
+
+	        var encoded = this.emsa_pss_encode(mHash.digest(), this.key.keySize - 1);
+	        return this.key.$doPrivate(new BigInteger(encoded)).toBuffer(this.key.encryptedDataLength);
 	    };
 
 	    Scheme.prototype.verify = function (buffer, signature, signature_encoding) {
@@ -13317,17 +13402,20 @@ return /******/ (function(modules) { // webpackBootstrap
 	        var emLen = Math.ceil((this.key.keySize - 1) / 8);
 	        var m = this.key.$doPublic(signature).toBuffer(emLen);
 
-	        return this.emsa_pss_verify(buffer, m, this.key.keySize - 1);
+	        var mHash = crypt.createHash(this.options.signingSchemeOptions.hash || DEFAULT_HASH_FUNCTION);
+	        mHash.update(buffer);
+
+	        return this.emsa_pss_verify(mHash.digest(), m, this.key.keySize - 1);
 	    };
 
 	    /*
 	     * https://tools.ietf.org/html/rfc3447#section-9.1.1
 	     *
-	     * M		[Buffer]	Message to encode
+	     * mHash	[Buffer]	Hashed message to encode
 	     * emBits	[uint]		Maximum length of output in bits. Must be at least 8hLen + 8sLen + 9 (hLen = Hash digest length in bytes | sLen = length of salt in bytes)
 	     * @returns {Buffer} The encoded message
 	     */
-	    Scheme.prototype.emsa_pss_encode = function (M, emBits) {
+	    Scheme.prototype.emsa_pss_encode = function (mHash, emBits) {
 	        var hash = this.options.signingSchemeOptions.hash || DEFAULT_HASH_FUNCTION;
 	        var mgf = this.options.signingSchemeOptions.mgf || OAEP.eme_oaep_mgf1;
 	        var sLen = this.options.signingSchemeOptions.saltLength || DEFAULT_SALT_LENGTH;
@@ -13341,10 +13429,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	                (8 * hLen + 8 * sLen + 9) + ")"
 	            );
 	        }
-
-	        var mHash = crypt.createHash(hash);
-	        mHash.update(M);
-	        mHash = mHash.digest();
 
 	        var salt = crypt.randomBytes(sLen);
 
@@ -13373,9 +13457,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	            maskedDB[i] = DB[i] ^ dbMask[i];
 	        }
 
-	        var bits = emBits - 8 * (emLen - 1);
-	        var mask = 255 << 8 - bits >> 8 - bits;
-	        maskedDB[0] &= ((maskedDB[0] ^ mask) & maskedDB[0]);
+	        var bits = 8 * emLen - emBits;
+	        var mask = 255 ^ (255 >> 8 - bits << 8 - bits);
+	        maskedDB[0] = maskedDB[0] & mask;
 
 	        var EM = new Buffer(maskedDB.length + H.length + 1);
 	        maskedDB.copy(EM, 0);
@@ -13388,12 +13472,12 @@ return /******/ (function(modules) { // webpackBootstrap
 	    /*
 	     * https://tools.ietf.org/html/rfc3447#section-9.1.2
 	     *
-	     * M		[Buffer]	Message
+	     * mHash	[Buffer]	Hashed message
 	     * EM		[Buffer]	Signature
 	     * emBits	[uint]		Length of EM in bits. Must be at least 8hLen + 8sLen + 9 to be a valid signature. (hLen = Hash digest length in bytes | sLen = length of salt in bytes)
 	     * @returns {Boolean} True if signature(EM) matches message(M)
 	     */
-	    Scheme.prototype.emsa_pss_verify = function (M, EM, emBits) {
+	    Scheme.prototype.emsa_pss_verify = function (mHash, EM, emBits) {
 	        var hash = this.options.signingSchemeOptions.hash || DEFAULT_HASH_FUNCTION;
 	        var mgf = this.options.signingSchemeOptions.mgf || OAEP.eme_oaep_mgf1;
 	        var sLen = this.options.signingSchemeOptions.saltLength || DEFAULT_SALT_LENGTH;
@@ -13425,23 +13509,17 @@ return /******/ (function(modules) { // webpackBootstrap
 	            DB[i] ^= dbMask[i];
 	        }
 
-	        mask = 0;
-	        for (i = 0, bits = emBits - 8 * (emLen - 1); i < bits; i++) {
-	            mask |= 1 << i;
-	        }
-	        DB[0] &= mask;
+	        bits = 8 * emLen - emBits;
+	        mask = 255 ^ (255 >> 8 - bits << 8 - bits);
+	        DB[0] = DB[0] & mask;
 
 	        // Filter out padding
-	        while (DB[i++] === 0 && i < DB.length);
-	        if (DB[i - 1] != 1) {
+	        for (i = 0; DB[i] === 0 && i < DB.length; i++);
+	        if (DB[i] != 1) {
 	            return false;
 	        }
 
 	        var salt = DB.slice(DB.length - sLen);
-
-	        var mHash = crypt.createHash(hash);
-	        mHash.update(M);
-	        mHash = mHash.digest();
 
 	        var Mapostrophe = new Buffer(8 + hLen + sLen);
 	        Mapostrophe.fill(0, 0, 8);
@@ -13457,6 +13535,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	    return new Scheme(key, options);
 	};
+
 	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(1).Buffer))
 
 /***/ },
@@ -13910,6 +13989,50 @@ return /******/ (function(modules) { // webpackBootstrap
 /* 59 */
 /***/ function(module, exports, __webpack_require__) {
 
+	/* WEBPACK VAR INJECTION */(function(global) {'use strict';
+
+	// compare and isBuffer taken from https://github.com/feross/buffer/blob/680e9e5e488f22aac27599a57dc844a6315928dd/index.js
+	// original notice:
+
+	/*!
+	 * The buffer module from node.js, for the browser.
+	 *
+	 * @author   Feross Aboukhadijeh <feross@feross.org> <http://feross.org>
+	 * @license  MIT
+	 */
+	function compare(a, b) {
+	  if (a === b) {
+	    return 0;
+	  }
+
+	  var x = a.length;
+	  var y = b.length;
+
+	  for (var i = 0, len = Math.min(x, y); i < len; ++i) {
+	    if (a[i] !== b[i]) {
+	      x = a[i];
+	      y = b[i];
+	      break;
+	    }
+	  }
+
+	  if (x < y) {
+	    return -1;
+	  }
+	  if (y < x) {
+	    return 1;
+	  }
+	  return 0;
+	}
+	function isBuffer(b) {
+	  if (global.Buffer && typeof global.Buffer.isBuffer === 'function') {
+	    return global.Buffer.isBuffer(b);
+	  }
+	  return !!(b != null && b._isBuffer);
+	}
+
+	// based on node assert, original notice:
+
 	// http://wiki.commonjs.org/wiki/Unit_Testing/1.0
 	//
 	// THIS IS NOT TESTED NOR LIKELY TO WORK OUTSIDE V8!
@@ -13934,14 +14057,36 @@ return /******/ (function(modules) { // webpackBootstrap
 	// ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 	// WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-	// when used in node, this will actually load the util module we depend on
-	// versus loading the builtin util module as happens otherwise
-	// this is a bug in node module loading as far as I am concerned
 	var util = __webpack_require__(36);
-
-	var pSlice = Array.prototype.slice;
 	var hasOwn = Object.prototype.hasOwnProperty;
-
+	var pSlice = Array.prototype.slice;
+	var functionsHaveNames = (function () {
+	  return function foo() {}.name === 'foo';
+	}());
+	function pToString (obj) {
+	  return Object.prototype.toString.call(obj);
+	}
+	function isView(arrbuf) {
+	  if (isBuffer(arrbuf)) {
+	    return false;
+	  }
+	  if (typeof global.ArrayBuffer !== 'function') {
+	    return false;
+	  }
+	  if (typeof ArrayBuffer.isView === 'function') {
+	    return ArrayBuffer.isView(arrbuf);
+	  }
+	  if (!arrbuf) {
+	    return false;
+	  }
+	  if (arrbuf instanceof DataView) {
+	    return true;
+	  }
+	  if (arrbuf.buffer && arrbuf.buffer instanceof ArrayBuffer) {
+	    return true;
+	  }
+	  return false;
+	}
 	// 1. The assert module provides functions that throw
 	// AssertionError's when particular conditions are not met. The
 	// assert module must conform to the following interface.
@@ -13953,6 +14098,19 @@ return /******/ (function(modules) { // webpackBootstrap
 	//                             actual: actual,
 	//                             expected: expected })
 
+	var regex = /\s*function\s+([^\(\s]*)\s*/;
+	// based on https://github.com/ljharb/function.prototype.name/blob/adeeeec8bfcc6068b187d7d9fb3d5bb1d3a30899/implementation.js
+	function getName(func) {
+	  if (!util.isFunction(func)) {
+	    return;
+	  }
+	  if (functionsHaveNames) {
+	    return func.name;
+	  }
+	  var str = func.toString();
+	  var match = str.match(regex);
+	  return match && match[1];
+	}
 	assert.AssertionError = function AssertionError(options) {
 	  this.name = 'AssertionError';
 	  this.actual = options.actual;
@@ -13966,18 +14124,16 @@ return /******/ (function(modules) { // webpackBootstrap
 	    this.generatedMessage = true;
 	  }
 	  var stackStartFunction = options.stackStartFunction || fail;
-
 	  if (Error.captureStackTrace) {
 	    Error.captureStackTrace(this, stackStartFunction);
-	  }
-	  else {
+	  } else {
 	    // non v8 browsers so we can have a stacktrace
 	    var err = new Error();
 	    if (err.stack) {
 	      var out = err.stack;
 
 	      // try to strip useless frames
-	      var fn_name = stackStartFunction.name;
+	      var fn_name = getName(stackStartFunction);
 	      var idx = out.indexOf('\n' + fn_name);
 	      if (idx >= 0) {
 	        // once we have located the function frame
@@ -13994,31 +14150,25 @@ return /******/ (function(modules) { // webpackBootstrap
 	// assert.AssertionError instanceof Error
 	util.inherits(assert.AssertionError, Error);
 
-	function replacer(key, value) {
-	  if (util.isUndefined(value)) {
-	    return '' + value;
-	  }
-	  if (util.isNumber(value) && !isFinite(value)) {
-	    return value.toString();
-	  }
-	  if (util.isFunction(value) || util.isRegExp(value)) {
-	    return value.toString();
-	  }
-	  return value;
-	}
-
 	function truncate(s, n) {
-	  if (util.isString(s)) {
+	  if (typeof s === 'string') {
 	    return s.length < n ? s : s.slice(0, n);
 	  } else {
 	    return s;
 	  }
 	}
-
+	function inspect(something) {
+	  if (functionsHaveNames || !util.isFunction(something)) {
+	    return util.inspect(something);
+	  }
+	  var rawname = getName(something);
+	  var name = rawname ? ': ' + rawname : '';
+	  return '[Function' +  name + ']';
+	}
 	function getMessage(self) {
-	  return truncate(JSON.stringify(self.actual, replacer), 128) + ' ' +
+	  return truncate(inspect(self.actual), 128) + ' ' +
 	         self.operator + ' ' +
-	         truncate(JSON.stringify(self.expected, replacer), 128);
+	         truncate(inspect(self.expected), 128);
 	}
 
 	// At present only the three keys mentioned above are used and
@@ -14078,24 +14228,23 @@ return /******/ (function(modules) { // webpackBootstrap
 	// assert.deepEqual(actual, expected, message_opt);
 
 	assert.deepEqual = function deepEqual(actual, expected, message) {
-	  if (!_deepEqual(actual, expected)) {
+	  if (!_deepEqual(actual, expected, false)) {
 	    fail(actual, expected, message, 'deepEqual', assert.deepEqual);
 	  }
 	};
 
-	function _deepEqual(actual, expected) {
+	assert.deepStrictEqual = function deepStrictEqual(actual, expected, message) {
+	  if (!_deepEqual(actual, expected, true)) {
+	    fail(actual, expected, message, 'deepStrictEqual', assert.deepStrictEqual);
+	  }
+	};
+
+	function _deepEqual(actual, expected, strict, memos) {
 	  // 7.1. All identical values are equivalent, as determined by ===.
 	  if (actual === expected) {
 	    return true;
-
-	  } else if (util.isBuffer(actual) && util.isBuffer(expected)) {
-	    if (actual.length != expected.length) return false;
-
-	    for (var i = 0; i < actual.length; i++) {
-	      if (actual[i] !== expected[i]) return false;
-	    }
-
-	    return true;
+	  } else if (isBuffer(actual) && isBuffer(expected)) {
+	    return compare(actual, expected) === 0;
 
 	  // 7.2. If the expected value is a Date object, the actual value is
 	  // equivalent if it is also a Date object that refers to the same time.
@@ -14114,8 +14263,22 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	  // 7.4. Other pairs that do not both pass typeof value == 'object',
 	  // equivalence is determined by ==.
-	  } else if (!util.isObject(actual) && !util.isObject(expected)) {
-	    return actual == expected;
+	  } else if ((actual === null || typeof actual !== 'object') &&
+	             (expected === null || typeof expected !== 'object')) {
+	    return strict ? actual === expected : actual == expected;
+
+	  // If both values are instances of typed arrays, wrap their underlying
+	  // ArrayBuffers in a Buffer each to increase performance
+	  // This optimization requires the arrays to have the same type as checked by
+	  // Object.prototype.toString (aka pToString). Never perform binary
+	  // comparisons for Float*Arrays, though, since e.g. +0 === -0 but their
+	  // bit patterns are not identical.
+	  } else if (isView(actual) && isView(expected) &&
+	             pToString(actual) === pToString(expected) &&
+	             !(actual instanceof Float32Array ||
+	               actual instanceof Float64Array)) {
+	    return compare(new Uint8Array(actual.buffer),
+	                   new Uint8Array(expected.buffer)) === 0;
 
 	  // 7.5 For all other Object pairs, including Array objects, equivalence is
 	  // determined by having the same number of owned properties (as verified
@@ -14123,8 +14286,22 @@ return /******/ (function(modules) { // webpackBootstrap
 	  // (although not necessarily the same order), equivalent values for every
 	  // corresponding key, and an identical 'prototype' property. Note: this
 	  // accounts for both named and indexed properties on Arrays.
+	  } else if (isBuffer(actual) !== isBuffer(expected)) {
+	    return false;
 	  } else {
-	    return objEquiv(actual, expected);
+	    memos = memos || {actual: [], expected: []};
+
+	    var actualIndex = memos.actual.indexOf(actual);
+	    if (actualIndex !== -1) {
+	      if (actualIndex === memos.expected.indexOf(expected)) {
+	        return true;
+	      }
+	    }
+
+	    memos.actual.push(actual);
+	    memos.expected.push(expected);
+
+	    return objEquiv(actual, expected, strict, memos);
 	  }
 	}
 
@@ -14132,44 +14309,44 @@ return /******/ (function(modules) { // webpackBootstrap
 	  return Object.prototype.toString.call(object) == '[object Arguments]';
 	}
 
-	function objEquiv(a, b) {
-	  if (util.isNullOrUndefined(a) || util.isNullOrUndefined(b))
+	function objEquiv(a, b, strict, actualVisitedObjects) {
+	  if (a === null || a === undefined || b === null || b === undefined)
 	    return false;
-	  // an identical 'prototype' property.
-	  if (a.prototype !== b.prototype) return false;
 	  // if one is a primitive, the other must be same
-	  if (util.isPrimitive(a) || util.isPrimitive(b)) {
+	  if (util.isPrimitive(a) || util.isPrimitive(b))
 	    return a === b;
-	  }
-	  var aIsArgs = isArguments(a),
-	      bIsArgs = isArguments(b);
+	  if (strict && Object.getPrototypeOf(a) !== Object.getPrototypeOf(b))
+	    return false;
+	  var aIsArgs = isArguments(a);
+	  var bIsArgs = isArguments(b);
 	  if ((aIsArgs && !bIsArgs) || (!aIsArgs && bIsArgs))
 	    return false;
 	  if (aIsArgs) {
 	    a = pSlice.call(a);
 	    b = pSlice.call(b);
-	    return _deepEqual(a, b);
+	    return _deepEqual(a, b, strict);
 	  }
-	  var ka = objectKeys(a),
-	      kb = objectKeys(b),
-	      key, i;
+	  var ka = objectKeys(a);
+	  var kb = objectKeys(b);
+	  var key, i;
 	  // having the same number of owned properties (keys incorporates
 	  // hasOwnProperty)
-	  if (ka.length != kb.length)
+	  if (ka.length !== kb.length)
 	    return false;
 	  //the same set of keys (although not necessarily the same order),
 	  ka.sort();
 	  kb.sort();
 	  //~~~cheap key test
 	  for (i = ka.length - 1; i >= 0; i--) {
-	    if (ka[i] != kb[i])
+	    if (ka[i] !== kb[i])
 	      return false;
 	  }
 	  //equivalent values for every corresponding key, and
 	  //~~~possibly expensive deep test
 	  for (i = ka.length - 1; i >= 0; i--) {
 	    key = ka[i];
-	    if (!_deepEqual(a[key], b[key])) return false;
+	    if (!_deepEqual(a[key], b[key], strict, actualVisitedObjects))
+	      return false;
 	  }
 	  return true;
 	}
@@ -14178,10 +14355,18 @@ return /******/ (function(modules) { // webpackBootstrap
 	// assert.notDeepEqual(actual, expected, message_opt);
 
 	assert.notDeepEqual = function notDeepEqual(actual, expected, message) {
-	  if (_deepEqual(actual, expected)) {
+	  if (_deepEqual(actual, expected, false)) {
 	    fail(actual, expected, message, 'notDeepEqual', assert.notDeepEqual);
 	  }
 	};
+
+	assert.notDeepStrictEqual = notDeepStrictEqual;
+	function notDeepStrictEqual(actual, expected, message) {
+	  if (_deepEqual(actual, expected, true)) {
+	    fail(actual, expected, message, 'notDeepStrictEqual', notDeepStrictEqual);
+	  }
+	}
+
 
 	// 9. The strict equality assertion tests strict equality, as determined by ===.
 	// assert.strictEqual(actual, expected, message_opt);
@@ -14208,28 +14393,46 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	  if (Object.prototype.toString.call(expected) == '[object RegExp]') {
 	    return expected.test(actual);
-	  } else if (actual instanceof expected) {
-	    return true;
-	  } else if (expected.call({}, actual) === true) {
-	    return true;
 	  }
 
-	  return false;
+	  try {
+	    if (actual instanceof expected) {
+	      return true;
+	    }
+	  } catch (e) {
+	    // Ignore.  The instanceof check doesn't work for arrow functions.
+	  }
+
+	  if (Error.isPrototypeOf(expected)) {
+	    return false;
+	  }
+
+	  return expected.call({}, actual) === true;
+	}
+
+	function _tryBlock(block) {
+	  var error;
+	  try {
+	    block();
+	  } catch (e) {
+	    error = e;
+	  }
+	  return error;
 	}
 
 	function _throws(shouldThrow, block, expected, message) {
 	  var actual;
 
-	  if (util.isString(expected)) {
+	  if (typeof block !== 'function') {
+	    throw new TypeError('"block" argument must be a function');
+	  }
+
+	  if (typeof expected === 'string') {
 	    message = expected;
 	    expected = null;
 	  }
 
-	  try {
-	    block();
-	  } catch (e) {
-	    actual = e;
-	  }
+	  actual = _tryBlock(block);
 
 	  message = (expected && expected.name ? ' (' + expected.name + ').' : '.') +
 	            (message ? ' ' + message : '.');
@@ -14238,7 +14441,14 @@ return /******/ (function(modules) { // webpackBootstrap
 	    fail(actual, expected, 'Missing expected exception' + message);
 	  }
 
-	  if (!shouldThrow && expectedException(actual, expected)) {
+	  var userProvidedMessage = typeof message === 'string';
+	  var isUnwantedException = !shouldThrow && util.isError(actual);
+	  var isUnexpectedException = !shouldThrow && actual && !expected;
+
+	  if ((isUnwantedException &&
+	      userProvidedMessage &&
+	      expectedException(actual, expected)) ||
+	      isUnexpectedException) {
 	    fail(actual, expected, 'Got unwanted exception' + message);
 	  }
 
@@ -14252,15 +14462,15 @@ return /******/ (function(modules) { // webpackBootstrap
 	// assert.throws(block, Error_opt, message_opt);
 
 	assert.throws = function(block, /*optional*/error, /*optional*/message) {
-	  _throws.apply(this, [true].concat(pSlice.call(arguments)));
+	  _throws(true, block, error, message);
 	};
 
 	// EXTENSION! This is annoying to write outside this module.
-	assert.doesNotThrow = function(block, /*optional*/message) {
-	  _throws.apply(this, [false].concat(pSlice.call(arguments)));
+	assert.doesNotThrow = function(block, /*optional*/error, /*optional*/message) {
+	  _throws(false, block, error, message);
 	};
 
-	assert.ifError = function(err) { if (err) {throw err;}};
+	assert.ifError = function(err) { if (err) throw err; };
 
 	var objectKeys = Object.keys || function (obj) {
 	  var keys = [];
@@ -14270,6 +14480,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	  return keys;
 	};
 
+	/* WEBPACK VAR INJECTION */}.call(exports, (function() { return this; }())))
 
 /***/ },
 /* 60 */
@@ -15489,31 +15700,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }
 
 	    /**
-	     * A method that returns `undefined`.
-	     *
-	     * @static
-	     * @memberOf _
-	     * @since 2.3.0
-	     * @category Util
-	     * @example
-	     *
-	     * _.times(2, _.noop);
-	     * // => [undefined, undefined]
-	     */
-	    function noop() {
-	      // No operation performed.
-	    }
-
-	    function once(fn) {
-	        return function () {
-	            if (fn === null) return;
-	            var callFn = fn;
-	            fn = null;
-	            callFn.apply(this, arguments);
-	        };
-	    }
-
-	    /**
 	     * The base implementation of `_.property` without support for deep paths.
 	     *
 	     * @private
@@ -15601,6 +15787,31 @@ return /******/ (function(modules) { // webpackBootstrap
 	     */
 	    function isArrayLike(value) {
 	      return value != null && isLength(getLength(value)) && !isFunction(value);
+	    }
+
+	    /**
+	     * A method that returns `undefined`.
+	     *
+	     * @static
+	     * @memberOf _
+	     * @since 2.3.0
+	     * @category Util
+	     * @example
+	     *
+	     * _.times(2, _.noop);
+	     * // => [undefined, undefined]
+	     */
+	    function noop() {
+	      // No operation performed.
+	    }
+
+	    function once(fn) {
+	        return function () {
+	            if (fn === null) return;
+	            var callFn = fn;
+	            fn = null;
+	            callFn.apply(this, arguments);
+	        };
 	    }
 
 	    var iteratorSymbol = typeof Symbol === 'function' && Symbol.iterator;
@@ -15918,34 +16129,41 @@ return /******/ (function(modules) { // webpackBootstrap
 	      return result;
 	    }
 
-	    function iterator(coll) {
+	    function createArrayIterator(coll) {
 	        var i = -1;
-	        var len;
-	        if (isArrayLike(coll)) {
-	            len = coll.length;
-	            return function next() {
-	                i++;
-	                return i < len ? { value: coll[i], key: i } : null;
-	            };
-	        }
-
-	        var iterate = getIterator(coll);
-	        if (iterate) {
-	            return function next() {
-	                var item = iterate.next();
-	                if (item.done) return null;
-	                i++;
-	                return { value: item.value, key: i };
-	            };
-	        }
-
-	        var okeys = keys(coll);
-	        len = okeys.length;
+	        var len = coll.length;
 	        return function next() {
-	            i++;
-	            var key = okeys[i];
-	            return i < len ? { value: coll[key], key: key } : null;
+	            return ++i < len ? { value: coll[i], key: i } : null;
 	        };
+	    }
+
+	    function createES2015Iterator(iterator) {
+	        var i = -1;
+	        return function next() {
+	            var item = iterator.next();
+	            if (item.done) return null;
+	            i++;
+	            return { value: item.value, key: i };
+	        };
+	    }
+
+	    function createObjectIterator(obj) {
+	        var okeys = keys(obj);
+	        var i = -1;
+	        var len = okeys.length;
+	        return function next() {
+	            var key = okeys[++i];
+	            return i < len ? { value: obj[key], key: key } : null;
+	        };
+	    }
+
+	    function iterator(coll) {
+	        if (isArrayLike(coll)) {
+	            return createArrayIterator(coll);
+	        }
+
+	        var iterator = getIterator(coll);
+	        return iterator ? createES2015Iterator(iterator) : createObjectIterator(coll);
 	    }
 
 	    function onlyOnce(fn) {
@@ -15960,21 +16178,27 @@ return /******/ (function(modules) { // webpackBootstrap
 	    function _eachOfLimit(limit) {
 	        return function (obj, iteratee, callback) {
 	            callback = once(callback || noop);
-	            obj = obj || [];
-	            var nextElem = iterator(obj);
-	            if (limit <= 0) {
+	            if (limit <= 0 || !obj) {
 	                return callback(null);
 	            }
+	            var nextElem = iterator(obj);
 	            var done = false;
 	            var running = 0;
-	            var errored = false;
 
-	            (function replenish() {
-	                if (done && running <= 0) {
+	            function iterateeCallback(err) {
+	                running -= 1;
+	                if (err) {
+	                    done = true;
+	                    callback(err);
+	                } else if (done && running <= 0) {
 	                    return callback(null);
+	                } else {
+	                    replenish();
 	                }
+	            }
 
-	                while (running < limit && !errored) {
+	            function replenish() {
+	                while (running < limit && !done) {
 	                    var elem = nextElem();
 	                    if (elem === null) {
 	                        done = true;
@@ -15984,23 +16208,180 @@ return /******/ (function(modules) { // webpackBootstrap
 	                        return;
 	                    }
 	                    running += 1;
-	                    iteratee(elem.value, elem.key, onlyOnce(function (err) {
-	                        running -= 1;
-	                        if (err) {
-	                            callback(err);
-	                            errored = true;
-	                        } else {
-	                            replenish();
-	                        }
-	                    }));
+	                    iteratee(elem.value, elem.key, onlyOnce(iterateeCallback));
 	                }
-	            })();
+	            }
+
+	            replenish();
 	        };
 	    }
 
-	    function doParallelLimit(fn) {
-	        return function (obj, limit, iteratee, callback) {
-	            return fn(_eachOfLimit(limit), obj, iteratee, callback);
+	    /**
+	     * The same as [`eachOf`]{@link module:Collections.eachOf} but runs a maximum of `limit` async operations at a
+	     * time.
+	     *
+	     * @name eachOfLimit
+	     * @static
+	     * @memberOf module:Collections
+	     * @method
+	     * @see [async.eachOf]{@link module:Collections.eachOf}
+	     * @alias forEachOfLimit
+	     * @category Collection
+	     * @param {Array|Iterable|Object} coll - A collection to iterate over.
+	     * @param {number} limit - The maximum number of async operations at a time.
+	     * @param {Function} iteratee - A function to apply to each
+	     * item in `coll`. The `key` is the item's key, or index in the case of an
+	     * array. The iteratee is passed a `callback(err)` which must be called once it
+	     * has completed. If no error has occurred, the callback should be run without
+	     * arguments or with an explicit `null` argument. Invoked with
+	     * (item, key, callback).
+	     * @param {Function} [callback] - A callback which is called when all
+	     * `iteratee` functions have finished, or an error occurs. Invoked with (err).
+	     */
+	    function eachOfLimit(coll, limit, iteratee, callback) {
+	      _eachOfLimit(limit)(coll, iteratee, callback);
+	    }
+
+	    function doLimit(fn, limit) {
+	        return function (iterable, iteratee, callback) {
+	            return fn(iterable, limit, iteratee, callback);
+	        };
+	    }
+
+	    /** Used as the `TypeError` message for "Functions" methods. */
+	    var FUNC_ERROR_TEXT$1 = 'Expected a function';
+
+	    /**
+	     * Creates a function that invokes `func`, with the `this` binding and arguments
+	     * of the created function, while it's called less than `n` times. Subsequent
+	     * calls to the created function return the result of the last `func` invocation.
+	     *
+	     * @static
+	     * @memberOf _
+	     * @since 3.0.0
+	     * @category Function
+	     * @param {number} n The number of calls at which `func` is no longer invoked.
+	     * @param {Function} func The function to restrict.
+	     * @returns {Function} Returns the new restricted function.
+	     * @example
+	     *
+	     * jQuery(element).on('click', _.before(5, addContactToList));
+	     * // => allows adding up to 4 contacts to the list
+	     */
+	    function before(n, func) {
+	      var result;
+	      if (typeof func != 'function') {
+	        throw new TypeError(FUNC_ERROR_TEXT$1);
+	      }
+	      n = toInteger(n);
+	      return function() {
+	        if (--n > 0) {
+	          result = func.apply(this, arguments);
+	        }
+	        if (n <= 1) {
+	          func = undefined;
+	        }
+	        return result;
+	      };
+	    }
+
+	    /**
+	     * Creates a function that is restricted to invoking `func` once. Repeat calls
+	     * to the function return the value of the first invocation. The `func` is
+	     * invoked with the `this` binding and arguments of the created function.
+	     *
+	     * @static
+	     * @memberOf _
+	     * @since 0.1.0
+	     * @category Function
+	     * @param {Function} func The function to restrict.
+	     * @returns {Function} Returns the new restricted function.
+	     * @example
+	     *
+	     * var initialize = _.once(createApplication);
+	     * initialize();
+	     * initialize();
+	     * // `initialize` invokes `createApplication` once
+	     */
+	    function once$1(func) {
+	      return before(2, func);
+	    }
+
+	    // eachOf implementation optimized for array-likes
+	    function eachOfArrayLike(coll, iteratee, callback) {
+	        callback = once$1(callback || noop);
+	        var index = 0,
+	            completed = 0,
+	            length = coll.length;
+	        if (length === 0) {
+	            callback(null);
+	        }
+
+	        function iteratorCallback(err) {
+	            if (err) {
+	                callback(err);
+	            } else if (++completed === length) {
+	                callback(null);
+	            }
+	        }
+
+	        for (; index < length; index++) {
+	            iteratee(coll[index], index, onlyOnce(iteratorCallback));
+	        }
+	    }
+
+	    // a generic version of eachOf which can handle array, object, and iterator cases.
+	    var eachOfGeneric = doLimit(eachOfLimit, Infinity);
+
+	    /**
+	     * Like [`each`]{@link module:Collections.each}, except that it passes the key (or index) as the second argument
+	     * to the iteratee.
+	     *
+	     * @name eachOf
+	     * @static
+	     * @memberOf module:Collections
+	     * @method
+	     * @alias forEachOf
+	     * @category Collection
+	     * @see [async.each]{@link module:Collections.each}
+	     * @param {Array|Iterable|Object} coll - A collection to iterate over.
+	     * @param {Function} iteratee - A function to apply to each
+	     * item in `coll`. The `key` is the item's key, or index in the case of an
+	     * array. The iteratee is passed a `callback(err)` which must be called once it
+	     * has completed. If no error has occurred, the callback should be run without
+	     * arguments or with an explicit `null` argument. Invoked with
+	     * (item, key, callback).
+	     * @param {Function} [callback] - A callback which is called when all
+	     * `iteratee` functions have finished, or an error occurs. Invoked with (err).
+	     * @example
+	     *
+	     * var obj = {dev: "/dev.json", test: "/test.json", prod: "/prod.json"};
+	     * var configs = {};
+	     *
+	     * async.forEachOf(obj, function (value, key, callback) {
+	     *     fs.readFile(__dirname + value, "utf8", function (err, data) {
+	     *         if (err) return callback(err);
+	     *         try {
+	     *             configs[key] = JSON.parse(data);
+	     *         } catch (e) {
+	     *             return callback(e);
+	     *         }
+	     *         callback();
+	     *     });
+	     * }, function (err) {
+	     *     if (err) console.error(err.message);
+	     *     // configs is now a map of JSON data
+	     *     doSomethingWith(configs);
+	     * });
+	     */
+	    function eachOf (coll, iteratee, callback) {
+	        var eachOfImplementation = isArrayLike(coll) ? eachOfArrayLike : eachOfGeneric;
+	        eachOfImplementation(coll, iteratee, callback);
+	    }
+
+	    function doParallel(fn) {
+	        return function (obj, iteratee, callback) {
+	            return fn(eachOf, obj, iteratee, callback);
 	        };
 	    }
 
@@ -16022,32 +16403,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }
 
 	    /**
-	     * The same as `map` but runs a maximum of `limit` async operations at a time.
-	     *
-	     * @name mapLimit
-	     * @static
-	     * @memberOf async
-	     * @see async.map
-	     * @category Collection
-	     * @param {Array|Object} coll - A collection to iterate over.
-	     * @param {number} limit - The maximum number of async operations at a time.
-	     * @param {Function} iteratee - A function to apply to each item in `coll`.
-	     * The iteratee is passed a `callback(err, transformed)` which must be called
-	     * once it has completed with an error (which can be `null`) and a transformed
-	     * item. Invoked with (item, callback).
-	     * @param {Function} [callback] - A callback which is called when all `iteratee`
-	     * functions have finished, or an error occurs. Results is an array of the
-	     * transformed items from the `coll`. Invoked with (err, results).
-	     */
-	    var mapLimit = doParallelLimit(_asyncMap);
-
-	    function doLimit(fn, limit) {
-	        return function (iterable, iteratee, callback) {
-	            return fn(iterable, limit, iteratee, callback);
-	        };
-	    }
-
-	    /**
 	     * Produces a new collection of values by mapping each value in `coll` through
 	     * the `iteratee` function. The `iteratee` is called with an item from `coll`
 	     * and a callback for when it has finished processing. Each of these callback
@@ -16066,9 +16421,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	     *
 	     * @name map
 	     * @static
-	     * @memberOf async
+	     * @memberOf module:Collections
+	     * @method
 	     * @category Collection
-	     * @param {Array|Object} coll - A collection to iterate over.
+	     * @param {Array|Iterable|Object} coll - A collection to iterate over.
 	     * @param {Function} iteratee - A function to apply to each item in `coll`.
 	     * The iteratee is passed a `callback(err, transformed)` which must be called
 	     * once it has completed with an error (which can be `null`) and a
@@ -16082,7 +16438,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	     *     // results is now an array of stats for each file
 	     * });
 	     */
-	    var map = doLimit(mapLimit, Infinity);
+	    var map = doParallel(_asyncMap);
 
 	    /**
 	     * Applies the provided arguments to each function in the array, calling
@@ -16092,9 +16448,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	     *
 	     * @name applyEach
 	     * @static
-	     * @memberOf async
+	     * @memberOf module:ControlFlow
+	     * @method
 	     * @category Control Flow
-	     * @param {Array|Object} fns - A collection of asynchronous functions to all
+	     * @param {Array|Iterable|Object} fns - A collection of asynchronous functions to all
 	     * call with the same arguments
 	     * @param {...*} [args] - any number of separate arguments to pass to the
 	     * function.
@@ -16116,15 +16473,43 @@ return /******/ (function(modules) { // webpackBootstrap
 	     */
 	    var applyEach = applyEach$1(map);
 
+	    function doParallelLimit(fn) {
+	        return function (obj, limit, iteratee, callback) {
+	            return fn(_eachOfLimit(limit), obj, iteratee, callback);
+	        };
+	    }
+
 	    /**
-	     * The same as `map` but runs only a single async operation at a time.
+	     * The same as [`map`]{@link module:Collections.map} but runs a maximum of `limit` async operations at a time.
+	     *
+	     * @name mapLimit
+	     * @static
+	     * @memberOf module:Collections
+	     * @method
+	     * @see [async.map]{@link module:Collections.map}
+	     * @category Collection
+	     * @param {Array|Iterable|Object} coll - A collection to iterate over.
+	     * @param {number} limit - The maximum number of async operations at a time.
+	     * @param {Function} iteratee - A function to apply to each item in `coll`.
+	     * The iteratee is passed a `callback(err, transformed)` which must be called
+	     * once it has completed with an error (which can be `null`) and a transformed
+	     * item. Invoked with (item, callback).
+	     * @param {Function} [callback] - A callback which is called when all `iteratee`
+	     * functions have finished, or an error occurs. Results is an array of the
+	     * transformed items from the `coll`. Invoked with (err, results).
+	     */
+	    var mapLimit = doParallelLimit(_asyncMap);
+
+	    /**
+	     * The same as [`map`]{@link module:Collections.map} but runs only a single async operation at a time.
 	     *
 	     * @name mapSeries
 	     * @static
-	     * @memberOf async
-	     * @see async.map
+	     * @memberOf module:Collections
+	     * @method
+	     * @see [async.map]{@link module:Collections.map}
 	     * @category Collection
-	     * @param {Array|Object} coll - A collection to iterate over.
+	     * @param {Array|Iterable|Object} coll - A collection to iterate over.
 	     * @param {Function} iteratee - A function to apply to each item in `coll`.
 	     * The iteratee is passed a `callback(err, transformed)` which must be called
 	     * once it has completed with an error (which can be `null`) and a
@@ -16136,14 +16521,15 @@ return /******/ (function(modules) { // webpackBootstrap
 	    var mapSeries = doLimit(mapLimit, 1);
 
 	    /**
-	     * The same as `applyEach` but runs only a single async operation at a time.
+	     * The same as [`applyEach`]{@link module:ControlFlow.applyEach} but runs only a single async operation at a time.
 	     *
 	     * @name applyEachSeries
 	     * @static
-	     * @memberOf async
-	     * @see async.applyEach
+	     * @memberOf module:ControlFlow
+	     * @method
+	     * @see [async.applyEach]{@link module:ControlFlow.applyEach}
 	     * @category Control Flow
-	     * @param {Array|Object} fns - A collection of asynchronous functions to all
+	     * @param {Array|Iterable|Object} fns - A collection of asynchronous functions to all
 	     * call with the same arguments
 	     * @param {...*} [args] - any number of separate arguments to pass to the
 	     * function.
@@ -16164,7 +16550,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	     *
 	     * @name apply
 	     * @static
-	     * @memberOf async
+	     * @memberOf module:Utils
+	     * @method
 	     * @category Util
 	     * @param {Function} function - The function you want to eventually apply all
 	     * arguments to. Invokes with (arguments...).
@@ -16219,7 +16606,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	     *
 	     * @name asyncify
 	     * @static
-	     * @memberOf async
+	     * @memberOf module:Utils
+	     * @method
 	     * @alias wrapSync
 	     * @category Util
 	     * @param {Function} func - The synchronous function to convert to an
@@ -16270,7 +16658,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	            if (isObject(result) && typeof result.then === 'function') {
 	                result.then(function (value) {
 	                    callback(null, value);
-	                })['catch'](function (err) {
+	                }, function (err) {
 	                    callback(err.message ? err : new Error(err));
 	                });
 	            } else {
@@ -16350,1851 +16738,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }
 
 	    /**
-	     * Removes all key-value entries from the list cache.
-	     *
-	     * @private
-	     * @name clear
-	     * @memberOf ListCache
-	     */
-	    function listCacheClear() {
-	      this.__data__ = [];
-	    }
-
-	    /**
-	     * Performs a
-	     * [`SameValueZero`](http://ecma-international.org/ecma-262/6.0/#sec-samevaluezero)
-	     * comparison between two values to determine if they are equivalent.
-	     *
-	     * @static
-	     * @memberOf _
-	     * @since 4.0.0
-	     * @category Lang
-	     * @param {*} value The value to compare.
-	     * @param {*} other The other value to compare.
-	     * @returns {boolean} Returns `true` if the values are equivalent, else `false`.
-	     * @example
-	     *
-	     * var object = { 'user': 'fred' };
-	     * var other = { 'user': 'fred' };
-	     *
-	     * _.eq(object, object);
-	     * // => true
-	     *
-	     * _.eq(object, other);
-	     * // => false
-	     *
-	     * _.eq('a', 'a');
-	     * // => true
-	     *
-	     * _.eq('a', Object('a'));
-	     * // => false
-	     *
-	     * _.eq(NaN, NaN);
-	     * // => true
-	     */
-	    function eq(value, other) {
-	      return value === other || (value !== value && other !== other);
-	    }
-
-	    /**
-	     * Gets the index at which the `key` is found in `array` of key-value pairs.
-	     *
-	     * @private
-	     * @param {Array} array The array to search.
-	     * @param {*} key The key to search for.
-	     * @returns {number} Returns the index of the matched value, else `-1`.
-	     */
-	    function assocIndexOf(array, key) {
-	      var length = array.length;
-	      while (length--) {
-	        if (eq(array[length][0], key)) {
-	          return length;
-	        }
-	      }
-	      return -1;
-	    }
-
-	    /** Used for built-in method references. */
-	    var arrayProto = Array.prototype;
-
-	    /** Built-in value references. */
-	    var splice = arrayProto.splice;
-
-	    /**
-	     * Removes `key` and its value from the list cache.
-	     *
-	     * @private
-	     * @name delete
-	     * @memberOf ListCache
-	     * @param {string} key The key of the value to remove.
-	     * @returns {boolean} Returns `true` if the entry was removed, else `false`.
-	     */
-	    function listCacheDelete(key) {
-	      var data = this.__data__,
-	          index = assocIndexOf(data, key);
-
-	      if (index < 0) {
-	        return false;
-	      }
-	      var lastIndex = data.length - 1;
-	      if (index == lastIndex) {
-	        data.pop();
-	      } else {
-	        splice.call(data, index, 1);
-	      }
-	      return true;
-	    }
-
-	    /**
-	     * Gets the list cache value for `key`.
-	     *
-	     * @private
-	     * @name get
-	     * @memberOf ListCache
-	     * @param {string} key The key of the value to get.
-	     * @returns {*} Returns the entry value.
-	     */
-	    function listCacheGet(key) {
-	      var data = this.__data__,
-	          index = assocIndexOf(data, key);
-
-	      return index < 0 ? undefined : data[index][1];
-	    }
-
-	    /**
-	     * Checks if a list cache value for `key` exists.
-	     *
-	     * @private
-	     * @name has
-	     * @memberOf ListCache
-	     * @param {string} key The key of the entry to check.
-	     * @returns {boolean} Returns `true` if an entry for `key` exists, else `false`.
-	     */
-	    function listCacheHas(key) {
-	      return assocIndexOf(this.__data__, key) > -1;
-	    }
-
-	    /**
-	     * Sets the list cache `key` to `value`.
-	     *
-	     * @private
-	     * @name set
-	     * @memberOf ListCache
-	     * @param {string} key The key of the value to set.
-	     * @param {*} value The value to set.
-	     * @returns {Object} Returns the list cache instance.
-	     */
-	    function listCacheSet(key, value) {
-	      var data = this.__data__,
-	          index = assocIndexOf(data, key);
-
-	      if (index < 0) {
-	        data.push([key, value]);
-	      } else {
-	        data[index][1] = value;
-	      }
-	      return this;
-	    }
-
-	    /**
-	     * Creates an list cache object.
-	     *
-	     * @private
-	     * @constructor
-	     * @param {Array} [entries] The key-value pairs to cache.
-	     */
-	    function ListCache(entries) {
-	      var index = -1,
-	          length = entries ? entries.length : 0;
-
-	      this.clear();
-	      while (++index < length) {
-	        var entry = entries[index];
-	        this.set(entry[0], entry[1]);
-	      }
-	    }
-
-	    // Add methods to `ListCache`.
-	    ListCache.prototype.clear = listCacheClear;
-	    ListCache.prototype['delete'] = listCacheDelete;
-	    ListCache.prototype.get = listCacheGet;
-	    ListCache.prototype.has = listCacheHas;
-	    ListCache.prototype.set = listCacheSet;
-
-	    /**
-	     * Removes all key-value entries from the stack.
-	     *
-	     * @private
-	     * @name clear
-	     * @memberOf Stack
-	     */
-	    function stackClear() {
-	      this.__data__ = new ListCache;
-	    }
-
-	    /**
-	     * Removes `key` and its value from the stack.
-	     *
-	     * @private
-	     * @name delete
-	     * @memberOf Stack
-	     * @param {string} key The key of the value to remove.
-	     * @returns {boolean} Returns `true` if the entry was removed, else `false`.
-	     */
-	    function stackDelete(key) {
-	      return this.__data__['delete'](key);
-	    }
-
-	    /**
-	     * Gets the stack value for `key`.
-	     *
-	     * @private
-	     * @name get
-	     * @memberOf Stack
-	     * @param {string} key The key of the value to get.
-	     * @returns {*} Returns the entry value.
-	     */
-	    function stackGet(key) {
-	      return this.__data__.get(key);
-	    }
-
-	    /**
-	     * Checks if a stack value for `key` exists.
-	     *
-	     * @private
-	     * @name has
-	     * @memberOf Stack
-	     * @param {string} key The key of the entry to check.
-	     * @returns {boolean} Returns `true` if an entry for `key` exists, else `false`.
-	     */
-	    function stackHas(key) {
-	      return this.__data__.has(key);
-	    }
-
-	    /**
-	     * Checks if `value` is a host object in IE < 9.
-	     *
-	     * @private
-	     * @param {*} value The value to check.
-	     * @returns {boolean} Returns `true` if `value` is a host object, else `false`.
-	     */
-	    function isHostObject(value) {
-	      // Many host objects are `Object` objects that can coerce to strings
-	      // despite having improperly defined `toString` methods.
-	      var result = false;
-	      if (value != null && typeof value.toString != 'function') {
-	        try {
-	          result = !!(value + '');
-	        } catch (e) {}
-	      }
-	      return result;
-	    }
-
-	    /**
-	     * Checks if `value` is a global object.
-	     *
-	     * @private
-	     * @param {*} value The value to check.
-	     * @returns {null|Object} Returns `value` if it's a global object, else `null`.
-	     */
-	    function checkGlobal(value) {
-	      return (value && value.Object === Object) ? value : null;
-	    }
-
-	    /** Detect free variable `global` from Node.js. */
-	    var freeGlobal = checkGlobal(typeof global == 'object' && global);
-
-	    /** Detect free variable `self`. */
-	    var freeSelf = checkGlobal(typeof self == 'object' && self);
-
-	    /** Detect `this` as the global object. */
-	    var thisGlobal = checkGlobal(typeof this == 'object' && this);
-
-	    /** Used as a reference to the global object. */
-	    var root = freeGlobal || freeSelf || thisGlobal || Function('return this')();
-
-	    /** Used to detect overreaching core-js shims. */
-	    var coreJsData = root['__core-js_shared__'];
-
-	    /** Used to detect methods masquerading as native. */
-	    var maskSrcKey = (function() {
-	      var uid = /[^.]+$/.exec(coreJsData && coreJsData.keys && coreJsData.keys.IE_PROTO || '');
-	      return uid ? ('Symbol(src)_1.' + uid) : '';
-	    }());
-
-	    /**
-	     * Checks if `func` has its source masked.
-	     *
-	     * @private
-	     * @param {Function} func The function to check.
-	     * @returns {boolean} Returns `true` if `func` is masked, else `false`.
-	     */
-	    function isMasked(func) {
-	      return !!maskSrcKey && (maskSrcKey in func);
-	    }
-
-	    /** Used to resolve the decompiled source of functions. */
-	    var funcToString$1 = Function.prototype.toString;
-
-	    /**
-	     * Converts `func` to its source code.
-	     *
-	     * @private
-	     * @param {Function} func The function to process.
-	     * @returns {string} Returns the source code.
-	     */
-	    function toSource(func) {
-	      if (func != null) {
-	        try {
-	          return funcToString$1.call(func);
-	        } catch (e) {}
-	        try {
-	          return (func + '');
-	        } catch (e) {}
-	      }
-	      return '';
-	    }
-
-	    /**
-	     * Used to match `RegExp`
-	     * [syntax characters](http://ecma-international.org/ecma-262/6.0/#sec-patterns).
-	     */
-	    var reRegExpChar = /[\\^$.*+?()[\]{}|]/g;
-
-	    /** Used to detect host constructors (Safari). */
-	    var reIsHostCtor = /^\[object .+?Constructor\]$/;
-
-	    /** Used for built-in method references. */
-	    var objectProto$6 = Object.prototype;
-
-	    /** Used to resolve the decompiled source of functions. */
-	    var funcToString = Function.prototype.toString;
-
-	    /** Used to check objects for own properties. */
-	    var hasOwnProperty$2 = objectProto$6.hasOwnProperty;
-
-	    /** Used to detect if a method is native. */
-	    var reIsNative = RegExp('^' +
-	      funcToString.call(hasOwnProperty$2).replace(reRegExpChar, '\\$&')
-	      .replace(/hasOwnProperty|(function).*?(?=\\\()| for .+?(?=\\\])/g, '$1.*?') + '$'
-	    );
-
-	    /**
-	     * The base implementation of `_.isNative` without bad shim checks.
-	     *
-	     * @private
-	     * @param {*} value The value to check.
-	     * @returns {boolean} Returns `true` if `value` is a native function,
-	     *  else `false`.
-	     */
-	    function baseIsNative(value) {
-	      if (!isObject(value) || isMasked(value)) {
-	        return false;
-	      }
-	      var pattern = (isFunction(value) || isHostObject(value)) ? reIsNative : reIsHostCtor;
-	      return pattern.test(toSource(value));
-	    }
-
-	    /**
-	     * Gets the value at `key` of `object`.
-	     *
-	     * @private
-	     * @param {Object} [object] The object to query.
-	     * @param {string} key The key of the property to get.
-	     * @returns {*} Returns the property value.
-	     */
-	    function getValue(object, key) {
-	      return object == null ? undefined : object[key];
-	    }
-
-	    /**
-	     * Gets the native function at `key` of `object`.
-	     *
-	     * @private
-	     * @param {Object} object The object to query.
-	     * @param {string} key The key of the method to get.
-	     * @returns {*} Returns the function if it's native, else `undefined`.
-	     */
-	    function getNative(object, key) {
-	      var value = getValue(object, key);
-	      return baseIsNative(value) ? value : undefined;
-	    }
-
-	    /* Built-in method references that are verified to be native. */
-	    var nativeCreate = getNative(Object, 'create');
-
-	    /**
-	     * Removes all key-value entries from the hash.
-	     *
-	     * @private
-	     * @name clear
-	     * @memberOf Hash
-	     */
-	    function hashClear() {
-	      this.__data__ = nativeCreate ? nativeCreate(null) : {};
-	    }
-
-	    /**
-	     * Removes `key` and its value from the hash.
-	     *
-	     * @private
-	     * @name delete
-	     * @memberOf Hash
-	     * @param {Object} hash The hash to modify.
-	     * @param {string} key The key of the value to remove.
-	     * @returns {boolean} Returns `true` if the entry was removed, else `false`.
-	     */
-	    function hashDelete(key) {
-	      return this.has(key) && delete this.__data__[key];
-	    }
-
-	    /** Used to stand-in for `undefined` hash values. */
-	    var HASH_UNDEFINED = '__lodash_hash_undefined__';
-
-	    /** Used for built-in method references. */
-	    var objectProto$7 = Object.prototype;
-
-	    /** Used to check objects for own properties. */
-	    var hasOwnProperty$3 = objectProto$7.hasOwnProperty;
-
-	    /**
-	     * Gets the hash value for `key`.
-	     *
-	     * @private
-	     * @name get
-	     * @memberOf Hash
-	     * @param {string} key The key of the value to get.
-	     * @returns {*} Returns the entry value.
-	     */
-	    function hashGet(key) {
-	      var data = this.__data__;
-	      if (nativeCreate) {
-	        var result = data[key];
-	        return result === HASH_UNDEFINED ? undefined : result;
-	      }
-	      return hasOwnProperty$3.call(data, key) ? data[key] : undefined;
-	    }
-
-	    /** Used for built-in method references. */
-	    var objectProto$8 = Object.prototype;
-
-	    /** Used to check objects for own properties. */
-	    var hasOwnProperty$4 = objectProto$8.hasOwnProperty;
-
-	    /**
-	     * Checks if a hash value for `key` exists.
-	     *
-	     * @private
-	     * @name has
-	     * @memberOf Hash
-	     * @param {string} key The key of the entry to check.
-	     * @returns {boolean} Returns `true` if an entry for `key` exists, else `false`.
-	     */
-	    function hashHas(key) {
-	      var data = this.__data__;
-	      return nativeCreate ? data[key] !== undefined : hasOwnProperty$4.call(data, key);
-	    }
-
-	    /** Used to stand-in for `undefined` hash values. */
-	    var HASH_UNDEFINED$1 = '__lodash_hash_undefined__';
-
-	    /**
-	     * Sets the hash `key` to `value`.
-	     *
-	     * @private
-	     * @name set
-	     * @memberOf Hash
-	     * @param {string} key The key of the value to set.
-	     * @param {*} value The value to set.
-	     * @returns {Object} Returns the hash instance.
-	     */
-	    function hashSet(key, value) {
-	      var data = this.__data__;
-	      data[key] = (nativeCreate && value === undefined) ? HASH_UNDEFINED$1 : value;
-	      return this;
-	    }
-
-	    /**
-	     * Creates a hash object.
-	     *
-	     * @private
-	     * @constructor
-	     * @param {Array} [entries] The key-value pairs to cache.
-	     */
-	    function Hash(entries) {
-	      var index = -1,
-	          length = entries ? entries.length : 0;
-
-	      this.clear();
-	      while (++index < length) {
-	        var entry = entries[index];
-	        this.set(entry[0], entry[1]);
-	      }
-	    }
-
-	    // Add methods to `Hash`.
-	    Hash.prototype.clear = hashClear;
-	    Hash.prototype['delete'] = hashDelete;
-	    Hash.prototype.get = hashGet;
-	    Hash.prototype.has = hashHas;
-	    Hash.prototype.set = hashSet;
-
-	    /* Built-in method references that are verified to be native. */
-	    var Map = getNative(root, 'Map');
-
-	    /**
-	     * Removes all key-value entries from the map.
-	     *
-	     * @private
-	     * @name clear
-	     * @memberOf MapCache
-	     */
-	    function mapCacheClear() {
-	      this.__data__ = {
-	        'hash': new Hash,
-	        'map': new (Map || ListCache),
-	        'string': new Hash
-	      };
-	    }
-
-	    /**
-	     * Checks if `value` is suitable for use as unique object key.
-	     *
-	     * @private
-	     * @param {*} value The value to check.
-	     * @returns {boolean} Returns `true` if `value` is suitable, else `false`.
-	     */
-	    function isKeyable(value) {
-	      var type = typeof value;
-	      return (type == 'string' || type == 'number' || type == 'symbol' || type == 'boolean')
-	        ? (value !== '__proto__')
-	        : (value === null);
-	    }
-
-	    /**
-	     * Gets the data for `map`.
-	     *
-	     * @private
-	     * @param {Object} map The map to query.
-	     * @param {string} key The reference key.
-	     * @returns {*} Returns the map data.
-	     */
-	    function getMapData(map, key) {
-	      var data = map.__data__;
-	      return isKeyable(key)
-	        ? data[typeof key == 'string' ? 'string' : 'hash']
-	        : data.map;
-	    }
-
-	    /**
-	     * Removes `key` and its value from the map.
-	     *
-	     * @private
-	     * @name delete
-	     * @memberOf MapCache
-	     * @param {string} key The key of the value to remove.
-	     * @returns {boolean} Returns `true` if the entry was removed, else `false`.
-	     */
-	    function mapCacheDelete(key) {
-	      return getMapData(this, key)['delete'](key);
-	    }
-
-	    /**
-	     * Gets the map value for `key`.
-	     *
-	     * @private
-	     * @name get
-	     * @memberOf MapCache
-	     * @param {string} key The key of the value to get.
-	     * @returns {*} Returns the entry value.
-	     */
-	    function mapCacheGet(key) {
-	      return getMapData(this, key).get(key);
-	    }
-
-	    /**
-	     * Checks if a map value for `key` exists.
-	     *
-	     * @private
-	     * @name has
-	     * @memberOf MapCache
-	     * @param {string} key The key of the entry to check.
-	     * @returns {boolean} Returns `true` if an entry for `key` exists, else `false`.
-	     */
-	    function mapCacheHas(key) {
-	      return getMapData(this, key).has(key);
-	    }
-
-	    /**
-	     * Sets the map `key` to `value`.
-	     *
-	     * @private
-	     * @name set
-	     * @memberOf MapCache
-	     * @param {string} key The key of the value to set.
-	     * @param {*} value The value to set.
-	     * @returns {Object} Returns the map cache instance.
-	     */
-	    function mapCacheSet(key, value) {
-	      getMapData(this, key).set(key, value);
-	      return this;
-	    }
-
-	    /**
-	     * Creates a map cache object to store key-value pairs.
-	     *
-	     * @private
-	     * @constructor
-	     * @param {Array} [entries] The key-value pairs to cache.
-	     */
-	    function MapCache(entries) {
-	      var index = -1,
-	          length = entries ? entries.length : 0;
-
-	      this.clear();
-	      while (++index < length) {
-	        var entry = entries[index];
-	        this.set(entry[0], entry[1]);
-	      }
-	    }
-
-	    // Add methods to `MapCache`.
-	    MapCache.prototype.clear = mapCacheClear;
-	    MapCache.prototype['delete'] = mapCacheDelete;
-	    MapCache.prototype.get = mapCacheGet;
-	    MapCache.prototype.has = mapCacheHas;
-	    MapCache.prototype.set = mapCacheSet;
-
-	    /** Used as the size to enable large array optimizations. */
-	    var LARGE_ARRAY_SIZE = 200;
-
-	    /**
-	     * Sets the stack `key` to `value`.
-	     *
-	     * @private
-	     * @name set
-	     * @memberOf Stack
-	     * @param {string} key The key of the value to set.
-	     * @param {*} value The value to set.
-	     * @returns {Object} Returns the stack cache instance.
-	     */
-	    function stackSet(key, value) {
-	      var cache = this.__data__;
-	      if (cache instanceof ListCache && cache.__data__.length == LARGE_ARRAY_SIZE) {
-	        cache = this.__data__ = new MapCache(cache.__data__);
-	      }
-	      cache.set(key, value);
-	      return this;
-	    }
-
-	    /**
-	     * Creates a stack cache object to store key-value pairs.
-	     *
-	     * @private
-	     * @constructor
-	     * @param {Array} [entries] The key-value pairs to cache.
-	     */
-	    function Stack(entries) {
-	      this.__data__ = new ListCache(entries);
-	    }
-
-	    // Add methods to `Stack`.
-	    Stack.prototype.clear = stackClear;
-	    Stack.prototype['delete'] = stackDelete;
-	    Stack.prototype.get = stackGet;
-	    Stack.prototype.has = stackHas;
-	    Stack.prototype.set = stackSet;
-
-	    /** Used to stand-in for `undefined` hash values. */
-	    var HASH_UNDEFINED$2 = '__lodash_hash_undefined__';
-
-	    /**
-	     * Adds `value` to the array cache.
-	     *
-	     * @private
-	     * @name add
-	     * @memberOf SetCache
-	     * @alias push
-	     * @param {*} value The value to cache.
-	     * @returns {Object} Returns the cache instance.
-	     */
-	    function setCacheAdd(value) {
-	      this.__data__.set(value, HASH_UNDEFINED$2);
-	      return this;
-	    }
-
-	    /**
-	     * Checks if `value` is in the array cache.
-	     *
-	     * @private
-	     * @name has
-	     * @memberOf SetCache
-	     * @param {*} value The value to search for.
-	     * @returns {number} Returns `true` if `value` is found, else `false`.
-	     */
-	    function setCacheHas(value) {
-	      return this.__data__.has(value);
-	    }
-
-	    /**
-	     *
-	     * Creates an array cache object to store unique values.
-	     *
-	     * @private
-	     * @constructor
-	     * @param {Array} [values] The values to cache.
-	     */
-	    function SetCache(values) {
-	      var index = -1,
-	          length = values ? values.length : 0;
-
-	      this.__data__ = new MapCache;
-	      while (++index < length) {
-	        this.add(values[index]);
-	      }
-	    }
-
-	    // Add methods to `SetCache`.
-	    SetCache.prototype.add = SetCache.prototype.push = setCacheAdd;
-	    SetCache.prototype.has = setCacheHas;
-
-	    /**
-	     * A specialized version of `_.some` for arrays without support for iteratee
-	     * shorthands.
-	     *
-	     * @private
-	     * @param {Array} [array] The array to iterate over.
-	     * @param {Function} predicate The function invoked per iteration.
-	     * @returns {boolean} Returns `true` if any element passes the predicate check,
-	     *  else `false`.
-	     */
-	    function arraySome(array, predicate) {
-	      var index = -1,
-	          length = array ? array.length : 0;
-
-	      while (++index < length) {
-	        if (predicate(array[index], index, array)) {
-	          return true;
-	        }
-	      }
-	      return false;
-	    }
-
-	    var UNORDERED_COMPARE_FLAG$1 = 1;
-	    var PARTIAL_COMPARE_FLAG$2 = 2;
-	    /**
-	     * A specialized version of `baseIsEqualDeep` for arrays with support for
-	     * partial deep comparisons.
-	     *
-	     * @private
-	     * @param {Array} array The array to compare.
-	     * @param {Array} other The other array to compare.
-	     * @param {Function} equalFunc The function to determine equivalents of values.
-	     * @param {Function} customizer The function to customize comparisons.
-	     * @param {number} bitmask The bitmask of comparison flags. See `baseIsEqual`
-	     *  for more details.
-	     * @param {Object} stack Tracks traversed `array` and `other` objects.
-	     * @returns {boolean} Returns `true` if the arrays are equivalent, else `false`.
-	     */
-	    function equalArrays(array, other, equalFunc, customizer, bitmask, stack) {
-	      var isPartial = bitmask & PARTIAL_COMPARE_FLAG$2,
-	          arrLength = array.length,
-	          othLength = other.length;
-
-	      if (arrLength != othLength && !(isPartial && othLength > arrLength)) {
-	        return false;
-	      }
-	      // Assume cyclic values are equal.
-	      var stacked = stack.get(array);
-	      if (stacked) {
-	        return stacked == other;
-	      }
-	      var index = -1,
-	          result = true,
-	          seen = (bitmask & UNORDERED_COMPARE_FLAG$1) ? new SetCache : undefined;
-
-	      stack.set(array, other);
-
-	      // Ignore non-index properties.
-	      while (++index < arrLength) {
-	        var arrValue = array[index],
-	            othValue = other[index];
-
-	        if (customizer) {
-	          var compared = isPartial
-	            ? customizer(othValue, arrValue, index, other, array, stack)
-	            : customizer(arrValue, othValue, index, array, other, stack);
-	        }
-	        if (compared !== undefined) {
-	          if (compared) {
-	            continue;
-	          }
-	          result = false;
-	          break;
-	        }
-	        // Recursively compare arrays (susceptible to call stack limits).
-	        if (seen) {
-	          if (!arraySome(other, function(othValue, othIndex) {
-	                if (!seen.has(othIndex) &&
-	                    (arrValue === othValue || equalFunc(arrValue, othValue, customizer, bitmask, stack))) {
-	                  return seen.add(othIndex);
-	                }
-	              })) {
-	            result = false;
-	            break;
-	          }
-	        } else if (!(
-	              arrValue === othValue ||
-	                equalFunc(arrValue, othValue, customizer, bitmask, stack)
-	            )) {
-	          result = false;
-	          break;
-	        }
-	      }
-	      stack['delete'](array);
-	      return result;
-	    }
-
-	    /** Built-in value references. */
-	    var Symbol$1 = root.Symbol;
-
-	    /** Built-in value references. */
-	    var Uint8Array = root.Uint8Array;
-
-	    /**
-	     * Converts `map` to its key-value pairs.
-	     *
-	     * @private
-	     * @param {Object} map The map to convert.
-	     * @returns {Array} Returns the key-value pairs.
-	     */
-	    function mapToArray(map) {
-	      var index = -1,
-	          result = Array(map.size);
-
-	      map.forEach(function(value, key) {
-	        result[++index] = [key, value];
-	      });
-	      return result;
-	    }
-
-	    /**
-	     * Converts `set` to an array of its values.
-	     *
-	     * @private
-	     * @param {Object} set The set to convert.
-	     * @returns {Array} Returns the values.
-	     */
-	    function setToArray(set) {
-	      var index = -1,
-	          result = Array(set.size);
-
-	      set.forEach(function(value) {
-	        result[++index] = value;
-	      });
-	      return result;
-	    }
-
-	    var UNORDERED_COMPARE_FLAG$2 = 1;
-	    var PARTIAL_COMPARE_FLAG$3 = 2;
-	    var boolTag = '[object Boolean]';
-	    var dateTag = '[object Date]';
-	    var errorTag = '[object Error]';
-	    var mapTag = '[object Map]';
-	    var numberTag = '[object Number]';
-	    var regexpTag = '[object RegExp]';
-	    var setTag = '[object Set]';
-	    var stringTag$1 = '[object String]';
-	    var symbolTag$1 = '[object Symbol]';
-	    var arrayBufferTag = '[object ArrayBuffer]';
-	    var dataViewTag = '[object DataView]';
-	    var symbolProto = Symbol$1 ? Symbol$1.prototype : undefined;
-	    var symbolValueOf = symbolProto ? symbolProto.valueOf : undefined;
-	    /**
-	     * A specialized version of `baseIsEqualDeep` for comparing objects of
-	     * the same `toStringTag`.
-	     *
-	     * **Note:** This function only supports comparing values with tags of
-	     * `Boolean`, `Date`, `Error`, `Number`, `RegExp`, or `String`.
-	     *
-	     * @private
-	     * @param {Object} object The object to compare.
-	     * @param {Object} other The other object to compare.
-	     * @param {string} tag The `toStringTag` of the objects to compare.
-	     * @param {Function} equalFunc The function to determine equivalents of values.
-	     * @param {Function} customizer The function to customize comparisons.
-	     * @param {number} bitmask The bitmask of comparison flags. See `baseIsEqual`
-	     *  for more details.
-	     * @param {Object} stack Tracks traversed `object` and `other` objects.
-	     * @returns {boolean} Returns `true` if the objects are equivalent, else `false`.
-	     */
-	    function equalByTag(object, other, tag, equalFunc, customizer, bitmask, stack) {
-	      switch (tag) {
-	        case dataViewTag:
-	          if ((object.byteLength != other.byteLength) ||
-	              (object.byteOffset != other.byteOffset)) {
-	            return false;
-	          }
-	          object = object.buffer;
-	          other = other.buffer;
-
-	        case arrayBufferTag:
-	          if ((object.byteLength != other.byteLength) ||
-	              !equalFunc(new Uint8Array(object), new Uint8Array(other))) {
-	            return false;
-	          }
-	          return true;
-
-	        case boolTag:
-	        case dateTag:
-	          // Coerce dates and booleans to numbers, dates to milliseconds and
-	          // booleans to `1` or `0` treating invalid dates coerced to `NaN` as
-	          // not equal.
-	          return +object == +other;
-
-	        case errorTag:
-	          return object.name == other.name && object.message == other.message;
-
-	        case numberTag:
-	          // Treat `NaN` vs. `NaN` as equal.
-	          return (object != +object) ? other != +other : object == +other;
-
-	        case regexpTag:
-	        case stringTag$1:
-	          // Coerce regexes to strings and treat strings, primitives and objects,
-	          // as equal. See http://www.ecma-international.org/ecma-262/6.0/#sec-regexp.prototype.tostring
-	          // for more details.
-	          return object == (other + '');
-
-	        case mapTag:
-	          var convert = mapToArray;
-
-	        case setTag:
-	          var isPartial = bitmask & PARTIAL_COMPARE_FLAG$3;
-	          convert || (convert = setToArray);
-
-	          if (object.size != other.size && !isPartial) {
-	            return false;
-	          }
-	          // Assume cyclic values are equal.
-	          var stacked = stack.get(object);
-	          if (stacked) {
-	            return stacked == other;
-	          }
-	          bitmask |= UNORDERED_COMPARE_FLAG$2;
-	          stack.set(object, other);
-
-	          // Recursively compare objects (susceptible to call stack limits).
-	          return equalArrays(convert(object), convert(other), equalFunc, customizer, bitmask, stack);
-
-	        case symbolTag$1:
-	          if (symbolValueOf) {
-	            return symbolValueOf.call(object) == symbolValueOf.call(other);
-	          }
-	      }
-	      return false;
-	    }
-
-	    /** Used to compose bitmasks for comparison styles. */
-	    var PARTIAL_COMPARE_FLAG$4 = 2;
-
-	    /**
-	     * A specialized version of `baseIsEqualDeep` for objects with support for
-	     * partial deep comparisons.
-	     *
-	     * @private
-	     * @param {Object} object The object to compare.
-	     * @param {Object} other The other object to compare.
-	     * @param {Function} equalFunc The function to determine equivalents of values.
-	     * @param {Function} customizer The function to customize comparisons.
-	     * @param {number} bitmask The bitmask of comparison flags. See `baseIsEqual`
-	     *  for more details.
-	     * @param {Object} stack Tracks traversed `object` and `other` objects.
-	     * @returns {boolean} Returns `true` if the objects are equivalent, else `false`.
-	     */
-	    function equalObjects(object, other, equalFunc, customizer, bitmask, stack) {
-	      var isPartial = bitmask & PARTIAL_COMPARE_FLAG$4,
-	          objProps = keys(object),
-	          objLength = objProps.length,
-	          othProps = keys(other),
-	          othLength = othProps.length;
-
-	      if (objLength != othLength && !isPartial) {
-	        return false;
-	      }
-	      var index = objLength;
-	      while (index--) {
-	        var key = objProps[index];
-	        if (!(isPartial ? key in other : baseHas(other, key))) {
-	          return false;
-	        }
-	      }
-	      // Assume cyclic values are equal.
-	      var stacked = stack.get(object);
-	      if (stacked) {
-	        return stacked == other;
-	      }
-	      var result = true;
-	      stack.set(object, other);
-
-	      var skipCtor = isPartial;
-	      while (++index < objLength) {
-	        key = objProps[index];
-	        var objValue = object[key],
-	            othValue = other[key];
-
-	        if (customizer) {
-	          var compared = isPartial
-	            ? customizer(othValue, objValue, key, other, object, stack)
-	            : customizer(objValue, othValue, key, object, other, stack);
-	        }
-	        // Recursively compare objects (susceptible to call stack limits).
-	        if (!(compared === undefined
-	              ? (objValue === othValue || equalFunc(objValue, othValue, customizer, bitmask, stack))
-	              : compared
-	            )) {
-	          result = false;
-	          break;
-	        }
-	        skipCtor || (skipCtor = key == 'constructor');
-	      }
-	      if (result && !skipCtor) {
-	        var objCtor = object.constructor,
-	            othCtor = other.constructor;
-
-	        // Non `Object` object instances with different constructors are not equal.
-	        if (objCtor != othCtor &&
-	            ('constructor' in object && 'constructor' in other) &&
-	            !(typeof objCtor == 'function' && objCtor instanceof objCtor &&
-	              typeof othCtor == 'function' && othCtor instanceof othCtor)) {
-	          result = false;
-	        }
-	      }
-	      stack['delete'](object);
-	      return result;
-	    }
-
-	    /* Built-in method references that are verified to be native. */
-	    var DataView = getNative(root, 'DataView');
-
-	    /* Built-in method references that are verified to be native. */
-	    var Promise = getNative(root, 'Promise');
-
-	    /* Built-in method references that are verified to be native. */
-	    var Set = getNative(root, 'Set');
-
-	    /* Built-in method references that are verified to be native. */
-	    var WeakMap = getNative(root, 'WeakMap');
-
-	    var mapTag$1 = '[object Map]';
-	    var objectTag$1 = '[object Object]';
-	    var promiseTag = '[object Promise]';
-	    var setTag$1 = '[object Set]';
-	    var weakMapTag = '[object WeakMap]';
-	    var dataViewTag$1 = '[object DataView]';
-
-	    /** Used for built-in method references. */
-	    var objectProto$10 = Object.prototype;
-
-	    /**
-	     * Used to resolve the
-	     * [`toStringTag`](http://ecma-international.org/ecma-262/6.0/#sec-object.prototype.tostring)
-	     * of values.
-	     */
-	    var objectToString$4 = objectProto$10.toString;
-
-	    /** Used to detect maps, sets, and weakmaps. */
-	    var dataViewCtorString = toSource(DataView);
-	    var mapCtorString = toSource(Map);
-	    var promiseCtorString = toSource(Promise);
-	    var setCtorString = toSource(Set);
-	    var weakMapCtorString = toSource(WeakMap);
-	    /**
-	     * Gets the `toStringTag` of `value`.
-	     *
-	     * @private
-	     * @param {*} value The value to query.
-	     * @returns {string} Returns the `toStringTag`.
-	     */
-	    function getTag(value) {
-	      return objectToString$4.call(value);
-	    }
-
-	    // Fallback for data views, maps, sets, and weak maps in IE 11,
-	    // for data views in Edge, and promises in Node.js.
-	    if ((DataView && getTag(new DataView(new ArrayBuffer(1))) != dataViewTag$1) ||
-	        (Map && getTag(new Map) != mapTag$1) ||
-	        (Promise && getTag(Promise.resolve()) != promiseTag) ||
-	        (Set && getTag(new Set) != setTag$1) ||
-	        (WeakMap && getTag(new WeakMap) != weakMapTag)) {
-	      getTag = function(value) {
-	        var result = objectToString$4.call(value),
-	            Ctor = result == objectTag$1 ? value.constructor : undefined,
-	            ctorString = Ctor ? toSource(Ctor) : undefined;
-
-	        if (ctorString) {
-	          switch (ctorString) {
-	            case dataViewCtorString: return dataViewTag$1;
-	            case mapCtorString: return mapTag$1;
-	            case promiseCtorString: return promiseTag;
-	            case setCtorString: return setTag$1;
-	            case weakMapCtorString: return weakMapTag;
-	          }
-	        }
-	        return result;
-	      };
-	    }
-
-	    var getTag$1 = getTag;
-
-	    var argsTag$2 = '[object Arguments]';
-	    var arrayTag$1 = '[object Array]';
-	    var boolTag$1 = '[object Boolean]';
-	    var dateTag$1 = '[object Date]';
-	    var errorTag$1 = '[object Error]';
-	    var funcTag$1 = '[object Function]';
-	    var mapTag$2 = '[object Map]';
-	    var numberTag$1 = '[object Number]';
-	    var objectTag$2 = '[object Object]';
-	    var regexpTag$1 = '[object RegExp]';
-	    var setTag$2 = '[object Set]';
-	    var stringTag$2 = '[object String]';
-	    var weakMapTag$1 = '[object WeakMap]';
-	    var arrayBufferTag$1 = '[object ArrayBuffer]';
-	    var dataViewTag$2 = '[object DataView]';
-	    var float32Tag = '[object Float32Array]';
-	    var float64Tag = '[object Float64Array]';
-	    var int8Tag = '[object Int8Array]';
-	    var int16Tag = '[object Int16Array]';
-	    var int32Tag = '[object Int32Array]';
-	    var uint8Tag = '[object Uint8Array]';
-	    var uint8ClampedTag = '[object Uint8ClampedArray]';
-	    var uint16Tag = '[object Uint16Array]';
-	    var uint32Tag = '[object Uint32Array]';
-	    /** Used to identify `toStringTag` values of typed arrays. */
-	    var typedArrayTags = {};
-	    typedArrayTags[float32Tag] = typedArrayTags[float64Tag] =
-	    typedArrayTags[int8Tag] = typedArrayTags[int16Tag] =
-	    typedArrayTags[int32Tag] = typedArrayTags[uint8Tag] =
-	    typedArrayTags[uint8ClampedTag] = typedArrayTags[uint16Tag] =
-	    typedArrayTags[uint32Tag] = true;
-	    typedArrayTags[argsTag$2] = typedArrayTags[arrayTag$1] =
-	    typedArrayTags[arrayBufferTag$1] = typedArrayTags[boolTag$1] =
-	    typedArrayTags[dataViewTag$2] = typedArrayTags[dateTag$1] =
-	    typedArrayTags[errorTag$1] = typedArrayTags[funcTag$1] =
-	    typedArrayTags[mapTag$2] = typedArrayTags[numberTag$1] =
-	    typedArrayTags[objectTag$2] = typedArrayTags[regexpTag$1] =
-	    typedArrayTags[setTag$2] = typedArrayTags[stringTag$2] =
-	    typedArrayTags[weakMapTag$1] = false;
-
-	    /** Used for built-in method references. */
-	    var objectProto$11 = Object.prototype;
-
-	    /**
-	     * Used to resolve the
-	     * [`toStringTag`](http://ecma-international.org/ecma-262/6.0/#sec-object.prototype.tostring)
-	     * of values.
-	     */
-	    var objectToString$5 = objectProto$11.toString;
-
-	    /**
-	     * Checks if `value` is classified as a typed array.
-	     *
-	     * @static
-	     * @memberOf _
-	     * @since 3.0.0
-	     * @category Lang
-	     * @param {*} value The value to check.
-	     * @returns {boolean} Returns `true` if `value` is correctly classified,
-	     *  else `false`.
-	     * @example
-	     *
-	     * _.isTypedArray(new Uint8Array);
-	     * // => true
-	     *
-	     * _.isTypedArray([]);
-	     * // => false
-	     */
-	    function isTypedArray(value) {
-	      return isObjectLike(value) &&
-	        isLength(value.length) && !!typedArrayTags[objectToString$5.call(value)];
-	    }
-
-	    /** Used to compose bitmasks for comparison styles. */
-	    var PARTIAL_COMPARE_FLAG$1 = 2;
-
-	    /** `Object#toString` result references. */
-	    var argsTag$1 = '[object Arguments]';
-	    var arrayTag = '[object Array]';
-	    var objectTag = '[object Object]';
-	    /** Used for built-in method references. */
-	    var objectProto$9 = Object.prototype;
-
-	    /** Used to check objects for own properties. */
-	    var hasOwnProperty$5 = objectProto$9.hasOwnProperty;
-
-	    /**
-	     * A specialized version of `baseIsEqual` for arrays and objects which performs
-	     * deep comparisons and tracks traversed objects enabling objects with circular
-	     * references to be compared.
-	     *
-	     * @private
-	     * @param {Object} object The object to compare.
-	     * @param {Object} other The other object to compare.
-	     * @param {Function} equalFunc The function to determine equivalents of values.
-	     * @param {Function} [customizer] The function to customize comparisons.
-	     * @param {number} [bitmask] The bitmask of comparison flags. See `baseIsEqual`
-	     *  for more details.
-	     * @param {Object} [stack] Tracks traversed `object` and `other` objects.
-	     * @returns {boolean} Returns `true` if the objects are equivalent, else `false`.
-	     */
-	    function baseIsEqualDeep(object, other, equalFunc, customizer, bitmask, stack) {
-	      var objIsArr = isArray(object),
-	          othIsArr = isArray(other),
-	          objTag = arrayTag,
-	          othTag = arrayTag;
-
-	      if (!objIsArr) {
-	        objTag = getTag$1(object);
-	        objTag = objTag == argsTag$1 ? objectTag : objTag;
-	      }
-	      if (!othIsArr) {
-	        othTag = getTag$1(other);
-	        othTag = othTag == argsTag$1 ? objectTag : othTag;
-	      }
-	      var objIsObj = objTag == objectTag && !isHostObject(object),
-	          othIsObj = othTag == objectTag && !isHostObject(other),
-	          isSameTag = objTag == othTag;
-
-	      if (isSameTag && !objIsObj) {
-	        stack || (stack = new Stack);
-	        return (objIsArr || isTypedArray(object))
-	          ? equalArrays(object, other, equalFunc, customizer, bitmask, stack)
-	          : equalByTag(object, other, objTag, equalFunc, customizer, bitmask, stack);
-	      }
-	      if (!(bitmask & PARTIAL_COMPARE_FLAG$1)) {
-	        var objIsWrapped = objIsObj && hasOwnProperty$5.call(object, '__wrapped__'),
-	            othIsWrapped = othIsObj && hasOwnProperty$5.call(other, '__wrapped__');
-
-	        if (objIsWrapped || othIsWrapped) {
-	          var objUnwrapped = objIsWrapped ? object.value() : object,
-	              othUnwrapped = othIsWrapped ? other.value() : other;
-
-	          stack || (stack = new Stack);
-	          return equalFunc(objUnwrapped, othUnwrapped, customizer, bitmask, stack);
-	        }
-	      }
-	      if (!isSameTag) {
-	        return false;
-	      }
-	      stack || (stack = new Stack);
-	      return equalObjects(object, other, equalFunc, customizer, bitmask, stack);
-	    }
-
-	    /**
-	     * The base implementation of `_.isEqual` which supports partial comparisons
-	     * and tracks traversed objects.
-	     *
-	     * @private
-	     * @param {*} value The value to compare.
-	     * @param {*} other The other value to compare.
-	     * @param {Function} [customizer] The function to customize comparisons.
-	     * @param {boolean} [bitmask] The bitmask of comparison flags.
-	     *  The bitmask may be composed of the following flags:
-	     *     1 - Unordered comparison
-	     *     2 - Partial comparison
-	     * @param {Object} [stack] Tracks traversed `value` and `other` objects.
-	     * @returns {boolean} Returns `true` if the values are equivalent, else `false`.
-	     */
-	    function baseIsEqual(value, other, customizer, bitmask, stack) {
-	      if (value === other) {
-	        return true;
-	      }
-	      if (value == null || other == null || (!isObject(value) && !isObjectLike(other))) {
-	        return value !== value && other !== other;
-	      }
-	      return baseIsEqualDeep(value, other, baseIsEqual, customizer, bitmask, stack);
-	    }
-
-	    var UNORDERED_COMPARE_FLAG = 1;
-	    var PARTIAL_COMPARE_FLAG = 2;
-	    /**
-	     * The base implementation of `_.isMatch` without support for iteratee shorthands.
-	     *
-	     * @private
-	     * @param {Object} object The object to inspect.
-	     * @param {Object} source The object of property values to match.
-	     * @param {Array} matchData The property names, values, and compare flags to match.
-	     * @param {Function} [customizer] The function to customize comparisons.
-	     * @returns {boolean} Returns `true` if `object` is a match, else `false`.
-	     */
-	    function baseIsMatch(object, source, matchData, customizer) {
-	      var index = matchData.length,
-	          length = index,
-	          noCustomizer = !customizer;
-
-	      if (object == null) {
-	        return !length;
-	      }
-	      object = Object(object);
-	      while (index--) {
-	        var data = matchData[index];
-	        if ((noCustomizer && data[2])
-	              ? data[1] !== object[data[0]]
-	              : !(data[0] in object)
-	            ) {
-	          return false;
-	        }
-	      }
-	      while (++index < length) {
-	        data = matchData[index];
-	        var key = data[0],
-	            objValue = object[key],
-	            srcValue = data[1];
-
-	        if (noCustomizer && data[2]) {
-	          if (objValue === undefined && !(key in object)) {
-	            return false;
-	          }
-	        } else {
-	          var stack = new Stack;
-	          if (customizer) {
-	            var result = customizer(objValue, srcValue, key, object, source, stack);
-	          }
-	          if (!(result === undefined
-	                ? baseIsEqual(srcValue, objValue, customizer, UNORDERED_COMPARE_FLAG | PARTIAL_COMPARE_FLAG, stack)
-	                : result
-	              )) {
-	            return false;
-	          }
-	        }
-	      }
-	      return true;
-	    }
-
-	    /**
-	     * Checks if `value` is suitable for strict equality comparisons, i.e. `===`.
-	     *
-	     * @private
-	     * @param {*} value The value to check.
-	     * @returns {boolean} Returns `true` if `value` if suitable for strict
-	     *  equality comparisons, else `false`.
-	     */
-	    function isStrictComparable(value) {
-	      return value === value && !isObject(value);
-	    }
-
-	    /**
-	     * Gets the property names, values, and compare flags of `object`.
-	     *
-	     * @private
-	     * @param {Object} object The object to query.
-	     * @returns {Array} Returns the match data of `object`.
-	     */
-	    function getMatchData(object) {
-	      var result = keys(object),
-	          length = result.length;
-
-	      while (length--) {
-	        var key = result[length],
-	            value = object[key];
-
-	        result[length] = [key, value, isStrictComparable(value)];
-	      }
-	      return result;
-	    }
-
-	    /**
-	     * A specialized version of `matchesProperty` for source values suitable
-	     * for strict equality comparisons, i.e. `===`.
-	     *
-	     * @private
-	     * @param {string} key The key of the property to get.
-	     * @param {*} srcValue The value to match.
-	     * @returns {Function} Returns the new spec function.
-	     */
-	    function matchesStrictComparable(key, srcValue) {
-	      return function(object) {
-	        if (object == null) {
-	          return false;
-	        }
-	        return object[key] === srcValue &&
-	          (srcValue !== undefined || (key in Object(object)));
-	      };
-	    }
-
-	    /**
-	     * The base implementation of `_.matches` which doesn't clone `source`.
-	     *
-	     * @private
-	     * @param {Object} source The object of property values to match.
-	     * @returns {Function} Returns the new spec function.
-	     */
-	    function baseMatches(source) {
-	      var matchData = getMatchData(source);
-	      if (matchData.length == 1 && matchData[0][2]) {
-	        return matchesStrictComparable(matchData[0][0], matchData[0][1]);
-	      }
-	      return function(object) {
-	        return object === source || baseIsMatch(object, source, matchData);
-	      };
-	    }
-
-	    /** Used as the `TypeError` message for "Functions" methods. */
-	    var FUNC_ERROR_TEXT$1 = 'Expected a function';
-
-	    /**
-	     * Creates a function that memoizes the result of `func`. If `resolver` is
-	     * provided, it determines the cache key for storing the result based on the
-	     * arguments provided to the memoized function. By default, the first argument
-	     * provided to the memoized function is used as the map cache key. The `func`
-	     * is invoked with the `this` binding of the memoized function.
-	     *
-	     * **Note:** The cache is exposed as the `cache` property on the memoized
-	     * function. Its creation may be customized by replacing the `_.memoize.Cache`
-	     * constructor with one whose instances implement the
-	     * [`Map`](http://ecma-international.org/ecma-262/6.0/#sec-properties-of-the-map-prototype-object)
-	     * method interface of `delete`, `get`, `has`, and `set`.
-	     *
-	     * @static
-	     * @memberOf _
-	     * @since 0.1.0
-	     * @category Function
-	     * @param {Function} func The function to have its output memoized.
-	     * @param {Function} [resolver] The function to resolve the cache key.
-	     * @returns {Function} Returns the new memoized function.
-	     * @example
-	     *
-	     * var object = { 'a': 1, 'b': 2 };
-	     * var other = { 'c': 3, 'd': 4 };
-	     *
-	     * var values = _.memoize(_.values);
-	     * values(object);
-	     * // => [1, 2]
-	     *
-	     * values(other);
-	     * // => [3, 4]
-	     *
-	     * object.a = 2;
-	     * values(object);
-	     * // => [1, 2]
-	     *
-	     * // Modify the result cache.
-	     * values.cache.set(object, ['a', 'b']);
-	     * values(object);
-	     * // => ['a', 'b']
-	     *
-	     * // Replace `_.memoize.Cache`.
-	     * _.memoize.Cache = WeakMap;
-	     */
-	    function memoize(func, resolver) {
-	      if (typeof func != 'function' || (resolver && typeof resolver != 'function')) {
-	        throw new TypeError(FUNC_ERROR_TEXT$1);
-	      }
-	      var memoized = function() {
-	        var args = arguments,
-	            key = resolver ? resolver.apply(this, args) : args[0],
-	            cache = memoized.cache;
-
-	        if (cache.has(key)) {
-	          return cache.get(key);
-	        }
-	        var result = func.apply(this, args);
-	        memoized.cache = cache.set(key, result);
-	        return result;
-	      };
-	      memoized.cache = new (memoize.Cache || MapCache);
-	      return memoized;
-	    }
-
-	    // Assign cache to `_.memoize`.
-	    memoize.Cache = MapCache;
-
-	    /** Used as references for various `Number` constants. */
-	    var INFINITY$1 = 1 / 0;
-
-	    /** Used to convert symbols to primitives and strings. */
-	    var symbolProto$1 = Symbol$1 ? Symbol$1.prototype : undefined;
-	    var symbolToString = symbolProto$1 ? symbolProto$1.toString : undefined;
-	    /**
-	     * The base implementation of `_.toString` which doesn't convert nullish
-	     * values to empty strings.
-	     *
-	     * @private
-	     * @param {*} value The value to process.
-	     * @returns {string} Returns the string.
-	     */
-	    function baseToString(value) {
-	      // Exit early for strings to avoid a performance hit in some environments.
-	      if (typeof value == 'string') {
-	        return value;
-	      }
-	      if (isSymbol(value)) {
-	        return symbolToString ? symbolToString.call(value) : '';
-	      }
-	      var result = (value + '');
-	      return (result == '0' && (1 / value) == -INFINITY$1) ? '-0' : result;
-	    }
-
-	    /**
-	     * Converts `value` to a string. An empty string is returned for `null`
-	     * and `undefined` values. The sign of `-0` is preserved.
-	     *
-	     * @static
-	     * @memberOf _
-	     * @since 4.0.0
-	     * @category Lang
-	     * @param {*} value The value to process.
-	     * @returns {string} Returns the string.
-	     * @example
-	     *
-	     * _.toString(null);
-	     * // => ''
-	     *
-	     * _.toString(-0);
-	     * // => '-0'
-	     *
-	     * _.toString([1, 2, 3]);
-	     * // => '1,2,3'
-	     */
-	    function toString(value) {
-	      return value == null ? '' : baseToString(value);
-	    }
-
-	    /** Used to match property names within property paths. */
-	    var rePropName = /[^.[\]]+|\[(?:(-?\d+(?:\.\d+)?)|(["'])((?:(?!\2)[^\\]|\\.)*?)\2)\]|(?=(\.|\[\])(?:\4|$))/g;
-
-	    /** Used to match backslashes in property paths. */
-	    var reEscapeChar = /\\(\\)?/g;
-
-	    /**
-	     * Converts `string` to a property path array.
-	     *
-	     * @private
-	     * @param {string} string The string to convert.
-	     * @returns {Array} Returns the property path array.
-	     */
-	    var stringToPath = memoize(function(string) {
-	      var result = [];
-	      toString(string).replace(rePropName, function(match, number, quote, string) {
-	        result.push(quote ? string.replace(reEscapeChar, '$1') : (number || match));
-	      });
-	      return result;
-	    });
-
-	    /**
-	     * Casts `value` to a path array if it's not one.
-	     *
-	     * @private
-	     * @param {*} value The value to inspect.
-	     * @returns {Array} Returns the cast property path array.
-	     */
-	    function castPath(value) {
-	      return isArray(value) ? value : stringToPath(value);
-	    }
-
-	    var reIsDeepProp = /\.|\[(?:[^[\]]*|(["'])(?:(?!\1)[^\\]|\\.)*?\1)\]/;
-	    var reIsPlainProp = /^\w*$/;
-	    /**
-	     * Checks if `value` is a property name and not a property path.
-	     *
-	     * @private
-	     * @param {*} value The value to check.
-	     * @param {Object} [object] The object to query keys on.
-	     * @returns {boolean} Returns `true` if `value` is a property name, else `false`.
-	     */
-	    function isKey(value, object) {
-	      if (isArray(value)) {
-	        return false;
-	      }
-	      var type = typeof value;
-	      if (type == 'number' || type == 'symbol' || type == 'boolean' ||
-	          value == null || isSymbol(value)) {
-	        return true;
-	      }
-	      return reIsPlainProp.test(value) || !reIsDeepProp.test(value) ||
-	        (object != null && value in Object(object));
-	    }
-
-	    /** Used as references for various `Number` constants. */
-	    var INFINITY$2 = 1 / 0;
-
-	    /**
-	     * Converts `value` to a string key if it's not a string or symbol.
-	     *
-	     * @private
-	     * @param {*} value The value to inspect.
-	     * @returns {string|symbol} Returns the key.
-	     */
-	    function toKey(value) {
-	      if (typeof value == 'string' || isSymbol(value)) {
-	        return value;
-	      }
-	      var result = (value + '');
-	      return (result == '0' && (1 / value) == -INFINITY$2) ? '-0' : result;
-	    }
-
-	    /**
-	     * The base implementation of `_.get` without support for default values.
-	     *
-	     * @private
-	     * @param {Object} object The object to query.
-	     * @param {Array|string} path The path of the property to get.
-	     * @returns {*} Returns the resolved value.
-	     */
-	    function baseGet(object, path) {
-	      path = isKey(path, object) ? [path] : castPath(path);
-
-	      var index = 0,
-	          length = path.length;
-
-	      while (object != null && index < length) {
-	        object = object[toKey(path[index++])];
-	      }
-	      return (index && index == length) ? object : undefined;
-	    }
-
-	    /**
-	     * Gets the value at `path` of `object`. If the resolved value is
-	     * `undefined`, the `defaultValue` is used in its place.
-	     *
-	     * @static
-	     * @memberOf _
-	     * @since 3.7.0
-	     * @category Object
-	     * @param {Object} object The object to query.
-	     * @param {Array|string} path The path of the property to get.
-	     * @param {*} [defaultValue] The value returned for `undefined` resolved values.
-	     * @returns {*} Returns the resolved value.
-	     * @example
-	     *
-	     * var object = { 'a': [{ 'b': { 'c': 3 } }] };
-	     *
-	     * _.get(object, 'a[0].b.c');
-	     * // => 3
-	     *
-	     * _.get(object, ['a', '0', 'b', 'c']);
-	     * // => 3
-	     *
-	     * _.get(object, 'a.b.c', 'default');
-	     * // => 'default'
-	     */
-	    function get(object, path, defaultValue) {
-	      var result = object == null ? undefined : baseGet(object, path);
-	      return result === undefined ? defaultValue : result;
-	    }
-
-	    /**
-	     * The base implementation of `_.hasIn` without support for deep paths.
-	     *
-	     * @private
-	     * @param {Object} [object] The object to query.
-	     * @param {Array|string} key The key to check.
-	     * @returns {boolean} Returns `true` if `key` exists, else `false`.
-	     */
-	    function baseHasIn(object, key) {
-	      return object != null && key in Object(object);
-	    }
-
-	    /**
-	     * Checks if `path` exists on `object`.
-	     *
-	     * @private
-	     * @param {Object} object The object to query.
-	     * @param {Array|string} path The path to check.
-	     * @param {Function} hasFunc The function to check properties.
-	     * @returns {boolean} Returns `true` if `path` exists, else `false`.
-	     */
-	    function hasPath(object, path, hasFunc) {
-	      path = isKey(path, object) ? [path] : castPath(path);
-
-	      var result,
-	          index = -1,
-	          length = path.length;
-
-	      while (++index < length) {
-	        var key = toKey(path[index]);
-	        if (!(result = object != null && hasFunc(object, key))) {
-	          break;
-	        }
-	        object = object[key];
-	      }
-	      if (result) {
-	        return result;
-	      }
-	      var length = object ? object.length : 0;
-	      return !!length && isLength(length) && isIndex(key, length) &&
-	        (isArray(object) || isString(object) || isArguments(object));
-	    }
-
-	    /**
-	     * Checks if `path` is a direct or inherited property of `object`.
-	     *
-	     * @static
-	     * @memberOf _
-	     * @since 4.0.0
-	     * @category Object
-	     * @param {Object} object The object to query.
-	     * @param {Array|string} path The path to check.
-	     * @returns {boolean} Returns `true` if `path` exists, else `false`.
-	     * @example
-	     *
-	     * var object = _.create({ 'a': _.create({ 'b': 2 }) });
-	     *
-	     * _.hasIn(object, 'a');
-	     * // => true
-	     *
-	     * _.hasIn(object, 'a.b');
-	     * // => true
-	     *
-	     * _.hasIn(object, ['a', 'b']);
-	     * // => true
-	     *
-	     * _.hasIn(object, 'b');
-	     * // => false
-	     */
-	    function hasIn(object, path) {
-	      return object != null && hasPath(object, path, baseHasIn);
-	    }
-
-	    var UNORDERED_COMPARE_FLAG$3 = 1;
-	    var PARTIAL_COMPARE_FLAG$5 = 2;
-	    /**
-	     * The base implementation of `_.matchesProperty` which doesn't clone `srcValue`.
-	     *
-	     * @private
-	     * @param {string} path The path of the property to get.
-	     * @param {*} srcValue The value to match.
-	     * @returns {Function} Returns the new spec function.
-	     */
-	    function baseMatchesProperty(path, srcValue) {
-	      if (isKey(path) && isStrictComparable(srcValue)) {
-	        return matchesStrictComparable(toKey(path), srcValue);
-	      }
-	      return function(object) {
-	        var objValue = get(object, path);
-	        return (objValue === undefined && objValue === srcValue)
-	          ? hasIn(object, path)
-	          : baseIsEqual(srcValue, objValue, undefined, UNORDERED_COMPARE_FLAG$3 | PARTIAL_COMPARE_FLAG$5);
-	      };
-	    }
-
-	    /**
-	     * This method returns the first argument given to it.
-	     *
-	     * @static
-	     * @since 0.1.0
-	     * @memberOf _
-	     * @category Util
-	     * @param {*} value Any value.
-	     * @returns {*} Returns `value`.
-	     * @example
-	     *
-	     * var object = { 'user': 'fred' };
-	     *
-	     * console.log(_.identity(object) === object);
-	     * // => true
-	     */
-	    function identity(value) {
-	      return value;
-	    }
-
-	    /**
-	     * A specialized version of `baseProperty` which supports deep paths.
-	     *
-	     * @private
-	     * @param {Array|string} path The path of the property to get.
-	     * @returns {Function} Returns the new accessor function.
-	     */
-	    function basePropertyDeep(path) {
-	      return function(object) {
-	        return baseGet(object, path);
-	      };
-	    }
-
-	    /**
-	     * Creates a function that returns the value at `path` of a given object.
-	     *
-	     * @static
-	     * @memberOf _
-	     * @since 2.4.0
-	     * @category Util
-	     * @param {Array|string} path The path of the property to get.
-	     * @returns {Function} Returns the new accessor function.
-	     * @example
-	     *
-	     * var objects = [
-	     *   { 'a': { 'b': 2 } },
-	     *   { 'a': { 'b': 1 } }
-	     * ];
-	     *
-	     * _.map(objects, _.property('a.b'));
-	     * // => [2, 1]
-	     *
-	     * _.map(_.sortBy(objects, _.property(['a', 'b'])), 'a.b');
-	     * // => [1, 2]
-	     */
-	    function property(path) {
-	      return isKey(path) ? baseProperty(toKey(path)) : basePropertyDeep(path);
-	    }
-
-	    /**
-	     * The base implementation of `_.iteratee`.
-	     *
-	     * @private
-	     * @param {*} [value=_.identity] The value to convert to an iteratee.
-	     * @returns {Function} Returns the iteratee.
-	     */
-	    function baseIteratee(value) {
-	      // Don't store the `typeof` result in a variable to avoid a JIT bug in Safari 9.
-	      // See https://bugs.webkit.org/show_bug.cgi?id=156034 for more details.
-	      if (typeof value == 'function') {
-	        return value;
-	      }
-	      if (value == null) {
-	        return identity;
-	      }
-	      if (typeof value == 'object') {
-	        return isArray(value)
-	          ? baseMatchesProperty(value[0], value[1])
-	          : baseMatches(value);
-	      }
-	      return property(value);
-	    }
-
-	    /**
-	     * Iterates over own enumerable string keyed properties of an object and
-	     * invokes `iteratee` for each property. The iteratee is invoked with three
-	     * arguments: (value, key, object). Iteratee functions may exit iteration
-	     * early by explicitly returning `false`.
-	     *
-	     * @static
-	     * @memberOf _
-	     * @since 0.3.0
-	     * @category Object
-	     * @param {Object} object The object to iterate over.
-	     * @param {Function} [iteratee=_.identity] The function invoked per iteration.
-	     * @returns {Object} Returns `object`.
-	     * @see _.forOwnRight
-	     * @example
-	     *
-	     * function Foo() {
-	     *   this.a = 1;
-	     *   this.b = 2;
-	     * }
-	     *
-	     * Foo.prototype.c = 3;
-	     *
-	     * _.forOwn(new Foo, function(value, key) {
-	     *   console.log(key);
-	     * });
-	     * // => Logs 'a' then 'b' (iteration order is not guaranteed).
-	     */
-	    function forOwn(object, iteratee) {
-	      return object && baseForOwn(object, baseIteratee(iteratee, 3));
-	    }
-
-	    /**
 	     * Gets the index at which the first occurrence of `NaN` is found in `array`.
 	     *
 	     * @private
@@ -18257,7 +16800,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	     *
 	     * @name auto
 	     * @static
-	     * @memberOf async
+	     * @memberOf module:ControlFlow
+	     * @method
 	     * @category Control Flow
 	     * @param {Object} tasks - An object. Each of its properties is either a
 	     * function or an array of requirements, with the function itself the last item
@@ -18277,6 +16821,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	     * pass an error to their callback. Results are always returned; however, if an
 	     * error occurs, no further `tasks` will be performed, and the results object
 	     * will only contain partial results. Invoked with (err, results).
+	     * @returns undefined
 	     * @example
 	     *
 	     * async.auto({
@@ -18346,7 +16891,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        // without the possibility of returning to an ancestor task
 	        var uncheckedDependencies = {};
 
-	        forOwn(tasks, function (task, key) {
+	        baseForOwn(tasks, function (task, key) {
 	            if (!isArray(task)) {
 	                // no dependencies
 	                enqueueTask(key, [task]);
@@ -18422,7 +16967,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	                }
 	                if (err) {
 	                    var safeResults = {};
-	                    forOwn(results, function (val, rkey) {
+	                    baseForOwn(results, function (val, rkey) {
 	                        safeResults[rkey] = val;
 	                    });
 	                    safeResults[key] = args;
@@ -18455,7 +17000,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	                currentTask = readyToCheck.pop();
 	                counter++;
 	                arrayEach(getDependents(currentTask), function (dependent) {
-	                    if (! --uncheckedDependencies[dependent]) {
+	                    if (--uncheckedDependencies[dependent] === 0) {
 	                        readyToCheck.push(dependent);
 	                    }
 	                });
@@ -18468,7 +17013,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	        function getDependents(taskName) {
 	            var result = [];
-	            forOwn(tasks, function (task, key) {
+	            baseForOwn(tasks, function (task, key) {
 	                if (isArray(task) && baseIndexOf(task, taskName, 0) >= 0) {
 	                    result.push(key);
 	                }
@@ -18514,6 +17059,58 @@ return /******/ (function(modules) { // webpackBootstrap
 	        array[index] = source[index];
 	      }
 	      return array;
+	    }
+
+	    /**
+	     * Checks if `value` is a global object.
+	     *
+	     * @private
+	     * @param {*} value The value to check.
+	     * @returns {null|Object} Returns `value` if it's a global object, else `null`.
+	     */
+	    function checkGlobal(value) {
+	      return (value && value.Object === Object) ? value : null;
+	    }
+
+	    /** Detect free variable `global` from Node.js. */
+	    var freeGlobal = checkGlobal(typeof global == 'object' && global);
+
+	    /** Detect free variable `self`. */
+	    var freeSelf = checkGlobal(typeof self == 'object' && self);
+
+	    /** Detect `this` as the global object. */
+	    var thisGlobal = checkGlobal(typeof this == 'object' && this);
+
+	    /** Used as a reference to the global object. */
+	    var root = freeGlobal || freeSelf || thisGlobal || Function('return this')();
+
+	    /** Built-in value references. */
+	    var Symbol$1 = root.Symbol;
+
+	    /** Used as references for various `Number` constants. */
+	    var INFINITY$1 = 1 / 0;
+
+	    /** Used to convert symbols to primitives and strings. */
+	    var symbolProto = Symbol$1 ? Symbol$1.prototype : undefined;
+	    var symbolToString = symbolProto ? symbolProto.toString : undefined;
+	    /**
+	     * The base implementation of `_.toString` which doesn't convert nullish
+	     * values to empty strings.
+	     *
+	     * @private
+	     * @param {*} value The value to process.
+	     * @returns {string} Returns the string.
+	     */
+	    function baseToString(value) {
+	      // Exit early for strings to avoid a performance hit in some environments.
+	      if (typeof value == 'string') {
+	        return value;
+	      }
+	      if (isSymbol(value)) {
+	        return symbolToString ? symbolToString.call(value) : '';
+	      }
+	      var result = (value + '');
+	      return (result == '0' && (1 / value) == -INFINITY$1) ? '-0' : result;
 	    }
 
 	    /**
@@ -18626,6 +17223,31 @@ return /******/ (function(modules) { // webpackBootstrap
 	      return string.match(reComplexSymbol);
 	    }
 
+	    /**
+	     * Converts `value` to a string. An empty string is returned for `null`
+	     * and `undefined` values. The sign of `-0` is preserved.
+	     *
+	     * @static
+	     * @memberOf _
+	     * @since 4.0.0
+	     * @category Lang
+	     * @param {*} value The value to process.
+	     * @returns {string} Returns the string.
+	     * @example
+	     *
+	     * _.toString(null);
+	     * // => ''
+	     *
+	     * _.toString(-0);
+	     * // => '-0'
+	     *
+	     * _.toString([1, 2, 3]);
+	     * // => '1,2,3'
+	     */
+	    function toString(value) {
+	      return value == null ? '' : baseToString(value);
+	    }
+
 	    /** Used to match leading and trailing whitespace. */
 	    var reTrim$1 = /^\s+|\s+$/g;
 
@@ -18667,14 +17289,23 @@ return /******/ (function(modules) { // webpackBootstrap
 	      return castSlice(strSymbols, start, end).join('');
 	    }
 
-	    var argsRegex = /^(function[^\(]*)?\(?\s*([^\)=]*)/m;
+	    var FN_ARGS = /^(function)?\s*[^\(]*\(\s*([^\)]*)\)/m;
+	    var FN_ARG_SPLIT = /,/;
+	    var FN_ARG = /(=.+)?(\s*)$/;
+	    var STRIP_COMMENTS = /((\/\/.*$)|(\/\*[\s\S]*?\*\/))/mg;
 
 	    function parseParams(func) {
-	        return trim(func.toString().match(argsRegex)[2]).split(/\s*\,\s*/);
+	        func = func.toString().replace(STRIP_COMMENTS, '');
+	        func = func.match(FN_ARGS)[2].replace(' ', '');
+	        func = func ? func.split(FN_ARG_SPLIT) : [];
+	        func = func.map(function (arg) {
+	            return trim(arg.replace(FN_ARG, ''));
+	        });
+	        return func;
 	    }
 
 	    /**
-	     * A dependency-injected version of the {@link async.auto} function. Dependent
+	     * A dependency-injected version of the [async.auto]{@link module:ControlFlow.auto} function. Dependent
 	     * tasks are specified as parameters to the function, after the usual callback
 	     * parameter, with the parameter names matching the names of the tasks it
 	     * depends on. This can provide even more readable task graphs which can be
@@ -18684,12 +17315,13 @@ return /******/ (function(modules) { // webpackBootstrap
 	     * specified as named parameters after the initial error parameter.
 	     *
 	     * The autoInject function is purely syntactic sugar and its semantics are
-	     * otherwise equivalent to {@link async.auto}.
+	     * otherwise equivalent to [async.auto]{@link module:ControlFlow.auto}.
 	     *
 	     * @name autoInject
 	     * @static
-	     * @memberOf async
-	     * @see async.auto
+	     * @memberOf module:ControlFlow
+	     * @method
+	     * @see [async.auto]{@link module:ControlFlow.auto}
 	     * @category Control Flow
 	     * @param {Object} tasks - An object, each of whose properties is a function of
 	     * the form 'func([dependencies...], callback). The object's key of a property
@@ -18702,12 +17334,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	     *   arguments of those parameters.
 	     * @param {Function} [callback] - An optional callback which is called when all
 	     * the tasks have been completed. It receives the `err` argument if any `tasks`
-	     * pass an error to their callback. The remaining parameters are task names
-	     * whose results you are interested in. This callback will only be called when
-	     * all tasks have finished or an error has occurred, and so do not specify
-	     * dependencies in the same way as `tasks` do. If an error occurs, no further
-	     * `tasks` will be performed, and `results` will only be valid for those tasks
-	     * which managed to complete. Invoked with (err, [results...]).
+	     * pass an error to their callback, and a `results` object with any completed
+	     * task results, similar to `auto`.
 	     * @example
 	     *
 	     * //  The example from `auto` can be rewritten as follows:
@@ -18731,17 +17359,16 @@ return /******/ (function(modules) { // webpackBootstrap
 	     *         // write_file contains the filename returned by write_file.
 	     *         callback(null, {'file':write_file, 'email':'user@example.com'});
 	     *     }
-	     * }, function(err, email_link) {
+	     * }, function(err, results) {
 	     *     console.log('err = ', err);
-	     *     console.log('email_link = ', email_link);
+	     *     console.log('email_link = ', results.email_link);
 	     * });
 	     *
 	     * // If you are using a JS minifier that mangles parameter names, `autoInject`
 	     * // will not work with plain functions, since the parameter names will be
 	     * // collapsed to a single letter identifier.  To work around this, you can
 	     * // explicitly specify the names of the parameters your task function needs
-	     * // in an array, similar to Angular.js dependency injection.  The final
-	     * // results callback can be provided as an array in the same way.
+	     * // in an array, similar to Angular.js dependency injection.
 	     *
 	     * // This still has an advantage over plain `auto`, since the results a task
 	     * // depends on are still spread into arguments.
@@ -18754,15 +17381,15 @@ return /******/ (function(modules) { // webpackBootstrap
 	     *         callback(null, {'file':write_file, 'email':'user@example.com'});
 	     *     }]
 	     *     //...
-	     * }, ['email_link', function(err, email_link) {
+	     * }, function(err, results) {
 	     *     console.log('err = ', err);
-	     *     console.log('email_link = ', email_link);
-	     * }]);
+	     *     console.log('email_link = ', results.email_link);
+	     * });
 	     */
 	    function autoInject(tasks, callback) {
 	        var newTasks = {};
 
-	        forOwn(tasks, function (taskFn, key) {
+	        baseForOwn(tasks, function (taskFn, key) {
 	            var params;
 
 	            if (isArray(taskFn)) {
@@ -18770,13 +17397,15 @@ return /******/ (function(modules) { // webpackBootstrap
 	                taskFn = params.pop();
 
 	                newTasks[key] = params.concat(params.length > 0 ? newTask : taskFn);
-	            } else if (taskFn.length === 0) {
-	                throw new Error("autoInject task functions require explicit parameters.");
 	            } else if (taskFn.length === 1) {
 	                // no dependencies, use the function as-is
 	                newTasks[key] = taskFn;
 	            } else {
 	                params = parseParams(taskFn);
+	                if (taskFn.length === 0 && params.length === 0) {
+	                    throw new Error("autoInject task functions require explicit parameters.");
+	                }
+
 	                params.pop();
 
 	                newTasks[key] = params.concat(newTask);
@@ -18821,13 +17450,71 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	    var setImmediate$1 = wrap(_defer);
 
+	    // Simple doubly linked list (https://en.wikipedia.org/wiki/Doubly_linked_list) implementation
+	    // used for queues. This implementation assumes that the node provided by the user can be modified
+	    // to adjust the next and last properties. We implement only the minimal functionality
+	    // for queue support.
+	    function DLL() {
+	        this.head = this.tail = null;
+	        this.length = 0;
+	    }
+
+	    function setInitial(dll, node) {
+	        dll.length = 1;
+	        dll.head = dll.tail = node;
+	    }
+
+	    DLL.prototype.removeLink = function (node) {
+	        if (node.prev) node.prev.next = node.next;else this.head = node.next;
+	        if (node.next) node.next.prev = node.prev;else this.tail = node.prev;
+
+	        node.prev = node.next = null;
+	        this.length -= 1;
+	        return node;
+	    };
+
+	    DLL.prototype.empty = DLL;
+
+	    DLL.prototype.insertAfter = function (node, newNode) {
+	        newNode.prev = node;
+	        newNode.next = node.next;
+	        if (node.next) node.next.prev = newNode;else this.tail = newNode;
+	        node.next = newNode;
+	        this.length += 1;
+	    };
+
+	    DLL.prototype.insertBefore = function (node, newNode) {
+	        newNode.prev = node.prev;
+	        newNode.next = node;
+	        if (node.prev) node.prev.next = newNode;else this.head = newNode;
+	        node.prev = newNode;
+	        this.length += 1;
+	    };
+
+	    DLL.prototype.unshift = function (node) {
+	        if (this.head) this.insertBefore(this.head, node);else setInitial(this, node);
+	    };
+
+	    DLL.prototype.push = function (node) {
+	        if (this.tail) this.insertAfter(this.tail, node);else setInitial(this, node);
+	    };
+
+	    DLL.prototype.shift = function () {
+	        return this.head && this.removeLink(this.head);
+	    };
+
+	    DLL.prototype.pop = function () {
+	        return this.tail && this.removeLink(this.tail);
+	    };
+
 	    function queue(worker, concurrency, payload) {
 	        if (concurrency == null) {
 	            concurrency = 1;
 	        } else if (concurrency === 0) {
 	            throw new Error('Concurrency must not be zero');
 	        }
-	        function _insert(q, data, pos, callback) {
+
+	        function _insert(data, insertAtFront, callback) {
 	            if (callback != null && typeof callback !== 'function') {
 	                throw new Error('task callback must be a function');
 	            }
@@ -18847,25 +17534,24 @@ return /******/ (function(modules) { // webpackBootstrap
 	                    callback: callback || noop
 	                };
 
-	                if (pos) {
-	                    q.tasks.unshift(item);
+	                if (insertAtFront) {
+	                    q._tasks.unshift(item);
 	                } else {
-	                    q.tasks.push(item);
+	                    q._tasks.push(item);
 	                }
 	            });
 	            setImmediate$1(q.process);
 	        }
-	        function _next(q, tasks) {
-	            return function () {
+
+	        function _next(tasks) {
+	            return rest(function (args) {
 	                workers -= 1;
 
-	                var removed = false;
-	                var args = arguments;
 	                arrayEach(tasks, function (task) {
 	                    arrayEach(workersList, function (worker, index) {
-	                        if (worker === task && !removed) {
+	                        if (worker === task) {
 	                            workersList.splice(index, 1);
-	                            removed = true;
+	                            return false;
 	                        }
 	                    });
 
@@ -18880,17 +17566,17 @@ return /******/ (function(modules) { // webpackBootstrap
 	                    q.unsaturated();
 	                }
 
-	                if (q.tasks.length + workers === 0) {
+	                if (q.idle()) {
 	                    q.drain();
 	                }
 	                q.process();
-	            };
+	            });
 	        }
 
 	        var workers = 0;
 	        var workersList = [];
 	        var q = {
-	            tasks: [],
+	            _tasks: new DLL(),
 	            concurrency: concurrency,
 	            payload: payload,
 	            saturated: noop,
@@ -18902,23 +17588,28 @@ return /******/ (function(modules) { // webpackBootstrap
 	            started: false,
 	            paused: false,
 	            push: function (data, callback) {
-	                _insert(q, data, false, callback);
+	                _insert(data, false, callback);
 	            },
 	            kill: function () {
 	                q.drain = noop;
-	                q.tasks = [];
+	                q._tasks.empty();
 	            },
 	            unshift: function (data, callback) {
-	                _insert(q, data, true, callback);
+	                _insert(data, true, callback);
 	            },
 	            process: function () {
-	                while (!q.paused && workers < q.concurrency && q.tasks.length) {
+	                while (!q.paused && workers < q.concurrency && q._tasks.length) {
+	                    var tasks = [],
+	                        data = [];
+	                    var l = q._tasks.length;
+	                    if (q.payload) l = Math.min(l, q.payload);
+	                    for (var i = 0; i < l; i++) {
+	                        var node = q._tasks.shift();
+	                        tasks.push(node);
+	                        data.push(node.data);
+	                    }
 
-	                    var tasks = q.payload ? q.tasks.splice(0, q.payload) : q.tasks.splice(0, q.tasks.length);
-
-	                    var data = arrayMap(tasks, baseProperty('data'));
-
-	                    if (q.tasks.length === 0) {
+	                    if (q._tasks.length === 0) {
 	                        q.empty();
 	                    }
 	                    workers += 1;
@@ -18928,12 +17619,12 @@ return /******/ (function(modules) { // webpackBootstrap
 	                        q.saturated();
 	                    }
 
-	                    var cb = onlyOnce(_next(q, tasks));
+	                    var cb = onlyOnce(_next(tasks));
 	                    worker(data, cb);
 	                }
 	            },
 	            length: function () {
-	                return q.tasks.length;
+	                return q._tasks.length;
 	            },
 	            running: function () {
 	                return workers;
@@ -18942,7 +17633,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	                return workersList;
 	            },
 	            idle: function () {
-	                return q.tasks.length + workers === 0;
+	                return q._tasks.length + workers === 0;
 	            },
 	            pause: function () {
 	                q.paused = true;
@@ -18952,7 +17643,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	                    return;
 	                }
 	                q.paused = false;
-	                var resumeCount = Math.min(q.concurrency, q.tasks.length);
+	                var resumeCount = Math.min(q.concurrency, q._tasks.length);
 	                // Need to call q.process once per concurrent
 	                // worker to preserve full concurrency after pause
 	                for (var w = 1; w <= resumeCount; w++) {
@@ -18965,17 +17656,18 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	    /**
 	     * A cargo of tasks for the worker function to complete. Cargo inherits all of
-	     * the same methods and event callbacks as {@link async.queue}.
-	     * @typedef {Object} cargo
+	     * the same methods and event callbacks as [`queue`]{@link module:ControlFlow.queue}.
+	     * @typedef {Object} CargoObject
+	     * @memberOf module:ControlFlow
 	     * @property {Function} length - A function returning the number of items
-	     * waiting to be processed. Invoke with ().
+	     * waiting to be processed. Invoke like `cargo.length()`.
 	     * @property {number} payload - An `integer` for determining how many tasks
 	     * should be process per round. This property can be changed after a `cargo` is
 	     * created to alter the payload on-the-fly.
 	     * @property {Function} push - Adds `task` to the `queue`. The callback is
 	     * called once the `worker` has finished processing the task. Instead of a
 	     * single task, an array of `tasks` can be submitted. The respective callback is
-	     * used for every task in the list. Invoke with (task, [callback]).
+	     * used for every task in the list. Invoke like `cargo.push(task, [callback])`.
 	     * @property {Function} saturated - A callback that is called when the
 	     * `queue.length()` hits the concurrency and further tasks will be queued.
 	     * @property {Function} empty - A callback that is called when the last item
@@ -18983,13 +17675,13 @@ return /******/ (function(modules) { // webpackBootstrap
 	     * @property {Function} drain - A callback that is called when the last item
 	     * from the `queue` has returned from the `worker`.
 	     * @property {Function} idle - a function returning false if there are items
-	     * waiting or being processed, or true if not. Invoke with ().
+	     * waiting or being processed, or true if not. Invoke like `cargo.idle()`.
 	     * @property {Function} pause - a function that pauses the processing of tasks
-	     * until `resume()` is called. Invoke with ().
+	     * until `resume()` is called. Invoke like `cargo.pause()`.
 	     * @property {Function} resume - a function that resumes the processing of
-	     * queued tasks when the queue is paused. Invoke with ().
+	     * queued tasks when the queue is paused. Invoke like `cargo.resume()`.
 	     * @property {Function} kill - a function that removes the `drain` callback and
-	     * empties remaining tasks from the queue forcing it to go idle. Invoke with ().
+	     * empties remaining tasks from the queue forcing it to go idle. Invoke like `cargo.kill()`.
 	     */
 
 	    /**
@@ -19000,22 +17692,23 @@ return /******/ (function(modules) { // webpackBootstrap
 	     * called. Check out [these](https://camo.githubusercontent.com/6bbd36f4cf5b35a0f11a96dcd2e97711ffc2fb37/68747470733a2f2f662e636c6f75642e6769746875622e636f6d2f6173736574732f313637363837312f36383130382f62626330636662302d356632392d313165322d393734662d3333393763363464633835382e676966) [animations](https://camo.githubusercontent.com/f4810e00e1c5f5f8addbe3e9f49064fd5d102699/68747470733a2f2f662e636c6f75642e6769746875622e636f6d2f6173736574732f313637363837312f36383130312f38346339323036362d356632392d313165322d383134662d3964336430323431336266642e676966)
 	     * for how `cargo` and `queue` work.
 	     *
-	     * While [queue](#queue) passes only one task to one of a group of workers
+	     * While [`queue`]{@link module:ControlFlow.queue} passes only one task to one of a group of workers
 	     * at a time, cargo passes an array of tasks to a single worker, repeating
 	     * when the worker is finished.
 	     *
 	     * @name cargo
 	     * @static
-	     * @memberOf async
-	     * @see async.queue
+	     * @memberOf module:ControlFlow
+	     * @method
+	     * @see [async.queue]{@link module:ControlFlow.queue}
 	     * @category Control Flow
 	     * @param {Function} worker - An asynchronous function for processing an array
 	     * of queued tasks, which must call its `callback(err)` argument when finished,
-	     * with an optional `err` argument. Invoked with (tasks, callback).
+	     * with an optional `err` argument. Invoked with `(tasks, callback)`.
 	     * @param {number} [payload=Infinity] - An optional `integer` for determining
 	     * how many tasks should be processed per round; if omitted, the default is
 	     * unlimited.
-	     * @returns {cargo} A cargo object to manage the tasks. Callbacks can
+	     * @returns {module:ControlFlow.CargoObject} A cargo object to manage the tasks. Callbacks can
 	     * attached as certain properties to listen for specific events during the
 	     * lifecycle of the cargo and inner queue.
 	     * @example
@@ -19044,40 +17737,16 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }
 
 	    /**
-	     * The same as `eachOf` but runs a maximum of `limit` async operations at a
-	     * time.
-	     *
-	     * @name eachOfLimit
-	     * @static
-	     * @memberOf async
-	     * @see async.eachOf
-	     * @alias forEachOfLimit
-	     * @category Collection
-	     * @param {Array|Object} coll - A collection to iterate over.
-	     * @param {number} limit - The maximum number of async operations at a time.
-	     * @param {Function} iteratee - A function to apply to each
-	     * item in `coll`. The `key` is the item's key, or index in the case of an
-	     * array. The iteratee is passed a `callback(err)` which must be called once it
-	     * has completed. If no error has occurred, the callback should be run without
-	     * arguments or with an explicit `null` argument. Invoked with
-	     * (item, key, callback).
-	     * @param {Function} [callback] - A callback which is called when all
-	     * `iteratee` functions have finished, or an error occurs. Invoked with (err).
-	     */
-	    function eachOfLimit(obj, limit, iteratee, cb) {
-	      _eachOfLimit(limit)(obj, iteratee, cb);
-	    }
-
-	    /**
-	     * The same as `eachOf` but runs only a single async operation at a time.
+	     * The same as [`eachOf`]{@link module:Collections.eachOf} but runs only a single async operation at a time.
 	     *
 	     * @name eachOfSeries
 	     * @static
-	     * @memberOf async
-	     * @see async.eachOf
+	     * @memberOf module:Collections
+	     * @method
+	     * @see [async.eachOf]{@link module:Collections.eachOf}
 	     * @alias forEachOfSeries
 	     * @category Collection
-	     * @param {Array|Object} coll - A collection to iterate over.
+	     * @param {Array|Iterable|Object} coll - A collection to iterate over.
 	     * @param {Function} iteratee - A function to apply to each item in `coll`. The
 	     * `key` is the item's key, or index in the case of an array. The iteratee is
 	     * passed a `callback(err)` which must be called once it has completed. If no
@@ -19101,10 +17770,12 @@ return /******/ (function(modules) { // webpackBootstrap
 	     *
 	     * @name reduce
 	     * @static
-	     * @memberOf async
-	     * @alias inject, foldl
+	     * @memberOf module:Collections
+	     * @method
+	     * @alias inject
+	     * @alias foldl
 	     * @category Collection
-	     * @param {Array|Object} coll - A collection to iterate over.
+	     * @param {Array|Iterable|Object} coll - A collection to iterate over.
 	     * @param {*} memo - The initial state of the reduction.
 	     * @param {Function} iteratee - A function applied to each item in the
 	     * array to produce the next step in the reduction. The `iteratee` is passed a
@@ -19126,30 +17797,33 @@ return /******/ (function(modules) { // webpackBootstrap
 	     *     // result is now equal to the last value of memo, which is 6
 	     * });
 	     */
-	    function reduce(arr, memo, iteratee, cb) {
-	        eachOfSeries(arr, function (x, i, cb) {
+	    function reduce(coll, memo, iteratee, callback) {
+	        callback = once(callback || noop);
+	        eachOfSeries(coll, function (x, i, callback) {
 	            iteratee(memo, x, function (err, v) {
 	                memo = v;
-	                cb(err);
+	                callback(err);
 	            });
 	        }, function (err) {
-	            cb(err, memo);
+	            callback(err, memo);
 	        });
 	    }
 
 	    /**
 	     * Version of the compose function that is more natural to read. Each function
 	     * consumes the return value of the previous function. It is the equivalent of
-	     * {@link async.compose} with the arguments reversed.
+	     * [compose]{@link module:ControlFlow.compose} with the arguments reversed.
 	     *
 	     * Each function is executed with the `this` binding of the composed function.
 	     *
 	     * @name seq
 	     * @static
-	     * @memberOf async
-	     * @see async.compose
+	     * @memberOf module:ControlFlow
+	     * @method
+	     * @see [async.compose]{@link module:ControlFlow.compose}
 	     * @category Control Flow
 	     * @param {...Function} functions - the asynchronous functions to compose
+	     * @returns {Function} a function that composes the `functions` in order
 	     * @example
 	     *
 	     * // Requires lodash (or underscore), express3 and dresende's orm2.
@@ -19173,8 +17847,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	     *     });
 	     * });
 	     */
-	    function seq() /* functions... */{
-	        var fns = arguments;
+	    var seq = rest(function seq(functions) {
 	        return rest(function (args) {
 	            var that = this;
 
@@ -19185,7 +17858,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	                cb = noop;
 	            }
 
-	            reduce(fns, args, function (newargs, fn, cb) {
+	            reduce(functions, args, function (newargs, fn, cb) {
 	                fn.apply(that, newargs.concat([rest(function (err, nextargs) {
 	                    cb(err, nextargs);
 	                })]));
@@ -19193,9 +17866,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	                cb.apply(that, [err].concat(results));
 	            });
 	        });
-	    }
-
-	    var reverse = Array.prototype.reverse;
+	    });
 
 	    /**
 	     * Creates a function which is a composition of the passed asynchronous
@@ -19207,9 +17878,12 @@ return /******/ (function(modules) { // webpackBootstrap
 	     *
 	     * @name compose
 	     * @static
-	     * @memberOf async
+	     * @memberOf module:ControlFlow
+	     * @method
 	     * @category Control Flow
 	     * @param {...Function} functions - the asynchronous functions to compose
+	     * @returns {Function} an asynchronous function that is the composed
+	     * asynchronous `functions`
 	     * @example
 	     *
 	     * function add1(n, callback) {
@@ -19229,9 +17903,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	     *     // result now equals 15
 	     * });
 	     */
-	    function compose() /* functions... */{
-	      return seq.apply(null, reverse.call(arguments));
-	    }
+	    var compose = rest(function (args) {
+	      return seq.apply(null, args.reverse());
+	    });
 
 	    function concat$1(eachfn, arr, fn, callback) {
 	        var result = [];
@@ -19246,53 +17920,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }
 
 	    /**
-	     * Like `each`, except that it passes the key (or index) as the second argument
-	     * to the iteratee.
-	     *
-	     * @name eachOf
-	     * @static
-	     * @memberOf async
-	     * @alias forEachOf
-	     * @category Collection
-	     * @param {Array|Object} coll - A collection to iterate over.
-	     * @param {Function} iteratee - A function to apply to each
-	     * item in `coll`. The `key` is the item's key, or index in the case of an
-	     * array. The iteratee is passed a `callback(err)` which must be called once it
-	     * has completed. If no error has occurred, the callback should be run without
-	     * arguments or with an explicit `null` argument. Invoked with
-	     * (item, key, callback).
-	     * @param {Function} [callback] - A callback which is called when all
-	     * `iteratee` functions have finished, or an error occurs. Invoked with (err).
-	     * @example
-	     *
-	     * var obj = {dev: "/dev.json", test: "/test.json", prod: "/prod.json"};
-	     * var configs = {};
-	     *
-	     * async.forEachOf(obj, function (value, key, callback) {
-	     *     fs.readFile(__dirname + value, "utf8", function (err, data) {
-	     *         if (err) return callback(err);
-	     *         try {
-	     *             configs[key] = JSON.parse(data);
-	     *         } catch (e) {
-	     *             return callback(e);
-	     *         }
-	     *         callback();
-	     *     });
-	     * }, function (err) {
-	     *     if (err) console.error(err.message);
-	     *     // configs is now a map of JSON data
-	     *     doSomethingWith(configs);
-	     * });
-	     */
-	    var eachOf = doLimit(eachOfLimit, Infinity);
-
-	    function doParallel(fn) {
-	        return function (obj, iteratee, callback) {
-	            return fn(eachOf, obj, iteratee, callback);
-	        };
-	    }
-
-	    /**
 	     * Applies `iteratee` to each item in `coll`, concatenating the results. Returns
 	     * the concatenated list. The `iteratee`s are called in parallel, and the
 	     * results are concatenated as they return. There is no guarantee that the
@@ -19301,9 +17928,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	     *
 	     * @name concat
 	     * @static
-	     * @memberOf async
+	     * @memberOf module:Collections
+	     * @method
 	     * @category Collection
-	     * @param {Array|Object} coll - A collection to iterate over.
+	     * @param {Array|Iterable|Object} coll - A collection to iterate over.
 	     * @param {Function} iteratee - A function to apply to each item in `coll`.
 	     * The iteratee is passed a `callback(err, results)` which must be called once
 	     * it has completed with an error (which can be `null`) and an array of results.
@@ -19327,14 +17955,15 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }
 
 	    /**
-	     * The same as `concat` but runs only a single async operation at a time.
+	     * The same as [`concat`]{@link module:Collections.concat} but runs only a single async operation at a time.
 	     *
 	     * @name concatSeries
 	     * @static
-	     * @memberOf async
-	     * @see async.concat
+	     * @memberOf module:Collections
+	     * @method
+	     * @see [async.concat]{@link module:Collections.concat}
 	     * @category Collection
-	     * @param {Array|Object} coll - A collection to iterate over.
+	     * @param {Array|Iterable|Object} coll - A collection to iterate over.
 	     * @param {Function} iteratee - A function to apply to each item in `coll`.
 	     * The iteratee is passed a `callback(err, results)` which must be called once
 	     * it has completed with an error (which can be `null`) and an array of results.
@@ -19348,12 +17977,13 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	    /**
 	     * Returns a function that when called, calls-back with the values provided.
-	     * Useful as the first function in a `waterfall`, or for plugging values in to
-	     * `auto`.
+	     * Useful as the first function in a [`waterfall`]{@link module:ControlFlow.waterfall}, or for plugging values in to
+	     * [`auto`]{@link module:ControlFlow.auto}.
 	     *
 	     * @name constant
 	     * @static
-	     * @memberOf async
+	     * @memberOf module:Utils
+	     * @method
 	     * @category Util
 	     * @param {...*} arguments... - Any number of arguments to automatically invoke
 	     * callback with.
@@ -19393,6 +18023,26 @@ return /******/ (function(modules) { // webpackBootstrap
 	            return callback.apply(this, args);
 	        });
 	    });
+
+	    /**
+	     * This method returns the first argument given to it.
+	     *
+	     * @static
+	     * @since 0.1.0
+	     * @memberOf _
+	     * @category Util
+	     * @param {*} value Any value.
+	     * @returns {*} Returns `value`.
+	     * @example
+	     *
+	     * var object = { 'user': 'fred' };
+	     *
+	     * console.log(_.identity(object) === object);
+	     * // => true
+	     */
+	    function identity(value) {
+	      return value;
+	    }
 
 	    function _createTester(eachfn, check, getResult) {
 	        return function (arr, limit, iteratee, cb) {
@@ -19444,14 +18094,15 @@ return /******/ (function(modules) { // webpackBootstrap
 	     * that passes the test.
 
 	     * If order within the original `coll` is important, then look at
-	     * `detectSeries`.
+	     * [`detectSeries`]{@link module:Collections.detectSeries}.
 	     *
 	     * @name detect
 	     * @static
-	     * @memberOf async
+	     * @memberOf module:Collections
+	     * @method
 	     * @alias find
-	     * @category Collection
-	     * @param {Array|Object} coll - A collection to iterate over.
+	     * @category Collections
+	     * @param {Array|Iterable|Object} coll - A collection to iterate over.
 	     * @param {Function} iteratee - A truth test to apply to each item in `coll`.
 	     * The iteratee is passed a `callback(err, truthValue)` which must be called
 	     * with a boolean argument once it has completed. Invoked with (item, callback).
@@ -19473,16 +18124,17 @@ return /******/ (function(modules) { // webpackBootstrap
 	    var detect = _createTester(eachOf, identity, _findGetResult);
 
 	    /**
-	     * The same as `detect` but runs a maximum of `limit` async operations at a
+	     * The same as [`detect`]{@link module:Collections.detect} but runs a maximum of `limit` async operations at a
 	     * time.
 	     *
 	     * @name detectLimit
 	     * @static
-	     * @memberOf async
-	     * @see async.detect
+	     * @memberOf module:Collections
+	     * @method
+	     * @see [async.detect]{@link module:Collections.detect}
 	     * @alias findLimit
-	     * @category Collection
-	     * @param {Array|Object} coll - A collection to iterate over.
+	     * @category Collections
+	     * @param {Array|Iterable|Object} coll - A collection to iterate over.
 	     * @param {number} limit - The maximum number of async operations at a time.
 	     * @param {Function} iteratee - A truth test to apply to each item in `coll`.
 	     * The iteratee is passed a `callback(err, truthValue)` which must be called
@@ -19496,15 +18148,16 @@ return /******/ (function(modules) { // webpackBootstrap
 	    var detectLimit = _createTester(eachOfLimit, identity, _findGetResult);
 
 	    /**
-	     * The same as `detect` but runs only a single async operation at a time.
+	     * The same as [`detect`]{@link module:Collections.detect} but runs only a single async operation at a time.
 	     *
 	     * @name detectSeries
 	     * @static
-	     * @memberOf async
-	     * @see async.detect
+	     * @memberOf module:Collections
+	     * @method
+	     * @see [async.detect]{@link module:Collections.detect}
 	     * @alias findSeries
-	     * @category Collection
-	     * @param {Array|Object} coll - A collection to iterate over.
+	     * @category Collections
+	     * @param {Array|Iterable|Object} coll - A collection to iterate over.
 	     * @param {Function} iteratee - A truth test to apply to each item in `coll`.
 	     * The iteratee is passed a `callback(err, truthValue)` which must be called
 	     * with a boolean argument once it has completed. Invoked with (item, callback).
@@ -19541,9 +18194,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	     * Chrome). If multiple arguments are returned from the async function,
 	     * `console.dir` is called on each argument in order.
 	     *
-	     * @name log
+	     * @name dir
 	     * @static
-	     * @memberOf async
+	     * @memberOf module:Utils
+	     * @method
 	     * @category Util
 	     * @param {Function} function - The function you want to eventually apply all
 	     * arguments to.
@@ -19564,15 +18218,114 @@ return /******/ (function(modules) { // webpackBootstrap
 	    var dir = consoleFunc('dir');
 
 	    /**
-	     * Like {@link async.whilst}, except the `test` is an asynchronous function that
+	     * The post-check version of [`during`]{@link module:ControlFlow.during}. To reflect the difference in
+	     * the order of operations, the arguments `test` and `fn` are switched.
+	     *
+	     * Also a version of [`doWhilst`]{@link module:ControlFlow.doWhilst} with asynchronous `test` function.
+	     * @name doDuring
+	     * @static
+	     * @memberOf module:ControlFlow
+	     * @method
+	     * @see [async.during]{@link module:ControlFlow.during}
+	     * @category Control Flow
+	     * @param {Function} fn - A function which is called each time `test` passes.
+	     * The function is passed a `callback(err)`, which must be called once it has
+	     * completed with an optional `err` argument. Invoked with (callback).
+	     * @param {Function} test - asynchronous truth test to perform before each
+	     * execution of `fn`. Invoked with (...args, callback), where `...args` are the
+	     * non-error args from the previous callback of `fn`.
+	     * @param {Function} [callback] - A callback which is called after the test
+	     * function has failed and repeated execution of `fn` has stopped. `callback`
+	     * will be passed an error if one occured, otherwise `null`.
+	     */
+	    function doDuring(fn, test, callback) {
+	        callback = onlyOnce(callback || noop);
+
+	        var next = rest(function (err, args) {
+	            if (err) return callback(err);
+	            args.push(check);
+	            test.apply(this, args);
+	        });
+
+	        function check(err, truth) {
+	            if (err) return callback(err);
+	            if (!truth) return callback(null);
+	            fn(next);
+	        }
+
+	        check(null, true);
+	    }
+
+	    /**
+	     * The post-check version of [`whilst`]{@link module:ControlFlow.whilst}. To reflect the difference in
+	     * the order of operations, the arguments `test` and `iteratee` are switched.
+	     *
+	     * `doWhilst` is to `whilst` as `do while` is to `while` in plain JavaScript.
+	     *
+	     * @name doWhilst
+	     * @static
+	     * @memberOf module:ControlFlow
+	     * @method
+	     * @see [async.whilst]{@link module:ControlFlow.whilst}
+	     * @category Control Flow
+	     * @param {Function} iteratee - A function which is called each time `test`
+	     * passes. The function is passed a `callback(err)`, which must be called once
+	     * it has completed with an optional `err` argument. Invoked with (callback).
+	     * @param {Function} test - synchronous truth test to perform after each
+	     * execution of `iteratee`. Invoked with Invoked with the non-error callback
+	     * results of `iteratee`.
+	     * @param {Function} [callback] - A callback which is called after the test
+	     * function has failed and repeated execution of `iteratee` has stopped.
+	     * `callback` will be passed an error and any arguments passed to the final
+	     * `iteratee`'s callback. Invoked with (err, [results]);
+	     */
+	    function doWhilst(iteratee, test, callback) {
+	        callback = onlyOnce(callback || noop);
+	        var next = rest(function (err, args) {
+	            if (err) return callback(err);
+	            if (test.apply(this, args)) return iteratee(next);
+	            callback.apply(null, [null].concat(args));
+	        });
+	        iteratee(next);
+	    }
+
+	    /**
+	     * Like ['doWhilst']{@link module:ControlFlow.doWhilst}, except the `test` is inverted. Note the
+	     * argument ordering differs from `until`.
+	     *
+	     * @name doUntil
+	     * @static
+	     * @memberOf module:ControlFlow
+	     * @method
+	     * @see [async.doWhilst]{@link module:ControlFlow.doWhilst}
+	     * @category Control Flow
+	     * @param {Function} fn - A function which is called each time `test` fails.
+	     * The function is passed a `callback(err)`, which must be called once it has
+	     * completed with an optional `err` argument. Invoked with (callback).
+	     * @param {Function} test - synchronous truth test to perform after each
+	     * execution of `fn`. Invoked with the non-error callback results of `fn`.
+	     * @param {Function} [callback] - A callback which is called after the test
+	     * function has passed and repeated execution of `fn` has stopped. `callback`
+	     * will be passed an error and any arguments passed to the final `fn`'s
+	     * callback. Invoked with (err, [results]);
+	     */
+	    function doUntil(fn, test, callback) {
+	        doWhilst(fn, function () {
+	            return !test.apply(this, arguments);
+	        }, callback);
+	    }
+
+	    /**
+	     * Like [`whilst`]{@link module:ControlFlow.whilst}, except the `test` is an asynchronous function that
 	     * is passed a callback in the form of `function (err, truth)`. If error is
 	     * passed to `test` or `fn`, the main callback is immediately called with the
 	     * value of the error.
 	     *
 	     * @name during
 	     * @static
-	     * @memberOf async
-	     * @see async.whilst
+	     * @memberOf module:ControlFlow
+	     * @method
+	     * @see [async.whilst]{@link module:ControlFlow.whilst}
 	     * @category Control Flow
 	     * @param {Function} test - asynchronous truth test to perform before each
 	     * execution of `fn`. Invoked with (callback).
@@ -19581,8 +18334,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	     * completed with an optional `err` argument. Invoked with (callback).
 	     * @param {Function} [callback] - A callback which is called after the test
 	     * function has failed and repeated execution of `fn` has stopped. `callback`
-	     * will be passed an error and any arguments passed to the final `fn`'s
-	     * callback. Invoked with (err, [results]);
+	     * will be passed an error, if one occured, otherwise `null`.
 	     * @example
 	     *
 	     * var count = 0;
@@ -19600,182 +18352,27 @@ return /******/ (function(modules) { // webpackBootstrap
 	     *     }
 	     * );
 	     */
-	    function during(test, iteratee, cb) {
-	        cb = cb || noop;
+	    function during(test, fn, callback) {
+	        callback = onlyOnce(callback || noop);
 
-	        var next = rest(function (err, args) {
-	            if (err) {
-	                cb(err);
-	            } else {
-	                args.push(check);
-	                test.apply(this, args);
-	            }
-	        });
+	        function next(err) {
+	            if (err) return callback(err);
+	            test(check);
+	        }
 
-	        var check = function (err, truth) {
-	            if (err) return cb(err);
-	            if (!truth) return cb(null);
-	            iteratee(next);
-	        };
+	        function check(err, truth) {
+	            if (err) return callback(err);
+	            if (!truth) return callback(null);
+	            fn(next);
+	        }
 
 	        test(check);
-	    }
-
-	    /**
-	     * The post-check version of {@link async.during}. To reflect the difference in
-	     * the order of operations, the arguments `test` and `fn` are switched.
-	     *
-	     * Also a version of {@link async.doWhilst} with asynchronous `test` function.
-	     * @name doDuring
-	     * @static
-	     * @memberOf async
-	     * @see async.during
-	     * @category Control Flow
-	     * @param {Function} fn - A function which is called each time `test` passes.
-	     * The function is passed a `callback(err)`, which must be called once it has
-	     * completed with an optional `err` argument. Invoked with (callback).
-	     * @param {Function} test - asynchronous truth test to perform before each
-	     * execution of `fn`. Invoked with (callback).
-	     * @param {Function} [callback] - A callback which is called after the test
-	     * function has failed and repeated execution of `fn` has stopped. `callback`
-	     * will be passed an error and any arguments passed to the final `fn`'s
-	     * callback. Invoked with (err, [results]);
-	     */
-	    function doDuring(iteratee, test, cb) {
-	        var calls = 0;
-
-	        during(function (next) {
-	            if (calls++ < 1) return next(null, true);
-	            test.apply(this, arguments);
-	        }, iteratee, cb);
-	    }
-
-	    /**
-	     * Repeatedly call `fn`, while `test` returns `true`. Calls `callback` when
-	     * stopped, or an error occurs.
-	     *
-	     * @name whilst
-	     * @static
-	     * @memberOf async
-	     * @category Control Flow
-	     * @param {Function} test - synchronous truth test to perform before each
-	     * execution of `fn`. Invoked with ().
-	     * @param {Function} fn - A function which is called each time `test` passes.
-	     * The function is passed a `callback(err)`, which must be called once it has
-	     * completed with an optional `err` argument. Invoked with (callback).
-	     * @param {Function} [callback] - A callback which is called after the test
-	     * function has failed and repeated execution of `fn` has stopped. `callback`
-	     * will be passed an error and any arguments passed to the final `fn`'s
-	     * callback. Invoked with (err, [results]);
-	     * @example
-	     *
-	     * var count = 0;
-	     * async.whilst(
-	     *     function() { return count < 5; },
-	     *     function(callback) {
-	     *         count++;
-	     *         setTimeout(function() {
-	     *             callback(null, count);
-	     *         }, 1000);
-	     *     },
-	     *     function (err, n) {
-	     *         // 5 seconds have passed, n = 5
-	     *     }
-	     * );
-	     */
-	    function whilst(test, iteratee, cb) {
-	        cb = cb || noop;
-	        if (!test()) return cb(null);
-	        var next = rest(function (err, args) {
-	            if (err) return cb(err);
-	            if (test.apply(this, args)) return iteratee(next);
-	            cb.apply(null, [null].concat(args));
-	        });
-	        iteratee(next);
-	    }
-
-	    /**
-	     * The post-check version of {@link async.whilst}. To reflect the difference in
-	     * the order of operations, the arguments `test` and `fn` are switched.
-	     *
-	     * `doWhilst` is to `whilst` as `do while` is to `while` in plain JavaScript.
-	     *
-	     * @name doWhilst
-	     * @static
-	     * @memberOf async
-	     * @see async.whilst
-	     * @category Control Flow
-	     * @param {Function} fn - A function which is called each time `test` passes.
-	     * The function is passed a `callback(err)`, which must be called once it has
-	     * completed with an optional `err` argument. Invoked with (callback).
-	     * @param {Function} test - synchronous truth test to perform after each
-	     * execution of `fn`. Invoked with Invoked with the non-error callback results
-	     * of `fn`.
-	     * @param {Function} [callback] - A callback which is called after the test
-	     * function has failed and repeated execution of `fn` has stopped. `callback`
-	     * will be passed an error and any arguments passed to the final `fn`'s
-	     * callback. Invoked with (err, [results]);
-	     */
-	    function doWhilst(iteratee, test, cb) {
-	        var calls = 0;
-	        return whilst(function () {
-	            return ++calls <= 1 || test.apply(this, arguments);
-	        }, iteratee, cb);
-	    }
-
-	    /**
-	     * Like {@link async.doWhilst}, except the `test` is inverted. Note the
-	     * argument ordering differs from `until`.
-	     *
-	     * @name doUntil
-	     * @static
-	     * @memberOf async
-	     * @see async.doWhilst
-	     * @category Control Flow
-	     * @param {Function} fn - A function which is called each time `test` fails.
-	     * The function is passed a `callback(err)`, which must be called once it has
-	     * completed with an optional `err` argument. Invoked with (callback).
-	     * @param {Function} test - synchronous truth test to perform after each
-	     * execution of `fn`. Invoked with the non-error callback results of `fn`.
-	     * @param {Function} [callback] - A callback which is called after the test
-	     * function has passed and repeated execution of `fn` has stopped. `callback`
-	     * will be passed an error and any arguments passed to the final `fn`'s
-	     * callback. Invoked with (err, [results]);
-	     */
-	    function doUntil(iteratee, test, cb) {
-	        return doWhilst(iteratee, function () {
-	            return !test.apply(this, arguments);
-	        }, cb);
 	    }
 
 	    function _withoutIndex(iteratee) {
 	        return function (value, index, callback) {
 	            return iteratee(value, callback);
 	        };
-	    }
-
-	    /**
-	     * The same as `each` but runs a maximum of `limit` async operations at a time.
-	     *
-	     * @name eachLimit
-	     * @static
-	     * @memberOf async
-	     * @see async.each
-	     * @alias forEachLimit
-	     * @category Collection
-	     * @param {Array|Object} coll - A colleciton to iterate over.
-	     * @param {number} limit - The maximum number of async operations at a time.
-	     * @param {Function} iteratee - A function to apply to each item in `coll`. The
-	     * iteratee is passed a `callback(err)` which must be called once it has
-	     * completed. If no error has occurred, the `callback` should be run without
-	     * arguments or with an explicit `null` argument. The array index is not passed
-	     * to the iteratee. Invoked with (item, callback). If you need the index, use
-	     * `eachOfLimit`.
-	     * @param {Function} [callback] - A callback which is called when all
-	     * `iteratee` functions have finished, or an error occurs. Invoked with (err).
-	     */
-	    function eachLimit(arr, limit, iteratee, cb) {
-	      return _eachOfLimit(limit)(arr, _withoutIndex(iteratee), cb);
 	    }
 
 	    /**
@@ -19790,10 +18387,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	     *
 	     * @name each
 	     * @static
-	     * @memberOf async
+	     * @memberOf module:Collections
+	     * @method
 	     * @alias forEach
 	     * @category Collection
-	     * @param {Array|Object} coll - A collection to iterate over.
+	     * @param {Array|Iterable|Object} coll - A collection to iterate over.
 	     * @param {Function} iteratee - A function to apply to each item
 	     * in `coll`. The iteratee is passed a `callback(err)` which must be called once
 	     * it has completed. If no error has occurred, the `callback` should be run
@@ -19836,18 +18434,46 @@ return /******/ (function(modules) { // webpackBootstrap
 	     *     }
 	     * });
 	     */
-	    var each = doLimit(eachLimit, Infinity);
+	    function eachLimit(coll, iteratee, callback) {
+	      eachOf(coll, _withoutIndex(iteratee), callback);
+	    }
 
 	    /**
-	     * The same as `each` but runs only a single async operation at a time.
+	     * The same as [`each`]{@link module:Collections.each} but runs a maximum of `limit` async operations at a time.
+	     *
+	     * @name eachLimit
+	     * @static
+	     * @memberOf module:Collections
+	     * @method
+	     * @see [async.each]{@link module:Collections.each}
+	     * @alias forEachLimit
+	     * @category Collection
+	     * @param {Array|Iterable|Object} coll - A colleciton to iterate over.
+	     * @param {number} limit - The maximum number of async operations at a time.
+	     * @param {Function} iteratee - A function to apply to each item in `coll`. The
+	     * iteratee is passed a `callback(err)` which must be called once it has
+	     * completed. If no error has occurred, the `callback` should be run without
+	     * arguments or with an explicit `null` argument. The array index is not passed
+	     * to the iteratee. Invoked with (item, callback). If you need the index, use
+	     * `eachOfLimit`.
+	     * @param {Function} [callback] - A callback which is called when all
+	     * `iteratee` functions have finished, or an error occurs. Invoked with (err).
+	     */
+	    function eachLimit$1(coll, limit, iteratee, callback) {
+	      _eachOfLimit(limit)(coll, _withoutIndex(iteratee), callback);
+	    }
+
+	    /**
+	     * The same as [`each`]{@link module:Collections.each} but runs only a single async operation at a time.
 	     *
 	     * @name eachSeries
 	     * @static
-	     * @memberOf async
-	     * @see async.each
+	     * @memberOf module:Collections
+	     * @method
+	     * @see [async.each]{@link module:Collections.each}
 	     * @alias forEachSeries
 	     * @category Collection
-	     * @param {Array|Object} coll - A collection to iterate over.
+	     * @param {Array|Iterable|Object} coll - A collection to iterate over.
 	     * @param {Function} iteratee - A function to apply to each
 	     * item in `coll`. The iteratee is passed a `callback(err)` which must be called
 	     * once it has completed. If no error has occurred, the `callback` should be run
@@ -19857,7 +18483,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	     * @param {Function} [callback] - A callback which is called when all
 	     * `iteratee` functions have finished, or an error occurs. Invoked with (err).
 	     */
-	    var eachSeries = doLimit(eachLimit, 1);
+	    var eachSeries = doLimit(eachLimit$1, 1);
 
 	    /**
 	     * Wrap an async function and ensure it calls its callback on a later tick of
@@ -19869,7 +18495,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	     *
 	     * @name ensureAsync
 	     * @static
-	     * @memberOf async
+	     * @memberOf module:Utils
+	     * @method
 	     * @category Util
 	     * @param {Function} fn - an async function, one that expects a node-style
 	     * callback as its last argument.
@@ -19915,36 +18542,16 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }
 
 	    /**
-	     * The same as `every` but runs a maximum of `limit` async operations at a time.
-	     *
-	     * @name everyLimit
-	     * @static
-	     * @memberOf async
-	     * @see async.every
-	     * @alias allLimit
-	     * @category Collection
-	     * @param {Array|Object} coll - A collection to iterate over.
-	     * @param {number} limit - The maximum number of async operations at a time.
-	     * @param {Function} iteratee - A truth test to apply to each item in the
-	     * collection in parallel. The iteratee is passed a `callback(err, truthValue)`
-	     * which must be called with a  boolean argument once it has completed. Invoked
-	     * with (item, callback).
-	     * @param {Function} [callback] - A callback which is called after all the
-	     * `iteratee` functions have finished. Result will be either `true` or `false`
-	     * depending on the values of the async tests. Invoked with (err, result).
-	     */
-	    var everyLimit = _createTester(eachOfLimit, notId, notId);
-
-	    /**
 	     * Returns `true` if every element in `coll` satisfies an async test. If any
 	     * iteratee call returns `false`, the main `callback` is immediately called.
 	     *
 	     * @name every
 	     * @static
-	     * @memberOf async
+	     * @memberOf module:Collections
+	     * @method
 	     * @alias all
 	     * @category Collection
-	     * @param {Array|Object} coll - A collection to iterate over.
+	     * @param {Array|Iterable|Object} coll - A collection to iterate over.
 	     * @param {Function} iteratee - A truth test to apply to each item in the
 	     * collection in parallel. The iteratee is passed a `callback(err, truthValue)`
 	     * which must be called with a  boolean argument once it has completed. Invoked
@@ -19962,18 +18569,41 @@ return /******/ (function(modules) { // webpackBootstrap
 	     *     // if result is true then every file exists
 	     * });
 	     */
-	    var every = doLimit(everyLimit, Infinity);
+	    var every = _createTester(eachOf, notId, notId);
 
 	    /**
-	     * The same as `every` but runs only a single async operation at a time.
+	     * The same as [`every`]{@link module:Collections.every} but runs a maximum of `limit` async operations at a time.
+	     *
+	     * @name everyLimit
+	     * @static
+	     * @memberOf module:Collections
+	     * @method
+	     * @see [async.every]{@link module:Collections.every}
+	     * @alias allLimit
+	     * @category Collection
+	     * @param {Array|Iterable|Object} coll - A collection to iterate over.
+	     * @param {number} limit - The maximum number of async operations at a time.
+	     * @param {Function} iteratee - A truth test to apply to each item in the
+	     * collection in parallel. The iteratee is passed a `callback(err, truthValue)`
+	     * which must be called with a  boolean argument once it has completed. Invoked
+	     * with (item, callback).
+	     * @param {Function} [callback] - A callback which is called after all the
+	     * `iteratee` functions have finished. Result will be either `true` or `false`
+	     * depending on the values of the async tests. Invoked with (err, result).
+	     */
+	    var everyLimit = _createTester(eachOfLimit, notId, notId);
+
+	    /**
+	     * The same as [`every`]{@link module:Collections.every} but runs only a single async operation at a time.
 	     *
 	     * @name everySeries
 	     * @static
-	     * @memberOf async
-	     * @see async.every
+	     * @memberOf module:Collections
+	     * @method
+	     * @see [async.every]{@link module:Collections.every}
 	     * @alias allSeries
 	     * @category Collection
-	     * @param {Array|Object} coll - A collection to iterate over.
+	     * @param {Array|Iterable|Object} coll - A collection to iterate over.
 	     * @param {Function} iteratee - A truth test to apply to each item in the
 	     * collection in parallel. The iteratee is passed a `callback(err, truthValue)`
 	     * which must be called with a  boolean argument once it has completed. Invoked
@@ -19985,6 +18615,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    var everySeries = doLimit(everyLimit, 1);
 
 	    function _filter(eachfn, arr, iteratee, callback) {
+	        callback = once(callback || noop);
 	        var results = [];
 	        eachfn(arr, function (x, index, callback) {
 	            iteratee(x, function (err, v) {
@@ -20009,36 +18640,17 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }
 
 	    /**
-	     * The same as `filter` but runs a maximum of `limit` async operations at a
-	     * time.
-	     *
-	     * @name filterLimit
-	     * @static
-	     * @memberOf async
-	     * @see async.filter
-	     * @alias selectLimit
-	     * @category Collection
-	     * @param {Array|Object} coll - A collection to iterate over.
-	     * @param {number} limit - The maximum number of async operations at a time.
-	     * @param {Function} iteratee - A truth test to apply to each item in `coll`.
-	     * The `iteratee` is passed a `callback(err, truthValue)`, which must be called
-	     * with a boolean argument once it has completed. Invoked with (item, callback).
-	     * @param {Function} [callback] - A callback which is called after all the
-	     * `iteratee` functions have finished. Invoked with (err, results).
-	     */
-	    var filterLimit = doParallelLimit(_filter);
-
-	    /**
 	     * Returns a new array of all the values in `coll` which pass an async truth
 	     * test. This operation is performed in parallel, but the results array will be
 	     * in the same order as the original.
 	     *
 	     * @name filter
 	     * @static
-	     * @memberOf async
+	     * @memberOf module:Collections
+	     * @method
 	     * @alias select
 	     * @category Collection
-	     * @param {Array|Object} coll - A collection to iterate over.
+	     * @param {Array|Iterable|Object} coll - A collection to iterate over.
 	     * @param {Function} iteratee - A truth test to apply to each item in `coll`.
 	     * The `iteratee` is passed a `callback(err, truthValue)`, which must be called
 	     * with a boolean argument once it has completed. Invoked with (item, callback).
@@ -20054,18 +18666,40 @@ return /******/ (function(modules) { // webpackBootstrap
 	     *     // results now equals an array of the existing files
 	     * });
 	     */
-	    var filter = doLimit(filterLimit, Infinity);
+	    var filter = doParallel(_filter);
 
 	    /**
-	     * The same as `filter` but runs only a single async operation at a time.
+	     * The same as [`filter`]{@link module:Collections.filter} but runs a maximum of `limit` async operations at a
+	     * time.
+	     *
+	     * @name filterLimit
+	     * @static
+	     * @memberOf module:Collections
+	     * @method
+	     * @see [async.filter]{@link module:Collections.filter}
+	     * @alias selectLimit
+	     * @category Collection
+	     * @param {Array|Iterable|Object} coll - A collection to iterate over.
+	     * @param {number} limit - The maximum number of async operations at a time.
+	     * @param {Function} iteratee - A truth test to apply to each item in `coll`.
+	     * The `iteratee` is passed a `callback(err, truthValue)`, which must be called
+	     * with a boolean argument once it has completed. Invoked with (item, callback).
+	     * @param {Function} [callback] - A callback which is called after all the
+	     * `iteratee` functions have finished. Invoked with (err, results).
+	     */
+	    var filterLimit = doParallelLimit(_filter);
+
+	    /**
+	     * The same as [`filter`]{@link module:Collections.filter} but runs only a single async operation at a time.
 	     *
 	     * @name filterSeries
 	     * @static
-	     * @memberOf async
-	     * @see async.filter
+	     * @memberOf module:Collections
+	     * @method
+	     * @see [async.filter]{@link module:Collections.filter}
 	     * @alias selectSeries
 	     * @category Collection
-	     * @param {Array|Object} coll - A collection to iterate over.
+	     * @param {Array|Iterable|Object} coll - A collection to iterate over.
 	     * @param {Function} iteratee - A truth test to apply to each item in `coll`.
 	     * The `iteratee` is passed a `callback(err, truthValue)`, which must be called
 	     * with a boolean argument once it has completed. Invoked with (item, callback).
@@ -20084,7 +18718,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	     *
 	     * @name forever
 	     * @static
-	     * @memberOf async
+	     * @memberOf module:ControlFlow
+	     * @method
 	     * @category Control Flow
 	     * @param {Function} fn - a function to call repeatedly. Invoked with (next).
 	     * @param {Function} [errback] - when `fn` passes an error to it's callback,
@@ -20102,8 +18737,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	     *     }
 	     * );
 	     */
-	    function forever(fn, cb) {
-	        var done = onlyOnce(cb || noop);
+	    function forever(fn, errback) {
+	        var done = onlyOnce(errback || noop);
 	        var task = ensureAsync(fn);
 
 	        function next(err) {
@@ -20114,54 +18749,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }
 
 	    /**
-	     * Creates an iterator function which calls the next function in the `tasks`
-	     * array, returning a continuation to call the next one after that. It's also
-	     * possible to “peek” at the next iterator with `iterator.next()`.
-	     *
-	     * This function is used internally by the `async` module, but can be useful
-	     * when you want to manually control the flow of functions in series.
-	     *
-	     * @name iterator
-	     * @static
-	     * @memberOf async
-	     * @category Control Flow
-	     * @param {Array} tasks - An array of functions to run.
-	     * @returns The next function to run in the series.
-	     * @example
-	     *
-	     * var iterator = async.iterator([
-	     *     function() { sys.p('one'); },
-	     *     function() { sys.p('two'); },
-	     *     function() { sys.p('three'); }
-	     * ]);
-	     *
-	     * node> var iterator2 = iterator();
-	     * 'one'
-	     * node> var iterator3 = iterator2();
-	     * 'two'
-	     * node> iterator3();
-	     * 'three'
-	     * node> var nextfn = iterator2.next();
-	     * node> nextfn();
-	     * 'three'
-	     */
-	    function iterator$1 (tasks) {
-	        function makeCallback(index) {
-	            function fn() {
-	                if (tasks.length) {
-	                    tasks[index].apply(null, arguments);
-	                }
-	                return fn.next();
-	            }
-	            fn.next = function () {
-	                return index < tasks.length - 1 ? makeCallback(index + 1) : null;
-	            };
-	            return fn;
-	        }
-	        return makeCallback(0);
-	    }
-
-	    /**
 	     * Logs the result of an `async` function to the `console`. Only works in
 	     * Node.js or in browsers that support `console.log` and `console.error` (such
 	     * as FF and Chrome). If multiple arguments are returned from the async
@@ -20169,7 +18756,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	     *
 	     * @name log
 	     * @static
-	     * @memberOf async
+	     * @memberOf module:Utils
+	     * @method
 	     * @category Util
 	     * @param {Function} function - The function you want to eventually apply all
 	     * arguments to.
@@ -20190,13 +18778,14 @@ return /******/ (function(modules) { // webpackBootstrap
 	    var log = consoleFunc('log');
 
 	    /**
-	     * The same as `mapValues` but runs a maximum of `limit` async operations at a
+	     * The same as [`mapValues`]{@link module:Collections.mapValues} but runs a maximum of `limit` async operations at a
 	     * time.
 	     *
 	     * @name mapValuesLimit
 	     * @static
-	     * @memberOf async
-	     * @see async.mapValues
+	     * @memberOf module:Collections
+	     * @method
+	     * @see [async.mapValues]{@link module:Collections.mapValues}
 	     * @category Collection
 	     * @param {Object} obj - A collection to iterate over.
 	     * @param {number} limit - The maximum number of async operations at a time.
@@ -20209,6 +18798,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	     * transformed values from the `obj`. Invoked with (err, result).
 	     */
 	    function mapValuesLimit(obj, limit, iteratee, callback) {
+	        callback = once(callback || noop);
 	        var newObj = {};
 	        eachOfLimit(obj, limit, function (val, key, next) {
 	            iteratee(val, key, function (err, result) {
@@ -20222,7 +18812,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }
 
 	    /**
-	     * A relative of `map`, designed for use with objects.
+	     * A relative of [`map`]{@link module:Collections.map}, designed for use with objects.
 	     *
 	     * Produces a new Object by mapping each value of `obj` through the `iteratee`
 	     * function. The `iteratee` is called each `value` and `key` from `obj` and a
@@ -20236,7 +18826,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	     *
 	     * @name mapValues
 	     * @static
-	     * @memberOf async
+	     * @memberOf module:Collections
+	     * @method
 	     * @category Collection
 	     * @param {Object} obj - A collection to iterate over.
 	     * @param {Function} iteratee - A function to apply to each value and key in
@@ -20252,7 +18843,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	     *     f1: 'file1',
 	     *     f2: 'file2',
 	     *     f3: 'file3'
-	     * }, fs.stat, function(err, result) {
+	     * }, function (file, key, callback) {
+	     *   fs.stat(file, callback);
+	     * }, function(err, result) {
 	     *     // results is now a map of stats for each file, e.g.
 	     *     // {
 	     *     //     f1: [stats for file1],
@@ -20265,12 +18858,13 @@ return /******/ (function(modules) { // webpackBootstrap
 	    var mapValues = doLimit(mapValuesLimit, Infinity);
 
 	    /**
-	     * The same as `mapValues` but runs only a single async operation at a time.
+	     * The same as [`mapValues`]{@link module:Collections.mapValues} but runs only a single async operation at a time.
 	     *
 	     * @name mapValuesSeries
 	     * @static
-	     * @memberOf async
-	     * @see async.mapValues
+	     * @memberOf module:Collections
+	     * @method
+	     * @see [async.mapValues]{@link module:Collections.mapValues}
 	     * @category Collection
 	     * @param {Object} obj - A collection to iterate over.
 	     * @param {Function} iteratee - A function to apply to each value in `obj`.
@@ -20303,12 +18897,14 @@ return /******/ (function(modules) { // webpackBootstrap
 	     *
 	     * @name memoize
 	     * @static
-	     * @memberOf async
+	     * @memberOf module:Utils
+	     * @method
 	     * @category Util
 	     * @param {Function} fn - The function to proxy and cache results from.
 	     * @param {Function} hasher - An optional function for generating a custom hash
 	     * for storing results. It has all the arguments applied to it apart from the
 	     * callback, and must be synchronous.
+	     * @returns {Function} a memoized version of `fn`
 	     * @example
 	     *
 	     * var slow_fn = function(name, callback) {
@@ -20322,7 +18918,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	     *     // callback
 	     * });
 	     */
-	    function memoize$1(fn, hasher) {
+	    function memoize(fn, hasher) {
 	        var memo = Object.create(null);
 	        var queues = Object.create(null);
 	        hasher = hasher || identity;
@@ -20361,7 +18957,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	     *
 	     * @name nextTick
 	     * @static
-	     * @memberOf async
+	     * @memberOf module:Utils
+	     * @method
 	     * @alias setImmediate
 	     * @category Util
 	     * @param {Function} callback - The function to call on a later loop around
@@ -20411,29 +19008,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }
 
 	    /**
-	     * The same as `parallel` but runs a maximum of `limit` async operations at a
-	     * time.
-	     *
-	     * @name parallel
-	     * @static
-	     * @memberOf async
-	     * @see async.parallel
-	     * @category Control Flow
-	     * @param {Array|Collection} tasks - A collection containing functions to run.
-	     * Each function is passed a `callback(err, result)` which it must call on
-	     * completion with an error `err` (which can be `null`) and an optional `result`
-	     * value.
-	     * @param {number} limit - The maximum number of async operations at a time.
-	     * @param {Function} [callback] - An optional callback to run once all the
-	     * functions have completed successfully. This function gets a results array
-	     * (or object) containing all the result arguments passed to the task callbacks.
-	     * Invoked with (err, results).
-	     */
-	    function parallelLimit(tasks, limit, cb) {
-	      return _parallel(_eachOfLimit(limit), tasks, cb);
-	    }
-
-	    /**
 	     * Run the `tasks` collection of functions in parallel, without waiting until
 	     * the previous function has completed. If any of the functions pass an error to
 	     * its callback, the main `callback` is immediately called with the value of the
@@ -20453,9 +19027,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	     *
 	     * @name parallel
 	     * @static
-	     * @memberOf async
+	     * @memberOf module:ControlFlow
+	     * @method
 	     * @category Control Flow
-	     * @param {Array|Object} tasks - A collection containing functions to run.
+	     * @param {Array|Iterable|Object} tasks - A collection containing functions to run.
 	     * Each function is passed a `callback(err, result)` which it must call on
 	     * completion with an error `err` (which can be `null`) and an optional `result`
 	     * value.
@@ -20498,30 +19073,57 @@ return /******/ (function(modules) { // webpackBootstrap
 	     *     // results is now equals to: {one: 1, two: 2}
 	     * });
 	     */
-	    var parallel = doLimit(parallelLimit, Infinity);
+	    function parallelLimit(tasks, callback) {
+	      _parallel(eachOf, tasks, callback);
+	    }
+
+	    /**
+	     * The same as [`parallel`]{@link module:ControlFlow.parallel} but runs a maximum of `limit` async operations at a
+	     * time.
+	     *
+	     * @name parallelLimit
+	     * @static
+	     * @memberOf module:ControlFlow
+	     * @method
+	     * @see [async.parallel]{@link module:ControlFlow.parallel}
+	     * @category Control Flow
+	     * @param {Array|Collection} tasks - A collection containing functions to run.
+	     * Each function is passed a `callback(err, result)` which it must call on
+	     * completion with an error `err` (which can be `null`) and an optional `result`
+	     * value.
+	     * @param {number} limit - The maximum number of async operations at a time.
+	     * @param {Function} [callback] - An optional callback to run once all the
+	     * functions have completed successfully. This function gets a results array
+	     * (or object) containing all the result arguments passed to the task callbacks.
+	     * Invoked with (err, results).
+	     */
+	    function parallelLimit$1(tasks, limit, callback) {
+	      _parallel(_eachOfLimit(limit), tasks, callback);
+	    }
 
 	    /**
 	     * A queue of tasks for the worker function to complete.
-	     * @typedef {Object} queue
+	     * @typedef {Object} QueueObject
+	     * @memberOf module:ControlFlow
 	     * @property {Function} length - a function returning the number of items
-	     * waiting to be processed. Invoke with ().
-	     * @property {Function} started - a function returning whether or not any
-	     * items have been pushed and processed by the queue. Invoke with ().
+	     * waiting to be processed. Invoke with `queue.length()`.
+	     * @property {boolean} started - a boolean indicating whether or not any
+	     * items have been pushed and processed by the queue.
 	     * @property {Function} running - a function returning the number of items
-	     * currently being processed. Invoke with ().
+	     * currently being processed. Invoke with `queue.running()`.
 	     * @property {Function} workersList - a function returning the array of items
-	     * currently being processed. Invoke with ().
+	     * currently being processed. Invoke with `queue.workersList()`.
 	     * @property {Function} idle - a function returning false if there are items
-	     * waiting or being processed, or true if not. Invoke with ().
+	     * waiting or being processed, or true if not. Invoke with `queue.idle()`.
 	     * @property {number} concurrency - an integer for determining how many `worker`
 	     * functions should be run in parallel. This property can be changed after a
 	     * `queue` is created to alter the concurrency on-the-fly.
 	     * @property {Function} push - add a new task to the `queue`. Calls `callback`
 	     * once the `worker` has finished processing the task. Instead of a single task,
 	     * a `tasks` array can be submitted. The respective callback is used for every
-	     * task in the list. Invoke with (task, [callback]),
+	     * task in the list. Invoke with `queue.push(task, [callback])`,
 	     * @property {Function} unshift - add a new task to the front of the `queue`.
-	     * Invoke with (task, [callback]).
+	     * Invoke with `queue.unshift(task, [callback])`.
 	     * @property {Function} saturated - a callback that is called when the number of
 	     * running workers hits the `concurrency` limit, and further tasks will be
 	     * queued.
@@ -20539,11 +19141,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	     * @property {boolean} paused - a boolean for determining whether the queue is
 	     * in a paused state.
 	     * @property {Function} pause - a function that pauses the processing of tasks
-	     * until `resume()` is called. Invoke with ().
+	     * until `resume()` is called. Invoke with `queue.pause()`.
 	     * @property {Function} resume - a function that resumes the processing of
-	     * queued tasks when the queue is paused. Invoke with ().
+	     * queued tasks when the queue is paused. Invoke with `queue.resume()`.
 	     * @property {Function} kill - a function that removes the `drain` callback and
-	     * empties remaining tasks from the queue forcing it to go idle. Invoke with ().
+	     * empties remaining tasks from the queue forcing it to go idle. Invoke with `queue.kill()`.
 	     */
 
 	    /**
@@ -20554,7 +19156,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	     *
 	     * @name queue
 	     * @static
-	     * @memberOf async
+	     * @memberOf module:ControlFlow
+	     * @method
 	     * @category Control Flow
 	     * @param {Function} worker - An asynchronous function for processing a queued
 	     * task, which must call its `callback(err)` argument when finished, with an
@@ -20564,7 +19167,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	     * @param {number} [concurrency=1] - An `integer` for determining how many
 	     * `worker` functions should be run in parallel.  If omitted, the concurrency
 	     * defaults to `1`.  If the concurrency is `0`, an error is thrown.
-	     * @returns {queue} A queue object to manage the tasks. Callbacks can
+	     * @returns {module:ControlFlow.QueueObject} A queue object to manage the tasks. Callbacks can
 	     * attached as certain properties to listen for specific events during the
 	     * lifecycle of the queue.
 	     * @example
@@ -20605,13 +19208,14 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }
 
 	    /**
-	     * The same as {@link async.queue} only tasks are assigned a priority and
+	     * The same as [async.queue]{@link module:ControlFlow.queue} only tasks are assigned a priority and
 	     * completed in ascending priority order.
 	     *
 	     * @name priorityQueue
 	     * @static
-	     * @memberOf async
-	     * @see async.queue
+	     * @memberOf module:ControlFlow
+	     * @method
+	     * @see [async.queue]{@link module:ControlFlow.queue}
 	     * @category Control Flow
 	     * @param {Function} worker - An asynchronous function for processing a queued
 	     * task, which must call its `callback(err)` argument when finished, with an
@@ -20621,33 +19225,20 @@ return /******/ (function(modules) { // webpackBootstrap
 	     * @param {number} concurrency - An `integer` for determining how many `worker`
 	     * functions should be run in parallel.  If omitted, the concurrency defaults to
 	     * `1`.  If the concurrency is `0`, an error is thrown.
-	     * @returns {queue} A priorityQueue object to manage the tasks. There are two
+	     * @returns {module:ControlFlow.QueueObject} A priorityQueue object to manage the tasks. There are two
 	     * differences between `queue` and `priorityQueue` objects:
 	     * * `push(task, priority, [callback])` - `priority` should be a number. If an
 	     *   array of `tasks` is given, all tasks will be assigned the same priority.
 	     * * The `unshift` method was removed.
 	     */
 	    function priorityQueue (worker, concurrency) {
-	        function _compareTasks(a, b) {
-	            return a.priority - b.priority;
-	        }
+	        // Start with a normal queue
+	        var q = queue$1(worker, concurrency);
 
-	        function _binarySearch(sequence, item, compare) {
-	            var beg = -1,
-	                end = sequence.length - 1;
-	            while (beg < end) {
-	                var mid = beg + (end - beg + 1 >>> 1);
-	                if (compare(item, sequence[mid]) >= 0) {
-	                    beg = mid;
-	                } else {
-	                    end = mid - 1;
-	                }
-	            }
-	            return beg;
-	        }
-
-	        function _insert(q, data, priority, callback) {
-	            if (callback != null && typeof callback !== 'function') {
+	        // Override push to accept second parameter representing priority
+	        q.push = function (data, priority, callback) {
+	            if (callback == null) callback = noop;
+	            if (typeof callback !== 'function') {
 	                throw new Error('task callback must be a function');
 	            }
 	            q.started = true;
@@ -20660,105 +19251,33 @@ return /******/ (function(modules) { // webpackBootstrap
 	                    q.drain();
 	                });
 	            }
+
+	            priority = priority || 0;
+	            var nextNode = q._tasks.head;
+	            while (nextNode && priority >= nextNode.priority) {
+	                nextNode = nextNode.next;
+	            }
+
 	            arrayEach(data, function (task) {
 	                var item = {
 	                    data: task,
 	                    priority: priority,
-	                    callback: typeof callback === 'function' ? callback : noop
+	                    callback: callback
 	                };
 
-	                q.tasks.splice(_binarySearch(q.tasks, item, _compareTasks) + 1, 0, item);
-
-	                setImmediate$1(q.process);
+	                if (nextNode) {
+	                    q._tasks.insertBefore(nextNode, item);
+	                } else {
+	                    q._tasks.push(item);
+	                }
 	            });
-	        }
-
-	        // Start with a normal queue
-	        var q = queue$1(worker, concurrency);
-
-	        // Override push to accept second parameter representing priority
-	        q.push = function (data, priority, callback) {
-	            _insert(q, data, priority, callback);
+	            setImmediate$1(q.process);
 	        };
 
 	        // Remove unshift function
 	        delete q.unshift;
 
 	        return q;
-	    }
-
-	    /**
-	     * Creates a `baseEach` or `baseEachRight` function.
-	     *
-	     * @private
-	     * @param {Function} eachFunc The function to iterate over a collection.
-	     * @param {boolean} [fromRight] Specify iterating from right to left.
-	     * @returns {Function} Returns the new base function.
-	     */
-	    function createBaseEach(eachFunc, fromRight) {
-	      return function(collection, iteratee) {
-	        if (collection == null) {
-	          return collection;
-	        }
-	        if (!isArrayLike(collection)) {
-	          return eachFunc(collection, iteratee);
-	        }
-	        var length = collection.length,
-	            index = fromRight ? length : -1,
-	            iterable = Object(collection);
-
-	        while ((fromRight ? index-- : ++index < length)) {
-	          if (iteratee(iterable[index], index, iterable) === false) {
-	            break;
-	          }
-	        }
-	        return collection;
-	      };
-	    }
-
-	    /**
-	     * The base implementation of `_.forEach` without support for iteratee shorthands.
-	     *
-	     * @private
-	     * @param {Array|Object} collection The collection to iterate over.
-	     * @param {Function} iteratee The function invoked per iteration.
-	     * @returns {Array|Object} Returns `collection`.
-	     */
-	    var baseEach = createBaseEach(baseForOwn);
-
-	    /**
-	     * Iterates over elements of `collection` and invokes `iteratee` for each element.
-	     * The iteratee is invoked with three arguments: (value, index|key, collection).
-	     * Iteratee functions may exit iteration early by explicitly returning `false`.
-	     *
-	     * **Note:** As with other "Collections" methods, objects with a "length"
-	     * property are iterated like arrays. To avoid this behavior use `_.forIn`
-	     * or `_.forOwn` for object iteration.
-	     *
-	     * @static
-	     * @memberOf _
-	     * @since 0.1.0
-	     * @alias each
-	     * @category Collection
-	     * @param {Array|Object} collection The collection to iterate over.
-	     * @param {Function} [iteratee=_.identity] The function invoked per iteration.
-	     * @returns {Array|Object} Returns `collection`.
-	     * @see _.forEachRight
-	     * @example
-	     *
-	     * _([1, 2]).forEach(function(value) {
-	     *   console.log(value);
-	     * });
-	     * // => Logs `1` then `2`.
-	     *
-	     * _.forEach({ 'a': 1, 'b': 2 }, function(value, key) {
-	     *   console.log(key);
-	     * });
-	     * // => Logs 'a' then 'b' (iteration order is not guaranteed).
-	     */
-	    function forEach(collection, iteratee) {
-	      var func = isArray(collection) ? arrayEach : baseEach;
-	      return func(collection, baseIteratee(iteratee, 3));
 	    }
 
 	    /**
@@ -20769,7 +19288,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	     *
 	     * @name race
 	     * @static
-	     * @memberOf async
+	     * @memberOf module:ControlFlow
+	     * @method
 	     * @category Control Flow
 	     * @param {Array} tasks - An array containing functions to run. Each function
 	     * is passed a `callback(err, result)` which it must call on completion with an
@@ -20777,6 +19297,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	     * @param {Function} callback - A callback to run once any of the functions have
 	     * completed. This function gets an error or result from the first function that
 	     * completed. Invoked with (err, result).
+	     * @returns undefined
 	     * @example
 	     *
 	     * async.race([
@@ -20796,27 +19317,28 @@ return /******/ (function(modules) { // webpackBootstrap
 	     *     // the result will be equal to 'two' as it finishes earlier
 	     * });
 	     */
-	    function race(tasks, cb) {
-	        cb = once(cb || noop);
-	        if (!isArray(tasks)) return cb(new TypeError('First argument to race must be an array of functions'));
-	        if (!tasks.length) return cb();
-	        forEach(tasks, function (task) {
-	            task(cb);
+	    function race(tasks, callback) {
+	        callback = once(callback || noop);
+	        if (!isArray(tasks)) return callback(new TypeError('First argument to race must be an array of functions'));
+	        if (!tasks.length) return callback();
+	        arrayEach(tasks, function (task) {
+	            task(callback);
 	        });
 	    }
 
 	    var slice = Array.prototype.slice;
 
 	    /**
-	     * Same as `reduce`, only operates on `coll` in reverse order.
+	     * Same as [`reduce`]{@link module:Collections.reduce}, only operates on `array` in reverse order.
 	     *
 	     * @name reduceRight
 	     * @static
-	     * @memberOf async
-	     * @see async.reduce
+	     * @memberOf module:Collections
+	     * @method
+	     * @see [async.reduce]{@link module:Collections.reduce}
 	     * @alias foldr
 	     * @category Collection
-	     * @param {Array|Object} coll - A collection to iterate over.
+	     * @param {Array} array - A collection to iterate over.
 	     * @param {*} memo - The initial state of the reduction.
 	     * @param {Function} iteratee - A function applied to each item in the
 	     * array to produce the next step in the reduction. The `iteratee` is passed a
@@ -20828,9 +19350,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	     * `iteratee` functions have finished. Result is the reduced value. Invoked with
 	     * (err, result).
 	     */
-	    function reduceRight(arr, memo, iteratee, cb) {
-	      var reversed = slice.call(arr).reverse();
-	      reduce(reversed, memo, iteratee, cb);
+	    function reduceRight(array, memo, iteratee, callback) {
+	      var reversed = slice.call(array).reverse();
+	      reduce(reversed, memo, iteratee, callback);
 	    }
 
 	    /**
@@ -20841,9 +19363,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	     *
 	     * @name reflect
 	     * @static
-	     * @memberOf async
+	     * @memberOf module:Utils
+	     * @method
 	     * @category Util
-	     * @param {Function} function - The function you want to wrap
+	     * @param {Function} fn - The function you want to wrap
 	     * @returns {Function} - A function that always passes null to it's callback as
 	     * the error. The second argument to the callback will be an `object` with
 	     * either an `error` or a `value` property.
@@ -20908,33 +19431,15 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }
 
 	    /**
-	     * The same as `reject` but runs a maximum of `limit` async operations at a
-	     * time.
-	     *
-	     * @name rejectLimit
-	     * @static
-	     * @memberOf async
-	     * @see async.reject
-	     * @category Collection
-	     * @param {Array|Object} coll - A collection to iterate over.
-	     * @param {number} limit - The maximum number of async operations at a time.
-	     * @param {Function} iteratee - A truth test to apply to each item in `coll`.
-	     * The `iteratee` is passed a `callback(err, truthValue)`, which must be called
-	     * with a boolean argument once it has completed. Invoked with (item, callback).
-	     * @param {Function} [callback] - A callback which is called after all the
-	     * `iteratee` functions have finished. Invoked with (err, results).
-	     */
-	    var rejectLimit = doParallelLimit(reject$1);
-
-	    /**
-	     * The opposite of `filter`. Removes values that pass an `async` truth test.
+	     * The opposite of [`filter`]{@link module:Collections.filter}. Removes values that pass an `async` truth test.
 	     *
 	     * @name reject
 	     * @static
-	     * @memberOf async
-	     * @see async.filter
+	     * @memberOf module:Collections
+	     * @method
+	     * @see [async.filter]{@link module:Collections.filter}
 	     * @category Collection
-	     * @param {Array|Object} coll - A collection to iterate over.
+	     * @param {Array|Iterable|Object} coll - A collection to iterate over.
 	     * @param {Function} iteratee - A truth test to apply to each item in `coll`.
 	     * The `iteratee` is passed a `callback(err, truthValue)`, which must be called
 	     * with a boolean argument once it has completed. Invoked with (item, callback).
@@ -20951,15 +19456,16 @@ return /******/ (function(modules) { // webpackBootstrap
 	     *     createFiles(results);
 	     * });
 	     */
-	    var reject = doLimit(rejectLimit, Infinity);
+	    var reject = doParallel(reject$1);
 
 	    /**
-	     * A helper function that wraps an array of functions with reflect.
+	     * A helper function that wraps an array or an object of functions with reflect.
 	     *
 	     * @name reflectAll
 	     * @static
-	     * @memberOf async
-	     * @see async.reflect
+	     * @memberOf module:Utils
+	     * @method
+	     * @see [async.reflect]{@link module:Utils.reflect}
 	     * @category Util
 	     * @param {Array} tasks - The array of functions to wrap in `async.reflect`.
 	     * @returns {Array} Returns an array of functions, each function wrapped in
@@ -20991,20 +19497,76 @@ return /******/ (function(modules) { // webpackBootstrap
 	     *     // results[1].error = Error('bad stuff happened')
 	     *     // results[2].value = 'two'
 	     * });
+	     *
+	     * // an example using an object instead of an array
+	     * let tasks = {
+	     *     one: function(callback) {
+	     *         setTimeout(function() {
+	     *             callback(null, 'one');
+	     *         }, 200);
+	     *     },
+	     *     two: function(callback) {
+	     *         callback('two');
+	     *     },
+	     *     three: function(callback) {
+	     *         setTimeout(function() {
+	     *             callback(null, 'three');
+	     *         }, 100);
+	     *     }
+	     * };
+	     *
+	     * async.parallel(async.reflectAll(tasks),
+	     * // optional callback
+	     * function(err, results) {
+	     *     // values
+	     *     // results.one.value = 'one'
+	     *     // results.two.error = 'two'
+	     *     // results.three.value = 'three'
+	     * });
 	     */
 	    function reflectAll(tasks) {
-	      return tasks.map(reflect);
+	        var results;
+	        if (isArray(tasks)) {
+	            results = arrayMap(tasks, reflect);
+	        } else {
+	            results = {};
+	            baseForOwn(tasks, function (task, key) {
+	                results[key] = reflect.call(this, task);
+	            });
+	        }
+	        return results;
 	    }
 
 	    /**
-	     * The same as `reject` but runs only a single async operation at a time.
+	     * The same as [`reject`]{@link module:Collections.reject} but runs a maximum of `limit` async operations at a
+	     * time.
+	     *
+	     * @name rejectLimit
+	     * @static
+	     * @memberOf module:Collections
+	     * @method
+	     * @see [async.reject]{@link module:Collections.reject}
+	     * @category Collection
+	     * @param {Array|Iterable|Object} coll - A collection to iterate over.
+	     * @param {number} limit - The maximum number of async operations at a time.
+	     * @param {Function} iteratee - A truth test to apply to each item in `coll`.
+	     * The `iteratee` is passed a `callback(err, truthValue)`, which must be called
+	     * with a boolean argument once it has completed. Invoked with (item, callback).
+	     * @param {Function} [callback] - A callback which is called after all the
+	     * `iteratee` functions have finished. Invoked with (err, results).
+	     */
+	    var rejectLimit = doParallelLimit(reject$1);
+
+	    /**
+	     * The same as [`reject`]{@link module:Collections.reject} but runs only a single async operation at a time.
 	     *
 	     * @name rejectSeries
 	     * @static
-	     * @memberOf async
-	     * @see async.reject
+	     * @memberOf module:Collections
+	     * @method
+	     * @see [async.reject]{@link module:Collections.reject}
 	     * @category Collection
-	     * @param {Array|Object} coll - A collection to iterate over.
+	     * @param {Array|Iterable|Object} coll - A collection to iterate over.
 	     * @param {Function} iteratee - A truth test to apply to each item in `coll`.
 	     * The `iteratee` is passed a `callback(err, truthValue)`, which must be called
 	     * with a boolean argument once it has completed. Invoked with (item, callback).
@@ -21012,73 +19574,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	     * `iteratee` functions have finished. Invoked with (err, results).
 	     */
 	    var rejectSeries = doLimit(rejectLimit, 1);
-
-	    /**
-	     * Run the functions in the `tasks` collection in series, each one running once
-	     * the previous function has completed. If any functions in the series pass an
-	     * error to its callback, no more functions are run, and `callback` is
-	     * immediately called with the value of the error. Otherwise, `callback`
-	     * receives an array of results when `tasks` have completed.
-	     *
-	     * It is also possible to use an object instead of an array. Each property will
-	     * be run as a function, and the results will be passed to the final `callback`
-	     * as an object instead of an array. This can be a more readable way of handling
-	     *  results from {@link async.series}.
-	     *
-	     * **Note** that while many implementations preserve the order of object
-	     * properties, the [ECMAScript Language Specification](http://www.ecma-international.org/ecma-262/5.1/#sec-8.6)
-	     * explicitly states that
-	     *
-	     * > The mechanics and order of enumerating the properties is not specified.
-	     *
-	     * So if you rely on the order in which your series of functions are executed,
-	     * and want this to work on all platforms, consider using an array.
-	     *
-	     * @name series
-	     * @static
-	     * @memberOf async
-	     * @category Control Flow
-	     * @param {Array|Object} tasks - A collection containing functions to run, each
-	     * function is passed a `callback(err, result)` it must call on completion with
-	     * an error `err` (which can be `null`) and an optional `result` value.
-	     * @param {Function} [callback] - An optional callback to run once all the
-	     * functions have completed. This function gets a results array (or object)
-	     * containing all the result arguments passed to the `task` callbacks. Invoked
-	     * with (err, result).
-	     * @example
-	     * async.series([
-	     *     function(callback) {
-	     *         // do some stuff ...
-	     *         callback(null, 'one');
-	     *     },
-	     *     function(callback) {
-	     *         // do some more stuff ...
-	     *         callback(null, 'two');
-	     *     }
-	     * ],
-	     * // optional callback
-	     * function(err, results) {
-	     *     // results is now equal to ['one', 'two']
-	     * });
-	     *
-	     * async.series({
-	     *     one: function(callback) {
-	     *         setTimeout(function() {
-	     *             callback(null, 1);
-	     *         }, 200);
-	     *     },
-	     *     two: function(callback){
-	     *         setTimeout(function() {
-	     *             callback(null, 2);
-	     *         }, 100);
-	     *     }
-	     * }, function(err, results) {
-	     *     // results is now equal to: {one: 1, two: 2}
-	     * });
-	     */
-	    function series(tasks, cb) {
-	      return _parallel(eachOfSeries, tasks, cb);
-	    }
 
 	    /**
 	     * Creates a function that returns `value`.
@@ -21113,7 +19608,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	     *
 	     * @name retry
 	     * @static
-	     * @memberOf async
+	     * @memberOf module:ControlFlow
+	     * @method
 	     * @category Control Flow
 	     * @param {Object|number} [opts = {times: 5, interval: 0}| 5] - Can be either an
 	     * object with `times` and `interval` or a number.
@@ -21174,11 +19670,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	     *     // do something with the results
 	     * });
 	     */
-	    function retry(times, task, callback) {
+	    function retry(opts, task, callback) {
 	        var DEFAULT_TIMES = 5;
 	        var DEFAULT_INTERVAL = 0;
 
-	        var opts = {
+	        var options = {
 	            times: DEFAULT_TIMES,
 	            intervalFunc: constant$1(DEFAULT_INTERVAL)
 	        };
@@ -21195,11 +19691,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	            }
 	        }
 
-	        if (arguments.length < 3 && typeof times === 'function') {
+	        if (arguments.length < 3 && typeof opts === 'function') {
 	            callback = task || noop;
-	            task = times;
+	            task = opts;
 	        } else {
-	            parseTimes(opts, times);
+	            parseTimes(options, opts);
 	            callback = callback || noop;
 	        }
 
@@ -21207,49 +19703,29 @@ return /******/ (function(modules) { // webpackBootstrap
 	            throw new Error("Invalid arguments for async.retry");
 	        }
 
-	        var attempts = [];
-	        for (var i = 1; i < opts.times + 1; i++) {
-	            var isFinalAttempt = i == opts.times;
-	            attempts.push(retryAttempt(isFinalAttempt));
-	            var interval = opts.intervalFunc(i);
-	            if (!isFinalAttempt && interval > 0) {
-	                attempts.push(retryInterval(interval));
-	            }
+	        var attempt = 1;
+	        function retryAttempt() {
+	            task(function (err) {
+	                if (err && attempt++ < options.times) {
+	                    setTimeout(retryAttempt, options.intervalFunc(attempt));
+	                } else {
+	                    callback.apply(null, arguments);
+	                }
+	            });
 	        }
 
-	        series(attempts, function (done, data) {
-	            data = data[data.length - 1];
-	            callback(data.err, data.result);
-	        });
-
-	        function retryAttempt(isFinalAttempt) {
-	            return function (seriesCallback) {
-	                task(function (err, result) {
-	                    seriesCallback(!err || isFinalAttempt, {
-	                        err: err,
-	                        result: result
-	                    });
-	                });
-	            };
-	        }
-
-	        function retryInterval(interval) {
-	            return function (seriesCallback) {
-	                setTimeout(function () {
-	                    seriesCallback(null);
-	                }, interval);
-	            };
-	        }
+	        retryAttempt();
 	    }
 
 	    /**
-	     * A close relative of `retry`.  This method wraps a task and makes it
+	     * A close relative of [`retry`]{@link module:ControlFlow.retry}.  This method wraps a task and makes it
 	     * retryable, rather than immediately calling it with retries.
 	     *
 	     * @name retryable
 	     * @static
-	     * @memberOf async
-	     * @see async.retry
+	     * @memberOf module:ControlFlow
+	     * @method
+	     * @see [async.retry]{@link module:ControlFlow.retry}
 	     * @category Control Flow
 	     * @param {Object|number} [opts = {times: 5, interval: 0}| 5] - optional
 	     * options, exactly the same as from `retry`
@@ -21280,26 +19756,72 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }
 
 	    /**
-	     * The same as `some` but runs a maximum of `limit` async operations at a time.
+	     * Run the functions in the `tasks` collection in series, each one running once
+	     * the previous function has completed. If any functions in the series pass an
+	     * error to its callback, no more functions are run, and `callback` is
+	     * immediately called with the value of the error. Otherwise, `callback`
+	     * receives an array of results when `tasks` have completed.
 	     *
-	     * @name someLimit
+	     * It is also possible to use an object instead of an array. Each property will
+	     * be run as a function, and the results will be passed to the final `callback`
+	     * as an object instead of an array. This can be a more readable way of handling
+	     *  results from {@link async.series}.
+	     *
+	     * **Note** that while many implementations preserve the order of object
+	     * properties, the [ECMAScript Language Specification](http://www.ecma-international.org/ecma-262/5.1/#sec-8.6)
+	     * explicitly states that
+	     *
+	     * > The mechanics and order of enumerating the properties is not specified.
+	     *
+	     * So if you rely on the order in which your series of functions are executed,
+	     * and want this to work on all platforms, consider using an array.
+	     *
+	     * @name series
 	     * @static
-	     * @memberOf async
-	     * @see async.some
-	     * @alias anyLimit
-	     * @category Collection
-	     * @param {Array|Object} coll - A collection to iterate over.
-	     * @param {number} limit - The maximum number of async operations at a time.
-	     * @param {Function} iteratee - A truth test to apply to each item in the array
-	     * in parallel. The iteratee is passed a `callback(err, truthValue)` which must
-	     * be called with a boolean argument once it has completed. Invoked with
-	     * (item, callback).
-	     * @param {Function} [callback] - A callback which is called as soon as any
-	     * iteratee returns `true`, or after all the iteratee functions have finished.
-	     * Result will be either `true` or `false` depending on the values of the async
-	     * tests. Invoked with (err, result).
+	     * @memberOf module:ControlFlow
+	     * @method
+	     * @category Control Flow
+	     * @param {Array|Iterable|Object} tasks - A collection containing functions to run, each
+	     * function is passed a `callback(err, result)` it must call on completion with
+	     * an error `err` (which can be `null`) and an optional `result` value.
+	     * @param {Function} [callback] - An optional callback to run once all the
+	     * functions have completed. This function gets a results array (or object)
+	     * containing all the result arguments passed to the `task` callbacks. Invoked
+	     * with (err, result).
+	     * @example
+	     * async.series([
+	     *     function(callback) {
+	     *         // do some stuff ...
+	     *         callback(null, 'one');
+	     *     },
+	     *     function(callback) {
+	     *         // do some more stuff ...
+	     *         callback(null, 'two');
+	     *     }
+	     * ],
+	     * // optional callback
+	     * function(err, results) {
+	     *     // results is now equal to ['one', 'two']
+	     * });
+	     *
+	     * async.series({
+	     *     one: function(callback) {
+	     *         setTimeout(function() {
+	     *             callback(null, 1);
+	     *         }, 200);
+	     *     },
+	     *     two: function(callback){
+	     *         setTimeout(function() {
+	     *             callback(null, 2);
+	     *         }, 100);
+	     *     }
+	     * }, function(err, results) {
+	     *     // results is now equal to: {one: 1, two: 2}
+	     * });
 	     */
-	    var someLimit = _createTester(eachOfLimit, Boolean, identity);
+	    function series(tasks, callback) {
+	      _parallel(eachOfSeries, tasks, callback);
+	    }
 
 	    /**
 	     * Returns `true` if at least one element in the `coll` satisfies an async test.
@@ -21308,10 +19830,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	     *
 	     * @name some
 	     * @static
-	     * @memberOf async
+	     * @memberOf module:Collections
+	     * @method
 	     * @alias any
 	     * @category Collection
-	     * @param {Array|Object} coll - A collection to iterate over.
+	     * @param {Array|Iterable|Object} coll - A collection to iterate over.
 	     * @param {Function} iteratee - A truth test to apply to each item in the array
 	     * in parallel. The iteratee is passed a `callback(err, truthValue)` which must
 	     * be called with a boolean argument once it has completed. Invoked with
@@ -21330,18 +19853,42 @@ return /******/ (function(modules) { // webpackBootstrap
 	     *     // if result is true then at least one of the files exists
 	     * });
 	     */
-	    var some = doLimit(someLimit, Infinity);
+	    var some = _createTester(eachOf, Boolean, identity);
 
 	    /**
-	     * The same as `some` but runs only a single async operation at a time.
+	     * The same as [`some`]{@link module:Collections.some} but runs a maximum of `limit` async operations at a time.
+	     *
+	     * @name someLimit
+	     * @static
+	     * @memberOf module:Collections
+	     * @method
+	     * @see [async.some]{@link module:Collections.some}
+	     * @alias anyLimit
+	     * @category Collection
+	     * @param {Array|Iterable|Object} coll - A collection to iterate over.
+	     * @param {number} limit - The maximum number of async operations at a time.
+	     * @param {Function} iteratee - A truth test to apply to each item in the array
+	     * in parallel. The iteratee is passed a `callback(err, truthValue)` which must
+	     * be called with a boolean argument once it has completed. Invoked with
+	     * (item, callback).
+	     * @param {Function} [callback] - A callback which is called as soon as any
+	     * iteratee returns `true`, or after all the iteratee functions have finished.
+	     * Result will be either `true` or `false` depending on the values of the async
+	     * tests. Invoked with (err, result).
+	     */
+	    var someLimit = _createTester(eachOfLimit, Boolean, identity);
+
+	    /**
+	     * The same as [`some`]{@link module:Collections.some} but runs only a single async operation at a time.
 	     *
 	     * @name someSeries
 	     * @static
-	     * @memberOf async
-	     * @see async.some
+	     * @memberOf module:Collections
+	     * @method
+	     * @see [async.some]{@link module:Collections.some}
 	     * @alias anySeries
 	     * @category Collection
-	     * @param {Array|Object} coll - A collection to iterate over.
+	     * @param {Array|Iterable|Object} coll - A collection to iterate over.
 	     * @param {Function} iteratee - A truth test to apply to each item in the array
 	     * in parallel. The iteratee is passed a `callback(err, truthValue)` which must
 	     * be called with a boolean argument once it has completed. Invoked with
@@ -21359,14 +19906,15 @@ return /******/ (function(modules) { // webpackBootstrap
 	     *
 	     * @name sortBy
 	     * @static
-	     * @memberOf async
+	     * @memberOf module:Collections
+	     * @method
 	     * @category Collection
-	     * @param {Array|Object} coll - A collection to iterate over.
+	     * @param {Array|Iterable|Object} coll - A collection to iterate over.
 	     * @param {Function} iteratee - A function to apply to each item in `coll`.
 	     * The iteratee is passed a `callback(err, sortValue)` which must be called once
 	     * it has completed with an error (which can be `null`) and a value to use as
 	     * the sort criteria. Invoked with (item, callback).
-	     * @param {Function} [callback] - A callback which is called after all the
+	     * @param {Function} callback - A callback which is called after all the
 	     * `iteratee` functions have finished, or an error occurs. Results is the items
 	     * from the original `coll` sorted by the values returned by the `iteratee`
 	     * calls. Invoked with (err, results).
@@ -21398,15 +19946,15 @@ return /******/ (function(modules) { // webpackBootstrap
 	     *     // result callback
 	     * });
 	     */
-	    function sortBy(arr, iteratee, cb) {
-	        map(arr, function (x, cb) {
+	    function sortBy(coll, iteratee, callback) {
+	        map(coll, function (x, callback) {
 	            iteratee(x, function (err, criteria) {
-	                if (err) return cb(err);
-	                cb(null, { value: x, criteria: criteria });
+	                if (err) return callback(err);
+	                callback(null, { value: x, criteria: criteria });
 	            });
 	        }, function (err, results) {
-	            if (err) return cb(err);
-	            cb(null, arrayMap(results.sort(comparator), baseProperty('value')));
+	            if (err) return callback(err);
+	            callback(null, arrayMap(results.sort(comparator), baseProperty('value')));
 	        });
 
 	        function comparator(left, right) {
@@ -21418,16 +19966,17 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	    /**
 	     * Sets a time limit on an asynchronous function. If the function does not call
-	     * its callback within the specified miliseconds, it will be called with a
+	     * its callback within the specified milliseconds, it will be called with a
 	     * timeout error. The code property for the error object will be `'ETIMEDOUT'`.
 	     *
 	     * @name timeout
 	     * @static
-	     * @memberOf async
+	     * @memberOf module:Utils
+	     * @method
 	     * @category Util
-	     * @param {Function} function - The asynchronous function you want to set the
+	     * @param {Function} asyncFn - The asynchronous function you want to set the
 	     * time limit.
-	     * @param {number} miliseconds - The specified time limit.
+	     * @param {number} milliseconds - The specified time limit.
 	     * @param {*} [info] - Any variable you want attached (`string`, `object`, etc)
 	     * to timeout Error for more information..
 	     * @returns {Function} Returns a wrapped function that can be used with any of
@@ -21438,7 +19987,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	     *     doAsyncTask(callback);
 	     * }, 1000);
 	     */
-	    function timeout(asyncFn, miliseconds, info) {
+	    function timeout(asyncFn, milliseconds, info) {
 	        var originalCallback, timer;
 	        var timedOut = false;
 
@@ -21463,7 +20012,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        return initialParams(function (args, origCallback) {
 	            originalCallback = origCallback;
 	            // setup timer and call original function
-	            timer = setTimeout(timeoutCallback, miliseconds);
+	            timer = setTimeout(timeoutCallback, milliseconds);
 	            asyncFn.apply(null, args.concat(injectedCallback));
 	        });
 	    }
@@ -21495,37 +20044,39 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }
 
 	    /**
-	    * The same as {@link times} but runs a maximum of `limit` async operations at a
-	    * time.
+	     * The same as [times]{@link module:ControlFlow.times} but runs a maximum of `limit` async operations at a
+	     * time.
 	     *
 	     * @name timesLimit
 	     * @static
-	     * @memberOf async
-	     * @see async.times
+	     * @memberOf module:ControlFlow
+	     * @method
+	     * @see [async.times]{@link module:ControlFlow.times}
 	     * @category Control Flow
-	     * @param {number} n - The number of times to run the function.
+	     * @param {number} count - The number of times to run the function.
 	     * @param {number} limit - The maximum number of async operations at a time.
 	     * @param {Function} iteratee - The function to call `n` times. Invoked with the
 	     * iteration index and a callback (n, next).
-	     * @param {Function} callback - see {@link async.map}.
+	     * @param {Function} callback - see [async.map]{@link module:Collections.map}.
 	     */
-	    function timeLimit(count, limit, iteratee, cb) {
-	      return mapLimit(baseRange(0, count, 1), limit, iteratee, cb);
+	    function timeLimit(count, limit, iteratee, callback) {
+	      mapLimit(baseRange(0, count, 1), limit, iteratee, callback);
 	    }
 
 	    /**
 	     * Calls the `iteratee` function `n` times, and accumulates results in the same
-	     * manner you would use with {@link async.map}.
+	     * manner you would use with [map]{@link module:Collections.map}.
 	     *
 	     * @name times
 	     * @static
-	     * @memberOf async
-	     * @see async.map
+	     * @memberOf module:ControlFlow
+	     * @method
+	     * @see [async.map]{@link module:Collections.map}
 	     * @category Control Flow
 	     * @param {number} n - The number of times to run the function.
 	     * @param {Function} iteratee - The function to call `n` times. Invoked with the
 	     * iteration index and a callback (n, next).
-	     * @param {Function} callback - see {@link async.map}.
+	     * @param {Function} callback - see {@link module:Collections.map}.
 	     * @example
 	     *
 	     * // Pretend this is some complicated async factory
@@ -21547,17 +20098,18 @@ return /******/ (function(modules) { // webpackBootstrap
 	    var times = doLimit(timeLimit, Infinity);
 
 	    /**
-	     * The same as {@link async.times} but runs only a single async operation at a time.
+	     * The same as [times]{@link module:ControlFlow.times} but runs only a single async operation at a time.
 	     *
 	     * @name timesSeries
 	     * @static
-	     * @memberOf async
-	     * @see async.times
+	     * @memberOf module:ControlFlow
+	     * @method
+	     * @see [async.times]{@link module:ControlFlow.times}
 	     * @category Control Flow
 	     * @param {number} n - The number of times to run the function.
 	     * @param {Function} iteratee - The function to call `n` times. Invoked with the
 	     * iteration index and a callback (n, next).
-	     * @param {Function} callback - see {@link async.map}.
+	     * @param {Function} callback - see {@link module:Collections.map}.
 	     */
 	    var timesSeries = doLimit(timeLimit, 1);
 
@@ -21568,9 +20120,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	     *
 	     * @name transform
 	     * @static
-	     * @memberOf async
+	     * @memberOf module:Collections
+	     * @method
 	     * @category Collection
-	     * @param {Array|Object} coll - A collection to iterate over.
+	     * @param {Array|Iterable|Object} coll - A collection to iterate over.
 	     * @param {*} [accumulator] - The initial state of the transform.  If omitted,
 	     * it will default to an empty Object or Array, depending on the type of `coll`
 	     * @param {Function} iteratee - A function applied to each item in the
@@ -21605,30 +20158,33 @@ return /******/ (function(modules) { // webpackBootstrap
 	     *     // result is equal to {a: 2, b: 4, c: 6}
 	     * })
 	     */
-	    function transform(arr, acc, iteratee, callback) {
+	    function transform(coll, accumulator, iteratee, callback) {
 	        if (arguments.length === 3) {
 	            callback = iteratee;
-	            iteratee = acc;
-	            acc = isArray(arr) ? [] : {};
+	            iteratee = accumulator;
+	            accumulator = isArray(coll) ? [] : {};
 	        }
+	        callback = once(callback || noop);
 
-	        eachOf(arr, function (v, k, cb) {
-	            iteratee(acc, v, k, cb);
+	        eachOf(coll, function (v, k, cb) {
+	            iteratee(accumulator, v, k, cb);
 	        }, function (err) {
-	            callback(err, acc);
+	            callback(err, accumulator);
 	        });
 	    }
 
 	    /**
-	     * Undoes a {@link async.memoize}d function, reverting it to the original,
+	     * Undoes a [memoize]{@link module:Utils.memoize}d function, reverting it to the original,
 	     * unmemoized form. Handy for testing.
 	     *
 	     * @name unmemoize
 	     * @static
-	     * @memberOf async
-	     * @see async.memoize
+	     * @memberOf module:Utils
+	     * @method
+	     * @see [async.memoize]{@link module:Utils.memoize}
 	     * @category Util
 	     * @param {Function} fn - the memoized function
+	     * @returns {Function} a function that calls the original unmemoized function
 	     */
 	    function unmemoize(fn) {
 	        return function () {
@@ -21637,16 +20193,63 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }
 
 	    /**
+	     * Repeatedly call `fn`, while `test` returns `true`. Calls `callback` when
+	     * stopped, or an error occurs.
+	     *
+	     * @name whilst
+	     * @static
+	     * @memberOf module:ControlFlow
+	     * @method
+	     * @category Control Flow
+	     * @param {Function} test - synchronous truth test to perform before each
+	     * execution of `fn`. Invoked with ().
+	     * @param {Function} iteratee - A function which is called each time `test` passes.
+	     * The function is passed a `callback(err)`, which must be called once it has
+	     * completed with an optional `err` argument. Invoked with (callback).
+	     * @param {Function} [callback] - A callback which is called after the test
+	     * function has failed and repeated execution of `fn` has stopped. `callback`
+	     * will be passed an error and any arguments passed to the final `fn`'s
+	     * callback. Invoked with (err, [results]);
+	     * @returns undefined
+	     * @example
+	     *
+	     * var count = 0;
+	     * async.whilst(
+	     *     function() { return count < 5; },
+	     *     function(callback) {
+	     *         count++;
+	     *         setTimeout(function() {
+	     *             callback(null, count);
+	     *         }, 1000);
+	     *     },
+	     *     function (err, n) {
+	     *         // 5 seconds have passed, n = 5
+	     *     }
+	     * );
+	     */
+	    function whilst(test, iteratee, callback) {
+	        callback = onlyOnce(callback || noop);
+	        if (!test()) return callback(null);
+	        var next = rest(function (err, args) {
+	            if (err) return callback(err);
+	            if (test()) return iteratee(next);
+	            callback.apply(null, [null].concat(args));
+	        });
+	        iteratee(next);
+	    }
+
+	    /**
 	     * Repeatedly call `fn` until `test` returns `true`. Calls `callback` when
 	     * stopped, or an error occurs. `callback` will be passed an error and any
 	     * arguments passed to the final `fn`'s callback.
 	     *
-	     * The inverse of {@link async.whilst}.
+	     * The inverse of [whilst]{@link module:ControlFlow.whilst}.
 	     *
 	     * @name until
 	     * @static
-	     * @memberOf async
-	     * @see async.whilst
+	     * @memberOf module:ControlFlow
+	     * @method
+	     * @see [async.whilst]{@link module:ControlFlow.whilst}
 	     * @category Control Flow
 	     * @param {Function} test - synchronous truth test to perform before each
 	     * execution of `fn`. Invoked with ().
@@ -21658,10 +20261,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	     * will be passed an error and any arguments passed to the final `fn`'s
 	     * callback. Invoked with (err, [results]);
 	     */
-	    function until(test, iteratee, cb) {
-	        return whilst(function () {
+	    function until(test, fn, callback) {
+	        whilst(function () {
 	            return !test.apply(this, arguments);
-	        }, iteratee, cb);
+	        }, fn, callback);
 	    }
 
 	    /**
@@ -21672,7 +20275,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	     *
 	     * @name waterfall
 	     * @static
-	     * @memberOf async
+	     * @memberOf module:ControlFlow
+	     * @method
 	     * @category Control Flow
 	     * @param {Array} tasks - An array of functions to run, each function is passed
 	     * a `callback(err, result1, result2, ...)` it must call on completion. The
@@ -21681,6 +20285,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	     * @param {Function} [callback] - An optional callback to run once all the
 	     * functions have completed. This will be passed the results of the last task's
 	     * callback. Invoked with (err, [results]).
+	     * @returns undefined
 	     * @example
 	     *
 	     * async.waterfall([
@@ -21719,20 +20324,20 @@ return /******/ (function(modules) { // webpackBootstrap
 	     *     callback(null, 'done');
 	     * }
 	     */
-	    function waterfall (tasks, cb) {
-	        cb = once(cb || noop);
-	        if (!isArray(tasks)) return cb(new Error('First argument to waterfall must be an array of functions'));
-	        if (!tasks.length) return cb();
+	    function waterfall (tasks, callback) {
+	        callback = once(callback || noop);
+	        if (!isArray(tasks)) return callback(new Error('First argument to waterfall must be an array of functions'));
+	        if (!tasks.length) return callback();
 	        var taskIndex = 0;
 
 	        function nextTask(args) {
 	            if (taskIndex === tasks.length) {
-	                return cb.apply(null, [null].concat(args));
+	                return callback.apply(null, [null].concat(args));
 	            }
 
 	            var taskCallback = onlyOnce(rest(function (err, args) {
 	                if (err) {
-	                    return cb.apply(null, [err].concat(args));
+	                    return callback.apply(null, [err].concat(args));
 	                }
 	                nextTask(args);
 	            }));
@@ -21747,96 +20352,95 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }
 
 	    var index = {
-	        applyEach: applyEach,
-	        applyEachSeries: applyEachSeries,
-	        apply: apply$1,
-	        asyncify: asyncify,
-	        auto: auto,
-	        autoInject: autoInject,
-	        cargo: cargo,
-	        compose: compose,
-	        concat: concat,
-	        concatSeries: concatSeries,
-	        constant: constant,
-	        detect: detect,
-	        detectLimit: detectLimit,
-	        detectSeries: detectSeries,
-	        dir: dir,
-	        doDuring: doDuring,
-	        doUntil: doUntil,
-	        doWhilst: doWhilst,
-	        during: during,
-	        each: each,
-	        eachLimit: eachLimit,
-	        eachOf: eachOf,
-	        eachOfLimit: eachOfLimit,
-	        eachOfSeries: eachOfSeries,
-	        eachSeries: eachSeries,
-	        ensureAsync: ensureAsync,
-	        every: every,
-	        everyLimit: everyLimit,
-	        everySeries: everySeries,
-	        filter: filter,
-	        filterLimit: filterLimit,
-	        filterSeries: filterSeries,
-	        forever: forever,
-	        iterator: iterator$1,
-	        log: log,
-	        map: map,
-	        mapLimit: mapLimit,
-	        mapSeries: mapSeries,
-	        mapValues: mapValues,
-	        mapValuesLimit: mapValuesLimit,
-	        mapValuesSeries: mapValuesSeries,
-	        memoize: memoize$1,
-	        nextTick: nextTick,
-	        parallel: parallel,
-	        parallelLimit: parallelLimit,
-	        priorityQueue: priorityQueue,
-	        queue: queue$1,
-	        race: race,
-	        reduce: reduce,
-	        reduceRight: reduceRight,
-	        reflect: reflect,
-	        reflectAll: reflectAll,
-	        reject: reject,
-	        rejectLimit: rejectLimit,
-	        rejectSeries: rejectSeries,
-	        retry: retry,
-	        retryable: retryable,
-	        seq: seq,
-	        series: series,
-	        setImmediate: setImmediate$1,
-	        some: some,
-	        someLimit: someLimit,
-	        someSeries: someSeries,
-	        sortBy: sortBy,
-	        timeout: timeout,
-	        times: times,
-	        timesLimit: timeLimit,
-	        timesSeries: timesSeries,
-	        transform: transform,
-	        unmemoize: unmemoize,
-	        until: until,
-	        waterfall: waterfall,
-	        whilst: whilst,
+	      applyEach: applyEach,
+	      applyEachSeries: applyEachSeries,
+	      apply: apply$1,
+	      asyncify: asyncify,
+	      auto: auto,
+	      autoInject: autoInject,
+	      cargo: cargo,
+	      compose: compose,
+	      concat: concat,
+	      concatSeries: concatSeries,
+	      constant: constant,
+	      detect: detect,
+	      detectLimit: detectLimit,
+	      detectSeries: detectSeries,
+	      dir: dir,
+	      doDuring: doDuring,
+	      doUntil: doUntil,
+	      doWhilst: doWhilst,
+	      during: during,
+	      each: eachLimit,
+	      eachLimit: eachLimit$1,
+	      eachOf: eachOf,
+	      eachOfLimit: eachOfLimit,
+	      eachOfSeries: eachOfSeries,
+	      eachSeries: eachSeries,
+	      ensureAsync: ensureAsync,
+	      every: every,
+	      everyLimit: everyLimit,
+	      everySeries: everySeries,
+	      filter: filter,
+	      filterLimit: filterLimit,
+	      filterSeries: filterSeries,
+	      forever: forever,
+	      log: log,
+	      map: map,
+	      mapLimit: mapLimit,
+	      mapSeries: mapSeries,
+	      mapValues: mapValues,
+	      mapValuesLimit: mapValuesLimit,
+	      mapValuesSeries: mapValuesSeries,
+	      memoize: memoize,
+	      nextTick: nextTick,
+	      parallel: parallelLimit,
+	      parallelLimit: parallelLimit$1,
+	      priorityQueue: priorityQueue,
+	      queue: queue$1,
+	      race: race,
+	      reduce: reduce,
+	      reduceRight: reduceRight,
+	      reflect: reflect,
+	      reflectAll: reflectAll,
+	      reject: reject,
+	      rejectLimit: rejectLimit,
+	      rejectSeries: rejectSeries,
+	      retry: retry,
+	      retryable: retryable,
+	      seq: seq,
+	      series: series,
+	      setImmediate: setImmediate$1,
+	      some: some,
+	      someLimit: someLimit,
+	      someSeries: someSeries,
+	      sortBy: sortBy,
+	      timeout: timeout,
+	      times: times,
+	      timesLimit: timeLimit,
+	      timesSeries: timesSeries,
+	      transform: transform,
+	      unmemoize: unmemoize,
+	      until: until,
+	      waterfall: waterfall,
+	      whilst: whilst,
 
-	        // aliases
-	        all: every,
-	        any: some,
-	        forEach: each,
-	        forEachSeries: eachSeries,
-	        forEachLimit: eachLimit,
-	        forEachOf: eachOf,
-	        forEachOfSeries: eachOfSeries,
-	        forEachOfLimit: eachOfLimit,
-	        inject: reduce,
-	        foldl: reduce,
-	        foldr: reduceRight,
-	        select: filter,
-	        selectLimit: filterLimit,
-	        selectSeries: filterSeries,
-	        wrapSync: asyncify
+	      // aliases
+	      all: every,
+	      any: some,
+	      forEach: eachLimit,
+	      forEachSeries: eachSeries,
+	      forEachLimit: eachLimit$1,
+	      forEachOf: eachOf,
+	      forEachOfSeries: eachOfSeries,
+	      forEachOfLimit: eachOfLimit,
+	      inject: reduce,
+	      foldl: reduce,
+	      foldr: reduceRight,
+	      select: filter,
+	      selectLimit: filterLimit,
+	      selectSeries: filterSeries,
+	      wrapSync: asyncify
 	    };
 
 	    exports['default'] = index;
@@ -21859,8 +20463,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	    exports.doUntil = doUntil;
 	    exports.doWhilst = doWhilst;
 	    exports.during = during;
-	    exports.each = each;
-	    exports.eachLimit = eachLimit;
+	    exports.each = eachLimit;
+	    exports.eachLimit = eachLimit$1;
 	    exports.eachOf = eachOf;
 	    exports.eachOfLimit = eachOfLimit;
 	    exports.eachOfSeries = eachOfSeries;
@@ -21873,7 +20477,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	    exports.filterLimit = filterLimit;
 	    exports.filterSeries = filterSeries;
 	    exports.forever = forever;
-	    exports.iterator = iterator$1;
 	    exports.log = log;
 	    exports.map = map;
 	    exports.mapLimit = mapLimit;
@@ -21881,10 +20484,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	    exports.mapValues = mapValues;
 	    exports.mapValuesLimit = mapValuesLimit;
 	    exports.mapValuesSeries = mapValuesSeries;
-	    exports.memoize = memoize$1;
+	    exports.memoize = memoize;
 	    exports.nextTick = nextTick;
-	    exports.parallel = parallel;
-	    exports.parallelLimit = parallelLimit;
+	    exports.parallel = parallelLimit;
+	    exports.parallelLimit = parallelLimit$1;
 	    exports.priorityQueue = priorityQueue;
 	    exports.queue = queue$1;
 	    exports.race = race;
@@ -21922,9 +20525,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	    exports.find = detect;
 	    exports.findLimit = detectLimit;
 	    exports.findSeries = detectSeries;
-	    exports.forEach = each;
+	    exports.forEach = eachLimit;
 	    exports.forEachSeries = eachSeries;
-	    exports.forEachLimit = eachLimit;
+	    exports.forEachLimit = eachLimit$1;
 	    exports.forEachOf = eachOf;
 	    exports.forEachOfSeries = eachOfSeries;
 	    exports.forEachOfLimit = eachOfLimit;
@@ -22090,10 +20693,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	        self = this,
 	        isUndefined   = function (obj) { return obj === undefined; },
 	        isString   = function (obj) { return String(obj) === obj },
-	        isFunction = function (obj) { return obj && 
-	            {}.toString.call(obj) === '[object Function]';
-	        },
-
+	        isFunction = function (obj) { return obj && {}.toString.call(obj) === '[object Function]'; },
+	        
 	        /* Message to show if there is no suport to Push Notifications */
 	        incompatibilityErrorMessage = 'PushError: push.js is incompatible with browser.',
 
@@ -22126,9 +20727,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	                w.external.msSiteModeClearIconOverlay();
 
 	            } else {
-
+	                
 	                throw new Error('Unable to close notification: unknown interface');
-
+	                
 	            }
 
 	        },
@@ -26009,9 +24610,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	'use strict';
 
 	module.exports = {
-	  '2':    'need dictionary',     /* Z_NEED_DICT       2  */
-	  '1':    'stream end',          /* Z_STREAM_END      1  */
-	  '0':    '',                    /* Z_OK              0  */
+	  2:      'need dictionary',     /* Z_NEED_DICT       2  */
+	  1:      'stream end',          /* Z_STREAM_END      1  */
+	  0:      '',                    /* Z_OK              0  */
 	  '-1':   'file error',          /* Z_ERRNO         (-1) */
 	  '-2':   'stream error',        /* Z_STREAM_ERROR  (-2) */
 	  '-3':   'data error',          /* Z_DATA_ERROR    (-3) */
@@ -26066,7 +24667,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	var trees   = __webpack_require__(90);
 	var adler32 = __webpack_require__(91);
 	var crc32   = __webpack_require__(92);
-	var msg   = __webpack_require__(86);
+	var msg     = __webpack_require__(86);
 
 	/* Public constants ==========================================================*/
 	/* ===========================================================================*/
@@ -26139,7 +24740,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	/* number of distance codes */
 	var BL_CODES      = 19;
 	/* number of codes used to transfer the bit lengths */
-	var HEAP_SIZE     = 2*L_CODES + 1;
+	var HEAP_SIZE     = 2 * L_CODES + 1;
 	/* maximum heap size */
 	var MAX_BITS  = 15;
 	/* All codes must not exceed MAX_BITS bits */
@@ -26205,7 +24806,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	}
 
 
-	function flush_block_only (s, last) {
+	function flush_block_only(s, last) {
 	  trees._tr_flush_block(s, (s.block_start >= 0 ? s.block_start : -1), s.strstart - s.block_start, last);
 	  s.block_start = s.strstart;
 	  flush_pending(s.strm);
@@ -26245,6 +24846,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	  strm.avail_in -= len;
 
+	  // zmemcpy(buf, strm->next_in, len);
 	  utils.arraySet(buf, strm.input, strm.next_in, len, start);
 	  if (strm.state.wrap === 1) {
 	    strm.adler = adler32(strm.adler, buf, len, start);
@@ -26475,7 +25077,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	//#endif
 	      while (s.insert) {
 	        /* UPDATE_HASH(s, s->ins_h, s->window[str + MIN_MATCH-1]); */
-	        s.ins_h = ((s.ins_h << s.hash_shift) ^ s.window[str + MIN_MATCH-1]) & s.hash_mask;
+	        s.ins_h = ((s.ins_h << s.hash_shift) ^ s.window[str + MIN_MATCH - 1]) & s.hash_mask;
 
 	        s.prev[str & s.w_mask] = s.head[s.ins_h];
 	        s.head[s.ins_h] = str;
@@ -26739,7 +25341,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	      /***/
 	    }
 	  }
-	  s.insert = ((s.strstart < (MIN_MATCH-1)) ? s.strstart : MIN_MATCH-1);
+	  s.insert = ((s.strstart < (MIN_MATCH - 1)) ? s.strstart : MIN_MATCH - 1);
 	  if (flush === Z_FINISH) {
 	    /*** FLUSH_BLOCK(s, 1); ***/
 	    flush_block_only(s, true);
@@ -26802,10 +25404,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	     */
 	    s.prev_length = s.match_length;
 	    s.prev_match = s.match_start;
-	    s.match_length = MIN_MATCH-1;
+	    s.match_length = MIN_MATCH - 1;
 
 	    if (hash_head !== 0/*NIL*/ && s.prev_length < s.max_lazy_match &&
-	        s.strstart - hash_head <= (s.w_size-MIN_LOOKAHEAD)/*MAX_DIST(s)*/) {
+	        s.strstart - hash_head <= (s.w_size - MIN_LOOKAHEAD)/*MAX_DIST(s)*/) {
 	      /* To simplify the code, we prevent matches with the string
 	       * of window index 0 (in particular we have to avoid a match
 	       * of the string with itself at the start of the input file).
@@ -26819,7 +25421,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        /* If prev_match is also MIN_MATCH, match_start is garbage
 	         * but we will ignore the current match anyway.
 	         */
-	        s.match_length = MIN_MATCH-1;
+	        s.match_length = MIN_MATCH - 1;
 	      }
 	    }
 	    /* If there was a match at the previous step and the current
@@ -26833,13 +25435,13 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	      /***_tr_tally_dist(s, s.strstart - 1 - s.prev_match,
 	                     s.prev_length - MIN_MATCH, bflush);***/
-	      bflush = trees._tr_tally(s, s.strstart - 1- s.prev_match, s.prev_length - MIN_MATCH);
+	      bflush = trees._tr_tally(s, s.strstart - 1 - s.prev_match, s.prev_length - MIN_MATCH);
 	      /* Insert in hash table all strings up to the end of the match.
 	       * strstart-1 and strstart are already inserted. If there is not
 	       * enough lookahead, the last two strings are not inserted in
 	       * the hash table.
 	       */
-	      s.lookahead -= s.prev_length-1;
+	      s.lookahead -= s.prev_length - 1;
 	      s.prev_length -= 2;
 	      do {
 	        if (++s.strstart <= max_insert) {
@@ -26851,7 +25453,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        }
 	      } while (--s.prev_length !== 0);
 	      s.match_available = 0;
-	      s.match_length = MIN_MATCH-1;
+	      s.match_length = MIN_MATCH - 1;
 	      s.strstart++;
 
 	      if (bflush) {
@@ -26870,7 +25472,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	       */
 	      //Tracevv((stderr,"%c", s->window[s->strstart-1]));
 	      /*** _tr_tally_lit(s, s.window[s.strstart-1], bflush); ***/
-	      bflush = trees._tr_tally(s, 0, s.window[s.strstart-1]);
+	      bflush = trees._tr_tally(s, 0, s.window[s.strstart - 1]);
 
 	      if (bflush) {
 	        /*** FLUSH_BLOCK_ONLY(s, 0) ***/
@@ -26895,11 +25497,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	  if (s.match_available) {
 	    //Tracevv((stderr,"%c", s->window[s->strstart-1]));
 	    /*** _tr_tally_lit(s, s.window[s.strstart-1], bflush); ***/
-	    bflush = trees._tr_tally(s, 0, s.window[s.strstart-1]);
+	    bflush = trees._tr_tally(s, 0, s.window[s.strstart - 1]);
 
 	    s.match_available = 0;
 	  }
-	  s.insert = s.strstart < MIN_MATCH-1 ? s.strstart : MIN_MATCH-1;
+	  s.insert = s.strstart < MIN_MATCH - 1 ? s.strstart : MIN_MATCH - 1;
 	  if (flush === Z_FINISH) {
 	    /*** FLUSH_BLOCK(s, 1); ***/
 	    flush_block_only(s, true);
@@ -27079,13 +25681,13 @@ return /******/ (function(modules) { // webpackBootstrap
 	 * exclude worst case performance for pathological files. Better values may be
 	 * found for specific files.
 	 */
-	var Config = function (good_length, max_lazy, nice_length, max_chain, func) {
+	function Config(good_length, max_lazy, nice_length, max_chain, func) {
 	  this.good_length = good_length;
 	  this.max_lazy = max_lazy;
 	  this.nice_length = nice_length;
 	  this.max_chain = max_chain;
 	  this.func = func;
-	};
+	}
 
 	var configuration_table;
 
@@ -27235,8 +25837,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	  // Use flat array of DOUBLE size, with interleaved fata,
 	  // because JS does not support effective
 	  this.dyn_ltree  = new utils.Buf16(HEAP_SIZE * 2);
-	  this.dyn_dtree  = new utils.Buf16((2*D_CODES+1) * 2);
-	  this.bl_tree    = new utils.Buf16((2*BL_CODES+1) * 2);
+	  this.dyn_dtree  = new utils.Buf16((2 * D_CODES + 1) * 2);
+	  this.bl_tree    = new utils.Buf16((2 * BL_CODES + 1) * 2);
 	  zero(this.dyn_ltree);
 	  zero(this.dyn_dtree);
 	  zero(this.bl_tree);
@@ -27246,11 +25848,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	  this.bl_desc  = null;         /* desc. for bit length tree */
 
 	  //ush bl_count[MAX_BITS+1];
-	  this.bl_count = new utils.Buf16(MAX_BITS+1);
+	  this.bl_count = new utils.Buf16(MAX_BITS + 1);
 	  /* number of codes at each bit length for an optimal tree */
 
 	  //int heap[2*L_CODES+1];      /* heap used to build the Huffman trees */
-	  this.heap = new utils.Buf16(2*L_CODES+1);  /* heap used to build the Huffman trees */
+	  this.heap = new utils.Buf16(2 * L_CODES + 1);  /* heap used to build the Huffman trees */
 	  zero(this.heap);
 
 	  this.heap_len = 0;               /* number of elements in the heap */
@@ -27259,7 +25861,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	   * The same heap array is used to build all trees.
 	   */
 
-	  this.depth = new utils.Buf16(2*L_CODES+1); //uch depth[2*L_CODES+1];
+	  this.depth = new utils.Buf16(2 * L_CODES + 1); //uch depth[2*L_CODES+1];
 	  zero(this.depth);
 	  /* Depth of each subtree used as tie breaker for trees of equal frequency
 	   */
@@ -27425,9 +26027,16 @@ return /******/ (function(modules) { // webpackBootstrap
 	  s.lit_bufsize = 1 << (memLevel + 6); /* 16K elements by default */
 
 	  s.pending_buf_size = s.lit_bufsize * 4;
+
+	  //overlay = (ushf *) ZALLOC(strm, s->lit_bufsize, sizeof(ush)+2);
+	  //s->pending_buf = (uchf *) overlay;
 	  s.pending_buf = new utils.Buf8(s.pending_buf_size);
 
-	  s.d_buf = s.lit_bufsize >> 1;
+	  // It is offset from `s.pending_buf` (size is `s.lit_bufsize * 2`)
+	  //s->d_buf = overlay + s->lit_bufsize/sizeof(ush);
+	  s.d_buf = 1 * s.lit_bufsize;
+
+	  //s->l_buf = s->pending_buf + (1+sizeof(ush))*s->lit_bufsize;
 	  s.l_buf = (1 + 2) * s.lit_bufsize;
 
 	  s.level = level;
@@ -27800,12 +26409,94 @@ return /******/ (function(modules) { // webpackBootstrap
 	  return status === BUSY_STATE ? err(strm, Z_DATA_ERROR) : Z_OK;
 	}
 
+
 	/* =========================================================================
-	 * Copy the source state to the destination state
+	 * Initializes the compression dictionary from the given byte
+	 * sequence without producing any compressed output.
 	 */
-	//function deflateCopy(dest, source) {
-	//
-	//}
+	function deflateSetDictionary(strm, dictionary) {
+	  var dictLength = dictionary.length;
+
+	  var s;
+	  var str, n;
+	  var wrap;
+	  var avail;
+	  var next;
+	  var input;
+	  var tmpDict;
+
+	  if (!strm/*== Z_NULL*/ || !strm.state/*== Z_NULL*/) {
+	    return Z_STREAM_ERROR;
+	  }
+
+	  s = strm.state;
+	  wrap = s.wrap;
+
+	  if (wrap === 2 || (wrap === 1 && s.status !== INIT_STATE) || s.lookahead) {
+	    return Z_STREAM_ERROR;
+	  }
+
+	  /* when using zlib wrappers, compute Adler-32 for provided dictionary */
+	  if (wrap === 1) {
+	    /* adler32(strm->adler, dictionary, dictLength); */
+	    strm.adler = adler32(strm.adler, dictionary, dictLength, 0);
+	  }
+
+	  s.wrap = 0;   /* avoid computing Adler-32 in read_buf */
+
+	  /* if dictionary would fill window, just replace the history */
+	  if (dictLength >= s.w_size) {
+	    if (wrap === 0) {            /* already empty otherwise */
+	      /*** CLEAR_HASH(s); ***/
+	      zero(s.head); // Fill with NIL (= 0);
+	      s.strstart = 0;
+	      s.block_start = 0;
+	      s.insert = 0;
+	    }
+	    /* use the tail */
+	    // dictionary = dictionary.slice(dictLength - s.w_size);
+	    tmpDict = new utils.Buf8(s.w_size);
+	    utils.arraySet(tmpDict, dictionary, dictLength - s.w_size, s.w_size, 0);
+	    dictionary = tmpDict;
+	    dictLength = s.w_size;
+	  }
+	  /* insert dictionary into window and hash */
+	  avail = strm.avail_in;
+	  next = strm.next_in;
+	  input = strm.input;
+	  strm.avail_in = dictLength;
+	  strm.next_in = 0;
+	  strm.input = dictionary;
+	  fill_window(s);
+	  while (s.lookahead >= MIN_MATCH) {
+	    str = s.strstart;
+	    n = s.lookahead - (MIN_MATCH - 1);
+	    do {
+	      /* UPDATE_HASH(s, s->ins_h, s->window[str + MIN_MATCH-1]); */
+	      s.ins_h = ((s.ins_h << s.hash_shift) ^ s.window[str + MIN_MATCH - 1]) & s.hash_mask;
+
+	      s.prev[str & s.w_mask] = s.head[s.ins_h];
+
+	      s.head[s.ins_h] = str;
+	      str++;
+	    } while (--n);
+	    s.strstart = str;
+	    s.lookahead = MIN_MATCH - 1;
+	    fill_window(s);
+	  }
+	  s.strstart += s.lookahead;
+	  s.block_start = s.strstart;
+	  s.insert = s.lookahead;
+	  s.lookahead = 0;
+	  s.match_length = s.prev_length = MIN_MATCH - 1;
+	  s.match_available = 0;
+	  strm.next_in = next;
+	  strm.input = input;
+	  strm.avail_in = avail;
+	  s.wrap = wrap;
+	  return Z_OK;
+	}
+
 
 	exports.deflateInit = deflateInit;
 	exports.deflateInit2 = deflateInit2;
@@ -27814,12 +26505,12 @@ return /******/ (function(modules) { // webpackBootstrap
 	exports.deflateSetHeader = deflateSetHeader;
 	exports.deflate = deflate;
 	exports.deflateEnd = deflateEnd;
+	exports.deflateSetDictionary = deflateSetDictionary;
 	exports.deflateInfo = 'pako deflate (from Nodeca project)';
 
 	/* Not implemented
 	exports.deflateBound = deflateBound;
 	exports.deflateCopy = deflateCopy;
-	exports.deflateSetDictionary = deflateSetDictionary;
 	exports.deflateParams = deflateParams;
 	exports.deflatePending = deflatePending;
 	exports.deflatePrime = deflatePrime;
@@ -27872,28 +26563,28 @@ return /******/ (function(modules) { // webpackBootstrap
 	var fnTyped = {
 	  arraySet: function (dest, src, src_offs, len, dest_offs) {
 	    if (src.subarray && dest.subarray) {
-	      dest.set(src.subarray(src_offs, src_offs+len), dest_offs);
+	      dest.set(src.subarray(src_offs, src_offs + len), dest_offs);
 	      return;
 	    }
 	    // Fallback to ordinary array
-	    for (var i=0; i<len; i++) {
+	    for (var i = 0; i < len; i++) {
 	      dest[dest_offs + i] = src[src_offs + i];
 	    }
 	  },
 	  // Join array of chunks to single array.
-	  flattenChunks: function(chunks) {
+	  flattenChunks: function (chunks) {
 	    var i, l, len, pos, chunk, result;
 
 	    // calculate data length
 	    len = 0;
-	    for (i=0, l=chunks.length; i<l; i++) {
+	    for (i = 0, l = chunks.length; i < l; i++) {
 	      len += chunks[i].length;
 	    }
 
 	    // join chunks
 	    result = new Uint8Array(len);
 	    pos = 0;
-	    for (i=0, l=chunks.length; i<l; i++) {
+	    for (i = 0, l = chunks.length; i < l; i++) {
 	      chunk = chunks[i];
 	      result.set(chunk, pos);
 	      pos += chunk.length;
@@ -27905,12 +26596,12 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	var fnUntyped = {
 	  arraySet: function (dest, src, src_offs, len, dest_offs) {
-	    for (var i=0; i<len; i++) {
+	    for (var i = 0; i < len; i++) {
 	      dest[dest_offs + i] = src[src_offs + i];
 	    }
 	  },
 	  // Join array of chunks to single array.
-	  flattenChunks: function(chunks) {
+	  flattenChunks: function (chunks) {
 	    return [].concat.apply([], chunks);
 	  }
 	};
@@ -27996,7 +26687,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	var BL_CODES      = 19;
 	/* number of codes used to transfer the bit lengths */
 
-	var HEAP_SIZE     = 2*L_CODES + 1;
+	var HEAP_SIZE     = 2 * L_CODES + 1;
 	/* maximum heap size */
 
 	var MAX_BITS      = 15;
@@ -28025,6 +26716,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	var REPZ_11_138 = 18;
 	/* repeat a zero length 11-138 times  (7 bits of repeat count) */
 
+	/* eslint-disable comma-spacing,array-bracket-spacing */
 	var extra_lbits =   /* extra bits for each length code */
 	  [0,0,0,0,0,0,0,0,1,1,1,1,2,2,2,2,3,3,3,3,4,4,4,4,5,5,5,5,0];
 
@@ -28036,6 +26728,8 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	var bl_order =
 	  [16,17,18,0,8,7,9,6,10,5,11,4,12,3,13,2,14,1,15];
+	/* eslint-enable comma-spacing,array-bracket-spacing */
+
 	/* The lengths of the bit length codes are sent in order of decreasing
 	 * probability, to avoid transmitting the lengths for unused bit length codes.
 	 */
@@ -28049,7 +26743,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	var DIST_CODE_LEN = 512; /* see definition of array dist_code below */
 
 	// !!!! Use flat array insdead of structure, Freq = i*2, Len = i*2+1
-	var static_ltree  = new Array((L_CODES+2) * 2);
+	var static_ltree  = new Array((L_CODES + 2) * 2);
 	zero(static_ltree);
 	/* The static literal tree. Since the bit lengths are imposed, there is no
 	 * need for the L_CODES extra codes used during heap construction. However
@@ -28070,7 +26764,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	 * the 15 bit distances.
 	 */
 
-	var _length_code  = new Array(MAX_MATCH-MIN_MATCH+1);
+	var _length_code  = new Array(MAX_MATCH - MIN_MATCH + 1);
 	zero(_length_code);
 	/* length code for each normalized match length (0 == MIN_MATCH) */
 
@@ -28083,7 +26777,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	/* First normalized distance for each code (0 = distance of 1) */
 
 
-	var StaticTreeDesc = function (static_tree, extra_bits, extra_base, elems, max_length) {
+	function StaticTreeDesc(static_tree, extra_bits, extra_base, elems, max_length) {
 
 	  this.static_tree  = static_tree;  /* static tree or NULL */
 	  this.extra_bits   = extra_bits;   /* extra bits for each code or NULL */
@@ -28093,7 +26787,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	  // show if `static_tree` has data or dummy - needed for monomorphic objects
 	  this.has_stree    = static_tree && static_tree.length;
-	};
+	}
 
 
 	var static_l_desc;
@@ -28101,11 +26795,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	var static_bl_desc;
 
 
-	var TreeDesc = function(dyn_tree, stat_desc) {
+	function TreeDesc(dyn_tree, stat_desc) {
 	  this.dyn_tree = dyn_tree;     /* the dynamic tree */
 	  this.max_code = 0;            /* largest code with non zero frequency */
 	  this.stat_desc = stat_desc;   /* the corresponding static tree */
-	};
+	}
 
 
 
@@ -28118,7 +26812,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	 * Output a short LSB first on the stream.
 	 * IN assertion: there is enough room in pendingBuf.
 	 */
-	function put_short (s, w) {
+	function put_short(s, w) {
 	//    put_byte(s, (uch)((w) & 0xff));
 	//    put_byte(s, (uch)((ush)(w) >> 8));
 	  s.pending_buf[s.pending++] = (w) & 0xff;
@@ -28144,7 +26838,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 
 	function send_code(s, c, tree) {
-	  send_bits(s, tree[c*2]/*.Code*/, tree[c*2 + 1]/*.Len*/);
+	  send_bits(s, tree[c * 2]/*.Code*/, tree[c * 2 + 1]/*.Len*/);
 	}
 
 
@@ -28216,16 +26910,16 @@ return /******/ (function(modules) { // webpackBootstrap
 	  /* In a first pass, compute the optimal bit lengths (which may
 	   * overflow in the case of the bit length tree).
 	   */
-	  tree[s.heap[s.heap_max]*2 + 1]/*.Len*/ = 0; /* root of the heap */
+	  tree[s.heap[s.heap_max] * 2 + 1]/*.Len*/ = 0; /* root of the heap */
 
-	  for (h = s.heap_max+1; h < HEAP_SIZE; h++) {
+	  for (h = s.heap_max + 1; h < HEAP_SIZE; h++) {
 	    n = s.heap[h];
-	    bits = tree[tree[n*2 +1]/*.Dad*/ * 2 + 1]/*.Len*/ + 1;
+	    bits = tree[tree[n * 2 + 1]/*.Dad*/ * 2 + 1]/*.Len*/ + 1;
 	    if (bits > max_length) {
 	      bits = max_length;
 	      overflow++;
 	    }
-	    tree[n*2 + 1]/*.Len*/ = bits;
+	    tree[n * 2 + 1]/*.Len*/ = bits;
 	    /* We overwrite tree[n].Dad which is no longer needed */
 
 	    if (n > max_code) { continue; } /* not a leaf node */
@@ -28233,12 +26927,12 @@ return /******/ (function(modules) { // webpackBootstrap
 	    s.bl_count[bits]++;
 	    xbits = 0;
 	    if (n >= base) {
-	      xbits = extra[n-base];
+	      xbits = extra[n - base];
 	    }
 	    f = tree[n * 2]/*.Freq*/;
 	    s.opt_len += f * (bits + xbits);
 	    if (has_stree) {
-	      s.static_len += f * (stree[n*2 + 1]/*.Len*/ + xbits);
+	      s.static_len += f * (stree[n * 2 + 1]/*.Len*/ + xbits);
 	    }
 	  }
 	  if (overflow === 0) { return; }
@@ -28248,10 +26942,10 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	  /* Find the first bit length which could increase: */
 	  do {
-	    bits = max_length-1;
+	    bits = max_length - 1;
 	    while (s.bl_count[bits] === 0) { bits--; }
 	    s.bl_count[bits]--;      /* move one leaf down the tree */
-	    s.bl_count[bits+1] += 2; /* move one overflow item as its brother */
+	    s.bl_count[bits + 1] += 2; /* move one overflow item as its brother */
 	    s.bl_count[max_length]--;
 	    /* The brother of the overflow item also moves one step up,
 	     * but this does not affect bl_count[max_length]
@@ -28269,10 +26963,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	    while (n !== 0) {
 	      m = s.heap[--h];
 	      if (m > max_code) { continue; }
-	      if (tree[m*2 + 1]/*.Len*/ !== bits) {
+	      if (tree[m * 2 + 1]/*.Len*/ !== bits) {
 	        // Trace((stderr,"code %d bits %d->%d\n", m, tree[m].Len, bits));
-	        s.opt_len += (bits - tree[m*2 + 1]/*.Len*/)*tree[m*2]/*.Freq*/;
-	        tree[m*2 + 1]/*.Len*/ = bits;
+	        s.opt_len += (bits - tree[m * 2 + 1]/*.Len*/) * tree[m * 2]/*.Freq*/;
+	        tree[m * 2 + 1]/*.Len*/ = bits;
 	      }
 	      n--;
 	    }
@@ -28293,7 +26987,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	//    int max_code;              /* largest code with non zero frequency */
 	//    ushf *bl_count;            /* number of codes at each bit length */
 	{
-	  var next_code = new Array(MAX_BITS+1); /* next code value for each bit length */
+	  var next_code = new Array(MAX_BITS + 1); /* next code value for each bit length */
 	  var code = 0;              /* running code value */
 	  var bits;                  /* bit index */
 	  var n;                     /* code index */
@@ -28302,7 +26996,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	   * without bit reversal.
 	   */
 	  for (bits = 1; bits <= MAX_BITS; bits++) {
-	    next_code[bits] = code = (code + bl_count[bits-1]) << 1;
+	    next_code[bits] = code = (code + bl_count[bits - 1]) << 1;
 	  }
 	  /* Check that the bit counts in bl_count are consistent. The last code
 	   * must be all ones.
@@ -28312,10 +27006,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	  //Tracev((stderr,"\ngen_codes: max_code %d ", max_code));
 
 	  for (n = 0;  n <= max_code; n++) {
-	    var len = tree[n*2 + 1]/*.Len*/;
+	    var len = tree[n * 2 + 1]/*.Len*/;
 	    if (len === 0) { continue; }
 	    /* Now reverse the bits */
-	    tree[n*2]/*.Code*/ = bi_reverse(next_code[len]++, len);
+	    tree[n * 2]/*.Code*/ = bi_reverse(next_code[len]++, len);
 
 	    //Tracecv(tree != static_ltree, (stderr,"\nn %3d %c l %2d c %4x (%x) ",
 	    //     n, (isgraph(n) ? n : ' '), len, tree[n].Code, next_code[len]-1));
@@ -28332,7 +27026,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	  var length;   /* length value */
 	  var code;     /* code value */
 	  var dist;     /* distance index */
-	  var bl_count = new Array(MAX_BITS+1);
+	  var bl_count = new Array(MAX_BITS + 1);
 	  /* number of codes at each bit length for an optimal tree */
 
 	  // do check in _tr_init()
@@ -28349,9 +27043,9 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	  /* Initialize the mapping length (0..255) -> length code (0..28) */
 	  length = 0;
-	  for (code = 0; code < LENGTH_CODES-1; code++) {
+	  for (code = 0; code < LENGTH_CODES - 1; code++) {
 	    base_length[code] = length;
-	    for (n = 0; n < (1<<extra_lbits[code]); n++) {
+	    for (n = 0; n < (1 << extra_lbits[code]); n++) {
 	      _length_code[length++] = code;
 	    }
 	  }
@@ -28360,13 +27054,13 @@ return /******/ (function(modules) { // webpackBootstrap
 	   * in two different ways: code 284 + 5 bits or code 285, so we
 	   * overwrite length_code[255] to use the best encoding:
 	   */
-	  _length_code[length-1] = code;
+	  _length_code[length - 1] = code;
 
 	  /* Initialize the mapping dist (0..32K) -> dist code (0..29) */
 	  dist = 0;
-	  for (code = 0 ; code < 16; code++) {
+	  for (code = 0; code < 16; code++) {
 	    base_dist[code] = dist;
-	    for (n = 0; n < (1<<extra_dbits[code]); n++) {
+	    for (n = 0; n < (1 << extra_dbits[code]); n++) {
 	      _dist_code[dist++] = code;
 	    }
 	  }
@@ -28374,7 +27068,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	  dist >>= 7; /* from now on, all distances are divided by 128 */
 	  for (; code < D_CODES; code++) {
 	    base_dist[code] = dist << 7;
-	    for (n = 0; n < (1<<(extra_dbits[code]-7)); n++) {
+	    for (n = 0; n < (1 << (extra_dbits[code] - 7)); n++) {
 	      _dist_code[256 + dist++] = code;
 	    }
 	  }
@@ -28387,22 +27081,22 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	  n = 0;
 	  while (n <= 143) {
-	    static_ltree[n*2 + 1]/*.Len*/ = 8;
+	    static_ltree[n * 2 + 1]/*.Len*/ = 8;
 	    n++;
 	    bl_count[8]++;
 	  }
 	  while (n <= 255) {
-	    static_ltree[n*2 + 1]/*.Len*/ = 9;
+	    static_ltree[n * 2 + 1]/*.Len*/ = 9;
 	    n++;
 	    bl_count[9]++;
 	  }
 	  while (n <= 279) {
-	    static_ltree[n*2 + 1]/*.Len*/ = 7;
+	    static_ltree[n * 2 + 1]/*.Len*/ = 7;
 	    n++;
 	    bl_count[7]++;
 	  }
 	  while (n <= 287) {
-	    static_ltree[n*2 + 1]/*.Len*/ = 8;
+	    static_ltree[n * 2 + 1]/*.Len*/ = 8;
 	    n++;
 	    bl_count[8]++;
 	  }
@@ -28410,18 +27104,18 @@ return /******/ (function(modules) { // webpackBootstrap
 	   * tree construction to get a canonical Huffman tree (longest code
 	   * all ones)
 	   */
-	  gen_codes(static_ltree, L_CODES+1, bl_count);
+	  gen_codes(static_ltree, L_CODES + 1, bl_count);
 
 	  /* The static distance tree is trivial: */
 	  for (n = 0; n < D_CODES; n++) {
-	    static_dtree[n*2 + 1]/*.Len*/ = 5;
-	    static_dtree[n*2]/*.Code*/ = bi_reverse(n, 5);
+	    static_dtree[n * 2 + 1]/*.Len*/ = 5;
+	    static_dtree[n * 2]/*.Code*/ = bi_reverse(n, 5);
 	  }
 
 	  // Now data ready and we can init static trees
-	  static_l_desc = new StaticTreeDesc(static_ltree, extra_lbits, LITERALS+1, L_CODES, MAX_BITS);
+	  static_l_desc = new StaticTreeDesc(static_ltree, extra_lbits, LITERALS + 1, L_CODES, MAX_BITS);
 	  static_d_desc = new StaticTreeDesc(static_dtree, extra_dbits, 0,          D_CODES, MAX_BITS);
-	  static_bl_desc =new StaticTreeDesc(new Array(0), extra_blbits, 0,         BL_CODES, MAX_BL_BITS);
+	  static_bl_desc = new StaticTreeDesc(new Array(0), extra_blbits, 0,         BL_CODES, MAX_BL_BITS);
 
 	  //static_init_done = true;
 	}
@@ -28434,11 +27128,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	  var n; /* iterates over tree elements */
 
 	  /* Initialize the trees. */
-	  for (n = 0; n < L_CODES;  n++) { s.dyn_ltree[n*2]/*.Freq*/ = 0; }
-	  for (n = 0; n < D_CODES;  n++) { s.dyn_dtree[n*2]/*.Freq*/ = 0; }
-	  for (n = 0; n < BL_CODES; n++) { s.bl_tree[n*2]/*.Freq*/ = 0; }
+	  for (n = 0; n < L_CODES;  n++) { s.dyn_ltree[n * 2]/*.Freq*/ = 0; }
+	  for (n = 0; n < D_CODES;  n++) { s.dyn_dtree[n * 2]/*.Freq*/ = 0; }
+	  for (n = 0; n < BL_CODES; n++) { s.bl_tree[n * 2]/*.Freq*/ = 0; }
 
-	  s.dyn_ltree[END_BLOCK*2]/*.Freq*/ = 1;
+	  s.dyn_ltree[END_BLOCK * 2]/*.Freq*/ = 1;
 	  s.opt_len = s.static_len = 0;
 	  s.last_lit = s.matches = 0;
 	}
@@ -28487,8 +27181,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	 * the subtrees have equal frequency. This minimizes the worst case length.
 	 */
 	function smaller(tree, n, m, depth) {
-	  var _n2 = n*2;
-	  var _m2 = m*2;
+	  var _n2 = n * 2;
+	  var _m2 = m * 2;
 	  return (tree[_n2]/*.Freq*/ < tree[_m2]/*.Freq*/ ||
 	         (tree[_n2]/*.Freq*/ === tree[_m2]/*.Freq*/ && depth[n] <= depth[m]));
 	}
@@ -28509,7 +27203,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	  while (j <= s.heap_len) {
 	    /* Set j to the smallest of the two sons: */
 	    if (j < s.heap_len &&
-	      smaller(tree, s.heap[j+1], s.heap[j], s.depth)) {
+	      smaller(tree, s.heap[j + 1], s.heap[j], s.depth)) {
 	      j++;
 	    }
 	    /* Exit if v is smaller than both sons */
@@ -28545,7 +27239,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	  if (s.last_lit !== 0) {
 	    do {
-	      dist = (s.pending_buf[s.d_buf + lx*2] << 8) | (s.pending_buf[s.d_buf + lx*2 + 1]);
+	      dist = (s.pending_buf[s.d_buf + lx * 2] << 8) | (s.pending_buf[s.d_buf + lx * 2 + 1]);
 	      lc = s.pending_buf[s.l_buf + lx];
 	      lx++;
 
@@ -28555,7 +27249,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	      } else {
 	        /* Here, lc is the match length - MIN_MATCH */
 	        code = _length_code[lc];
-	        send_code(s, code+LITERALS+1, ltree); /* send the length code */
+	        send_code(s, code + LITERALS + 1, ltree); /* send the length code */
 	        extra = extra_lbits[code];
 	        if (extra !== 0) {
 	          lc -= base_length[code];
@@ -28617,7 +27311,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	      s.depth[n] = 0;
 
 	    } else {
-	      tree[n*2 + 1]/*.Len*/ = 0;
+	      tree[n * 2 + 1]/*.Len*/ = 0;
 	    }
 	  }
 
@@ -28633,7 +27327,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    s.opt_len--;
 
 	    if (has_stree) {
-	      s.static_len -= stree[node*2 + 1]/*.Len*/;
+	      s.static_len -= stree[node * 2 + 1]/*.Len*/;
 	    }
 	    /* node is 0 or 1 so it does not have extra bits */
 	  }
@@ -28664,7 +27358,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    /* Create a new node father of n and m */
 	    tree[node * 2]/*.Freq*/ = tree[n * 2]/*.Freq*/ + tree[m * 2]/*.Freq*/;
 	    s.depth[node] = (s.depth[n] >= s.depth[m] ? s.depth[n] : s.depth[m]) + 1;
-	    tree[n*2 + 1]/*.Dad*/ = tree[m*2 + 1]/*.Dad*/ = node;
+	    tree[n * 2 + 1]/*.Dad*/ = tree[m * 2 + 1]/*.Dad*/ = node;
 
 	    /* and insert the new node in the heap */
 	    s.heap[1/*SMALLEST*/] = node++;
@@ -28697,7 +27391,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	  var prevlen = -1;          /* last emitted length */
 	  var curlen;                /* length of current code */
 
-	  var nextlen = tree[0*2 + 1]/*.Len*/; /* length of next code */
+	  var nextlen = tree[0 * 2 + 1]/*.Len*/; /* length of next code */
 
 	  var count = 0;             /* repeat count of the current code */
 	  var max_count = 7;         /* max repeat count */
@@ -28707,11 +27401,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	    max_count = 138;
 	    min_count = 3;
 	  }
-	  tree[(max_code+1)*2 + 1]/*.Len*/ = 0xffff; /* guard */
+	  tree[(max_code + 1) * 2 + 1]/*.Len*/ = 0xffff; /* guard */
 
 	  for (n = 0; n <= max_code; n++) {
 	    curlen = nextlen;
-	    nextlen = tree[(n+1)*2 + 1]/*.Len*/;
+	    nextlen = tree[(n + 1) * 2 + 1]/*.Len*/;
 
 	    if (++count < max_count && curlen === nextlen) {
 	      continue;
@@ -28722,13 +27416,13 @@ return /******/ (function(modules) { // webpackBootstrap
 	    } else if (curlen !== 0) {
 
 	      if (curlen !== prevlen) { s.bl_tree[curlen * 2]/*.Freq*/++; }
-	      s.bl_tree[REP_3_6*2]/*.Freq*/++;
+	      s.bl_tree[REP_3_6 * 2]/*.Freq*/++;
 
 	    } else if (count <= 10) {
-	      s.bl_tree[REPZ_3_10*2]/*.Freq*/++;
+	      s.bl_tree[REPZ_3_10 * 2]/*.Freq*/++;
 
 	    } else {
-	      s.bl_tree[REPZ_11_138*2]/*.Freq*/++;
+	      s.bl_tree[REPZ_11_138 * 2]/*.Freq*/++;
 	    }
 
 	    count = 0;
@@ -28763,7 +27457,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	  var prevlen = -1;          /* last emitted length */
 	  var curlen;                /* length of current code */
 
-	  var nextlen = tree[0*2 + 1]/*.Len*/; /* length of next code */
+	  var nextlen = tree[0 * 2 + 1]/*.Len*/; /* length of next code */
 
 	  var count = 0;             /* repeat count of the current code */
 	  var max_count = 7;         /* max repeat count */
@@ -28777,7 +27471,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	  for (n = 0; n <= max_code; n++) {
 	    curlen = nextlen;
-	    nextlen = tree[(n+1)*2 + 1]/*.Len*/;
+	    nextlen = tree[(n + 1) * 2 + 1]/*.Len*/;
 
 	    if (++count < max_count && curlen === nextlen) {
 	      continue;
@@ -28792,15 +27486,15 @@ return /******/ (function(modules) { // webpackBootstrap
 	      }
 	      //Assert(count >= 3 && count <= 6, " 3_6?");
 	      send_code(s, REP_3_6, s.bl_tree);
-	      send_bits(s, count-3, 2);
+	      send_bits(s, count - 3, 2);
 
 	    } else if (count <= 10) {
 	      send_code(s, REPZ_3_10, s.bl_tree);
-	      send_bits(s, count-3, 3);
+	      send_bits(s, count - 3, 3);
 
 	    } else {
 	      send_code(s, REPZ_11_138, s.bl_tree);
-	      send_bits(s, count-11, 7);
+	      send_bits(s, count - 11, 7);
 	    }
 
 	    count = 0;
@@ -28842,13 +27536,13 @@ return /******/ (function(modules) { // webpackBootstrap
 	   * requires that at least 4 bit length codes be sent. (appnote.txt says
 	   * 3 but the actual value used is 4.)
 	   */
-	  for (max_blindex = BL_CODES-1; max_blindex >= 3; max_blindex--) {
-	    if (s.bl_tree[bl_order[max_blindex]*2 + 1]/*.Len*/ !== 0) {
+	  for (max_blindex = BL_CODES - 1; max_blindex >= 3; max_blindex--) {
+	    if (s.bl_tree[bl_order[max_blindex] * 2 + 1]/*.Len*/ !== 0) {
 	      break;
 	    }
 	  }
 	  /* Update opt_len to include the bit length tree and counts */
-	  s.opt_len += 3*(max_blindex+1) + 5+5+4;
+	  s.opt_len += 3 * (max_blindex + 1) + 5 + 5 + 4;
 	  //Tracev((stderr, "\ndyn trees: dyn %ld, stat %ld",
 	  //        s->opt_len, s->static_len));
 
@@ -28871,19 +27565,19 @@ return /******/ (function(modules) { // webpackBootstrap
 	  //Assert (lcodes <= L_CODES && dcodes <= D_CODES && blcodes <= BL_CODES,
 	  //        "too many codes");
 	  //Tracev((stderr, "\nbl counts: "));
-	  send_bits(s, lcodes-257, 5); /* not +255 as stated in appnote.txt */
-	  send_bits(s, dcodes-1,   5);
-	  send_bits(s, blcodes-4,  4); /* not -3 as stated in appnote.txt */
+	  send_bits(s, lcodes - 257, 5); /* not +255 as stated in appnote.txt */
+	  send_bits(s, dcodes - 1,   5);
+	  send_bits(s, blcodes - 4,  4); /* not -3 as stated in appnote.txt */
 	  for (rank = 0; rank < blcodes; rank++) {
 	    //Tracev((stderr, "\nbl code %2d ", bl_order[rank]));
-	    send_bits(s, s.bl_tree[bl_order[rank]*2 + 1]/*.Len*/, 3);
+	    send_bits(s, s.bl_tree[bl_order[rank] * 2 + 1]/*.Len*/, 3);
 	  }
 	  //Tracev((stderr, "\nbl tree: sent %ld", s->bits_sent));
 
-	  send_tree(s, s.dyn_ltree, lcodes-1); /* literal tree */
+	  send_tree(s, s.dyn_ltree, lcodes - 1); /* literal tree */
 	  //Tracev((stderr, "\nlit tree: sent %ld", s->bits_sent));
 
-	  send_tree(s, s.dyn_dtree, dcodes-1); /* distance tree */
+	  send_tree(s, s.dyn_dtree, dcodes - 1); /* distance tree */
 	  //Tracev((stderr, "\ndist tree: sent %ld", s->bits_sent));
 	}
 
@@ -28911,7 +27605,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	  /* Check for non-textual ("black-listed") bytes. */
 	  for (n = 0; n <= 31; n++, black_mask >>>= 1) {
-	    if ((black_mask & 1) && (s.dyn_ltree[n*2]/*.Freq*/ !== 0)) {
+	    if ((black_mask & 1) && (s.dyn_ltree[n * 2]/*.Freq*/ !== 0)) {
 	      return Z_BINARY;
 	    }
 	  }
@@ -28968,7 +27662,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	//ulg stored_len;   /* length of input block */
 	//int last;         /* one if this is the last block for a file */
 	{
-	  send_bits(s, (STORED_BLOCK<<1)+(last ? 1 : 0), 3);    /* send block type */
+	  send_bits(s, (STORED_BLOCK << 1) + (last ? 1 : 0), 3);    /* send block type */
 	  copy_block(s, buf, stored_len, true); /* with header */
 	}
 
@@ -28978,7 +27672,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	 * This takes 10 bits, of which 7 may remain in the bit buffer.
 	 */
 	function _tr_align(s) {
-	  send_bits(s, STATIC_TREES<<1, 3);
+	  send_bits(s, STATIC_TREES << 1, 3);
 	  send_code(s, END_BLOCK, static_ltree);
 	  bi_flush(s);
 	}
@@ -29023,8 +27717,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	    max_blindex = build_bl_tree(s);
 
 	    /* Determine the best encoding. Compute the block lengths in bytes. */
-	    opt_lenb = (s.opt_len+3+7) >>> 3;
-	    static_lenb = (s.static_len+3+7) >>> 3;
+	    opt_lenb = (s.opt_len + 3 + 7) >>> 3;
+	    static_lenb = (s.static_len + 3 + 7) >>> 3;
 
 	    // Tracev((stderr, "\nopt %lu(%lu) stat %lu(%lu) stored %lu lit %u ",
 	    //        opt_lenb, s->opt_len, static_lenb, s->static_len, stored_len,
@@ -29037,7 +27731,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    opt_lenb = static_lenb = stored_len + 5; /* force a stored block */
 	  }
 
-	  if ((stored_len+4 <= opt_lenb) && (buf !== -1)) {
+	  if ((stored_len + 4 <= opt_lenb) && (buf !== -1)) {
 	    /* 4: two words for the lengths */
 
 	    /* The test buf != NULL is only necessary if LIT_BUFSIZE > WSIZE.
@@ -29050,12 +27744,12 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	  } else if (s.strategy === Z_FIXED || static_lenb === opt_lenb) {
 
-	    send_bits(s, (STATIC_TREES<<1) + (last ? 1 : 0), 3);
+	    send_bits(s, (STATIC_TREES << 1) + (last ? 1 : 0), 3);
 	    compress_block(s, static_ltree, static_dtree);
 
 	  } else {
-	    send_bits(s, (DYN_TREES<<1) + (last ? 1 : 0), 3);
-	    send_all_trees(s, s.l_desc.max_code+1, s.d_desc.max_code+1, max_blindex+1);
+	    send_bits(s, (DYN_TREES << 1) + (last ? 1 : 0), 3);
+	    send_all_trees(s, s.l_desc.max_code + 1, s.d_desc.max_code + 1, max_blindex + 1);
 	    compress_block(s, s.dyn_ltree, s.dyn_dtree);
 	  }
 	  // Assert (s->compressed_len == s->bits_sent, "bad compressed size");
@@ -29090,7 +27784,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	  if (dist === 0) {
 	    /* lc is the unmatched char */
-	    s.dyn_ltree[lc*2]/*.Freq*/++;
+	    s.dyn_ltree[lc * 2]/*.Freq*/++;
 	  } else {
 	    s.matches++;
 	    /* Here, lc is the match length - MIN_MATCH */
@@ -29099,7 +27793,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    //       (ush)lc <= (ush)(MAX_MATCH-MIN_MATCH) &&
 	    //       (ush)d_code(dist) < (ush)D_CODES,  "_tr_tally: bad match");
 
-	    s.dyn_ltree[(_length_code[lc]+LITERALS+1) * 2]/*.Freq*/++;
+	    s.dyn_ltree[(_length_code[lc] + LITERALS + 1) * 2]/*.Freq*/++;
 	    s.dyn_dtree[d_code(dist) * 2]/*.Freq*/++;
 	  }
 
@@ -29126,7 +27820,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	//  }
 	//#endif
 
-	  return (s.last_lit === s.lit_bufsize-1);
+	  return (s.last_lit === s.lit_bufsize - 1);
 	  /* We avoid equality with lit_bufsize because of wraparound at 64K
 	   * on 16 bit machines and because stored blocks are restricted to
 	   * 64K-1 bytes.
@@ -29193,10 +27887,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	function makeTable() {
 	  var c, table = [];
 
-	  for (var n =0; n < 256; n++) {
+	  for (var n = 0; n < 256; n++) {
 	    c = n;
-	    for (var k =0; k < 8; k++) {
-	      c = ((c&1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1));
+	    for (var k = 0; k < 8; k++) {
+	      c = ((c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1));
 	    }
 	    table[n] = c;
 	  }
@@ -29212,7 +27906,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	  var t = crcTable,
 	      end = pos + len;
 
-	  crc = crc ^ (-1);
+	  crc ^= -1;
 
 	  for (var i = pos; i < end; i++) {
 	    crc = (crc >>> 8) ^ t[(crc ^ buf[i]) & 0xFF];
@@ -29232,10 +27926,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	'use strict';
 
 
-	var utils = __webpack_require__(89);
-	var adler32 = __webpack_require__(91);
-	var crc32   = __webpack_require__(92);
-	var inflate_fast = __webpack_require__(94);
+	var utils         = __webpack_require__(89);
+	var adler32       = __webpack_require__(91);
+	var crc32         = __webpack_require__(92);
+	var inflate_fast  = __webpack_require__(94);
 	var inflate_table = __webpack_require__(95);
 
 	var CODES = 0;
@@ -29323,7 +28017,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	var DEF_WBITS = MAX_WBITS;
 
 
-	function ZSWAP32(q) {
+	function zswap32(q) {
 	  return  (((q >>> 24) & 0xff) +
 	          ((q >>> 8) & 0xff00) +
 	          ((q & 0xff00) << 8) +
@@ -29516,13 +28210,13 @@ return /******/ (function(modules) { // webpackBootstrap
 	    while (sym < 280) { state.lens[sym++] = 7; }
 	    while (sym < 288) { state.lens[sym++] = 8; }
 
-	    inflate_table(LENS,  state.lens, 0, 288, lenfix,   0, state.work, {bits: 9});
+	    inflate_table(LENS,  state.lens, 0, 288, lenfix,   0, state.work, { bits: 9 });
 
 	    /* distance table */
 	    sym = 0;
 	    while (sym < 32) { state.lens[sym++] = 5; }
 
-	    inflate_table(DISTS, state.lens, 0, 32,   distfix, 0, state.work, {bits: 5});
+	    inflate_table(DISTS, state.lens, 0, 32,   distfix, 0, state.work, { bits: 5 });
 
 	    /* do this just once */
 	    virgin = false;
@@ -29564,7 +28258,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	  /* copy state->wsize or less output bytes into the circular window */
 	  if (copy >= state.wsize) {
-	    utils.arraySet(state.window,src, end - state.wsize, state.wsize, 0);
+	    utils.arraySet(state.window, src, end - state.wsize, state.wsize, 0);
 	    state.wnext = 0;
 	    state.whave = state.wsize;
 	  }
@@ -29574,11 +28268,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	      dist = copy;
 	    }
 	    //zmemcpy(state->window + state->wnext, end - copy, dist);
-	    utils.arraySet(state.window,src, end - copy, dist, state.wnext);
+	    utils.arraySet(state.window, src, end - copy, dist, state.wnext);
 	    copy -= dist;
 	    if (copy) {
 	      //zmemcpy(state->window, end - copy, copy);
-	      utils.arraySet(state.window,src, end - copy, copy, 0);
+	      utils.arraySet(state.window, src, end - copy, copy, 0);
 	      state.wnext = copy;
 	      state.whave = state.wsize;
 	    }
@@ -29615,7 +28309,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	  var n; // temporary var for NEED_BITS
 
 	  var order = /* permutation of code lengths */
-	    [16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15];
+	    [ 16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15 ];
 
 
 	  if (!strm || !strm.state || !strm.output ||
@@ -29942,7 +28636,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        state.head.hcrc = ((state.flags >> 9) & 1);
 	        state.head.done = true;
 	      }
-	      strm.adler = state.check = 0 /*crc32(0L, Z_NULL, 0)*/;
+	      strm.adler = state.check = 0;
 	      state.mode = TYPE;
 	      break;
 	    case DICTID:
@@ -29954,7 +28648,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        bits += 8;
 	      }
 	      //===//
-	      strm.adler = state.check = ZSWAP32(hold);
+	      strm.adler = state.check = zswap32(hold);
 	      //=== INITBITS();
 	      hold = 0;
 	      bits = 0;
@@ -30146,7 +28840,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	      state.lencode = state.lendyn;
 	      state.lenbits = 7;
 
-	      opts = {bits: state.lenbits};
+	      opts = { bits: state.lenbits };
 	      ret = inflate_table(CODES, state.lens, 0, 19, state.lencode, 0, state.work, opts);
 	      state.lenbits = opts.bits;
 
@@ -30277,7 +28971,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	         concerning the ENOUGH constants, which depend on those values */
 	      state.lenbits = 9;
 
-	      opts = {bits: state.lenbits};
+	      opts = { bits: state.lenbits };
 	      ret = inflate_table(LENS, state.lens, 0, state.nlen, state.lencode, 0, state.work, opts);
 	      // We have separate tables & no pointers. 2 commented lines below not needed.
 	      // state.next_index = opts.table_index;
@@ -30294,7 +28988,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	      //state.distcode.copy(state.codes);
 	      // Switch to use dynamic table
 	      state.distcode = state.distdyn;
-	      opts = {bits: state.distbits};
+	      opts = { bits: state.distbits };
 	      ret = inflate_table(DISTS, state.lens, state.nlen, state.ndist, state.distcode, 0, state.work, opts);
 	      // We have separate tables & no pointers. 2 commented lines below not needed.
 	      // state.next_index = opts.table_index;
@@ -30342,7 +29036,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	      }
 	      state.back = 0;
 	      for (;;) {
-	        here = state.lencode[hold & ((1 << state.lenbits) -1)];  /*BITS(state.lenbits)*/
+	        here = state.lencode[hold & ((1 << state.lenbits) - 1)];  /*BITS(state.lenbits)*/
 	        here_bits = here >>> 24;
 	        here_op = (here >>> 16) & 0xff;
 	        here_val = here & 0xffff;
@@ -30361,7 +29055,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        last_val = here_val;
 	        for (;;) {
 	          here = state.lencode[last_val +
-	                  ((hold & ((1 << (last_bits + last_op)) -1))/*BITS(last.bits + last.op)*/ >> last_bits)];
+	                  ((hold & ((1 << (last_bits + last_op)) - 1))/*BITS(last.bits + last.op)*/ >> last_bits)];
 	          here_bits = here >>> 24;
 	          here_op = (here >>> 16) & 0xff;
 	          here_val = here & 0xffff;
@@ -30418,7 +29112,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	          bits += 8;
 	        }
 	        //===//
-	        state.length += hold & ((1 << state.extra) -1)/*BITS(state.extra)*/;
+	        state.length += hold & ((1 << state.extra) - 1)/*BITS(state.extra)*/;
 	        //--- DROPBITS(state.extra) ---//
 	        hold >>>= state.extra;
 	        bits -= state.extra;
@@ -30431,7 +29125,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	      /* falls through */
 	    case DIST:
 	      for (;;) {
-	        here = state.distcode[hold & ((1 << state.distbits) -1)];/*BITS(state.distbits)*/
+	        here = state.distcode[hold & ((1 << state.distbits) - 1)];/*BITS(state.distbits)*/
 	        here_bits = here >>> 24;
 	        here_op = (here >>> 16) & 0xff;
 	        here_val = here & 0xffff;
@@ -30450,7 +29144,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        last_val = here_val;
 	        for (;;) {
 	          here = state.distcode[last_val +
-	                  ((hold & ((1 << (last_bits + last_op)) -1))/*BITS(last.bits + last.op)*/ >> last_bits)];
+	                  ((hold & ((1 << (last_bits + last_op)) - 1))/*BITS(last.bits + last.op)*/ >> last_bits)];
 	          here_bits = here >>> 24;
 	          here_op = (here >>> 16) & 0xff;
 	          here_val = here & 0xffff;
@@ -30494,7 +29188,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	          bits += 8;
 	        }
 	        //===//
-	        state.offset += hold & ((1 << state.extra) -1)/*BITS(state.extra)*/;
+	        state.offset += hold & ((1 << state.extra) - 1)/*BITS(state.extra)*/;
 	        //--- DROPBITS(state.extra) ---//
 	        hold >>>= state.extra;
 	        bits -= state.extra;
@@ -30588,8 +29282,8 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	        }
 	        _out = left;
-	        // NB: crc32 stored as signed 32-bit int, ZSWAP32 returns signed too
-	        if ((state.flags ? hold : ZSWAP32(hold)) !== state.check) {
+	        // NB: crc32 stored as signed 32-bit int, zswap32 returns signed too
+	        if ((state.flags ? hold : zswap32(hold)) !== state.check) {
 	          strm.msg = 'incorrect data check';
 	          state.mode = BAD;
 	          break;
@@ -30711,6 +29405,41 @@ return /******/ (function(modules) { // webpackBootstrap
 	  return Z_OK;
 	}
 
+	function inflateSetDictionary(strm, dictionary) {
+	  var dictLength = dictionary.length;
+
+	  var state;
+	  var dictid;
+	  var ret;
+
+	  /* check state */
+	  if (!strm /* == Z_NULL */ || !strm.state /* == Z_NULL */) { return Z_STREAM_ERROR; }
+	  state = strm.state;
+
+	  if (state.wrap !== 0 && state.mode !== DICT) {
+	    return Z_STREAM_ERROR;
+	  }
+
+	  /* check for correct dictionary identifier */
+	  if (state.mode === DICT) {
+	    dictid = 1; /* adler32(0, null, 0)*/
+	    /* dictid = adler32(dictid, dictionary, dictLength); */
+	    dictid = adler32(dictid, dictionary, dictLength, 0);
+	    if (dictid !== state.check) {
+	      return Z_DATA_ERROR;
+	    }
+	  }
+	  /* copy dictionary to window using updatewindow(), which will amend the
+	   existing dictionary if appropriate */
+	  ret = updatewindow(strm, dictionary, dictLength, dictLength);
+	  if (ret) {
+	    state.mode = MEM;
+	    return Z_MEM_ERROR;
+	  }
+	  state.havedict = 1;
+	  // Tracev((stderr, "inflate:   dictionary set\n"));
+	  return Z_OK;
+	}
 
 	exports.inflateReset = inflateReset;
 	exports.inflateReset2 = inflateReset2;
@@ -30720,6 +29449,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	exports.inflate = inflate;
 	exports.inflateEnd = inflateEnd;
 	exports.inflateGetHeader = inflateGetHeader;
+	exports.inflateSetDictionary = inflateSetDictionary;
 	exports.inflateInfo = 'pako inflate (from Nodeca project)';
 
 	/* Not implemented
@@ -30727,7 +29457,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	exports.inflateGetDictionary = inflateGetDictionary;
 	exports.inflateMark = inflateMark;
 	exports.inflatePrime = inflatePrime;
-	exports.inflateSetDictionary = inflateSetDictionary;
 	exports.inflateSync = inflateSync;
 	exports.inflateSyncPoint = inflateSyncPoint;
 	exports.inflateUndermine = inflateUndermine;
@@ -31129,8 +29858,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	  var base_index = 0;
 	//  var shoextra;    /* extra bits table to use */
 	  var end;                    /* use base and extra for symbol > end */
-	  var count = new utils.Buf16(MAXBITS+1); //[MAXBITS+1];    /* number of codes of each length */
-	  var offs = new utils.Buf16(MAXBITS+1); //[MAXBITS+1];     /* offsets in table for each length */
+	  var count = new utils.Buf16(MAXBITS + 1); //[MAXBITS+1];    /* number of codes of each length */
+	  var offs = new utils.Buf16(MAXBITS + 1); //[MAXBITS+1];     /* offsets in table for each length */
 	  var extra = null;
 	  var extra_index = 0;
 
@@ -31299,7 +30028,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    return 1;
 	  }
 
-	  var i=0;
+	  var i = 0;
 	  /* process all codes and make table entries */
 	  for (;;) {
 	    i++;
@@ -31403,6 +30132,9 @@ return /******/ (function(modules) { // webpackBootstrap
 /* 96 */
 /***/ function(module, exports) {
 
+	'use strict';
+
+
 	module.exports = {
 
 	  /* Allowed flush values; see deflate() and inflate() below for details */
@@ -31461,7 +30193,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	 * @copyright Copyright (c) 2014 Yehuda Katz, Tom Dale, Stefan Penner and contributors (Conversion to ES6 API by Jake Archibald)
 	 * @license   Licensed under MIT license
 	 *            See https://raw.githubusercontent.com/jakearchibald/es6-promise/master/LICENSE
-	 * @version   3.1.2
+	 * @version   3.2.1
 	 */
 
 	(function() {
@@ -31519,7 +30251,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    var lib$es6$promise$asap$$browserWindow = (typeof window !== 'undefined') ? window : undefined;
 	    var lib$es6$promise$asap$$browserGlobal = lib$es6$promise$asap$$browserWindow || {};
 	    var lib$es6$promise$asap$$BrowserMutationObserver = lib$es6$promise$asap$$browserGlobal.MutationObserver || lib$es6$promise$asap$$browserGlobal.WebKitMutationObserver;
-	    var lib$es6$promise$asap$$isNode = typeof process !== 'undefined' && {}.toString.call(process) === '[object process]';
+	    var lib$es6$promise$asap$$isNode = typeof self === 'undefined' && typeof process !== 'undefined' && {}.toString.call(process) === '[object process]';
 
 	    // test for web worker but not in IE10
 	    var lib$es6$promise$asap$$isWorker = typeof Uint8ClampedArray !== 'undefined' &&
@@ -31609,19 +30341,19 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }
 	    function lib$es6$promise$then$$then(onFulfillment, onRejection) {
 	      var parent = this;
-	      var state = parent._state;
-
-	      if (state === lib$es6$promise$$internal$$FULFILLED && !onFulfillment || state === lib$es6$promise$$internal$$REJECTED && !onRejection) {
-	        return this;
-	      }
 
 	      var child = new this.constructor(lib$es6$promise$$internal$$noop);
-	      var result = parent._result;
+
+	      if (child[lib$es6$promise$$internal$$PROMISE_ID] === undefined) {
+	        lib$es6$promise$$internal$$makePromise(child);
+	      }
+
+	      var state = parent._state;
 
 	      if (state) {
 	        var callback = arguments[state - 1];
 	        lib$es6$promise$asap$$asap(function(){
-	          lib$es6$promise$$internal$$invokeCallback(state, child, callback, result);
+	          lib$es6$promise$$internal$$invokeCallback(state, child, callback, parent._result);
 	        });
 	      } else {
 	        lib$es6$promise$$internal$$subscribe(parent, child, onFulfillment, onRejection);
@@ -31643,6 +30375,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	      return promise;
 	    }
 	    var lib$es6$promise$promise$resolve$$default = lib$es6$promise$promise$resolve$$resolve;
+	    var lib$es6$promise$$internal$$PROMISE_ID = Math.random().toString(36).substring(16);
 
 	    function lib$es6$promise$$internal$$noop() {}
 
@@ -31873,6 +30606,18 @@ return /******/ (function(modules) { // webpackBootstrap
 	      }
 	    }
 
+	    var lib$es6$promise$$internal$$id = 0;
+	    function lib$es6$promise$$internal$$nextId() {
+	      return lib$es6$promise$$internal$$id++;
+	    }
+
+	    function lib$es6$promise$$internal$$makePromise(promise) {
+	      promise[lib$es6$promise$$internal$$PROMISE_ID] = lib$es6$promise$$internal$$id++;
+	      promise._state = undefined;
+	      promise._result = undefined;
+	      promise._subscribers = [];
+	    }
+
 	    function lib$es6$promise$promise$all$$all(entries) {
 	      return new lib$es6$promise$enumerator$$default(this, entries).promise;
 	    }
@@ -31881,28 +30626,18 @@ return /******/ (function(modules) { // webpackBootstrap
 	      /*jshint validthis:true */
 	      var Constructor = this;
 
-	      var promise = new Constructor(lib$es6$promise$$internal$$noop);
-
 	      if (!lib$es6$promise$utils$$isArray(entries)) {
-	        lib$es6$promise$$internal$$reject(promise, new TypeError('You must pass an array to race.'));
-	        return promise;
+	        return new Constructor(function(resolve, reject) {
+	          reject(new TypeError('You must pass an array to race.'));
+	        });
+	      } else {
+	        return new Constructor(function(resolve, reject) {
+	          var length = entries.length;
+	          for (var i = 0; i < length; i++) {
+	            Constructor.resolve(entries[i]).then(resolve, reject);
+	          }
+	        });
 	      }
-
-	      var length = entries.length;
-
-	      function onFulfillment(value) {
-	        lib$es6$promise$$internal$$resolve(promise, value);
-	      }
-
-	      function onRejection(reason) {
-	        lib$es6$promise$$internal$$reject(promise, reason);
-	      }
-
-	      for (var i = 0; promise._state === lib$es6$promise$$internal$$PENDING && i < length; i++) {
-	        lib$es6$promise$$internal$$subscribe(Constructor.resolve(entries[i]), undefined, onFulfillment, onRejection);
-	      }
-
-	      return promise;
 	    }
 	    var lib$es6$promise$promise$race$$default = lib$es6$promise$promise$race$$race;
 	    function lib$es6$promise$promise$reject$$reject(reason) {
@@ -31914,7 +30649,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }
 	    var lib$es6$promise$promise$reject$$default = lib$es6$promise$promise$reject$$reject;
 
-	    var lib$es6$promise$promise$$counter = 0;
 
 	    function lib$es6$promise$promise$$needsResolver() {
 	      throw new TypeError('You must pass a resolver function as the first argument to the promise constructor');
@@ -32029,9 +30763,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	      @constructor
 	    */
 	    function lib$es6$promise$promise$$Promise(resolver) {
-	      this._id = lib$es6$promise$promise$$counter++;
-	      this._state = undefined;
-	      this._result = undefined;
+	      this[lib$es6$promise$$internal$$PROMISE_ID] = lib$es6$promise$$internal$$nextId();
+	      this._result = this._state = undefined;
 	      this._subscribers = [];
 
 	      if (lib$es6$promise$$internal$$noop !== resolver) {
@@ -32282,7 +31015,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	      this._instanceConstructor = Constructor;
 	      this.promise = new Constructor(lib$es6$promise$$internal$$noop);
 
-	      if (Array.isArray(input)) {
+	      if (!this.promise[lib$es6$promise$$internal$$PROMISE_ID]) {
+	        lib$es6$promise$$internal$$makePromise(this.promise);
+	      }
+
+	      if (lib$es6$promise$utils$$isArray(input)) {
 	        this._input     = input;
 	        this.length     = input.length;
 	        this._remaining = input.length;
@@ -32299,13 +31036,13 @@ return /******/ (function(modules) { // webpackBootstrap
 	          }
 	        }
 	      } else {
-	        lib$es6$promise$$internal$$reject(this.promise, this._validationError());
+	        lib$es6$promise$$internal$$reject(this.promise, lib$es6$promise$enumerator$$validationError());
 	      }
 	    }
 
-	    lib$es6$promise$enumerator$$Enumerator.prototype._validationError = function() {
+	    function lib$es6$promise$enumerator$$validationError() {
 	      return new Error('Array Methods must be provided an Array');
-	    };
+	    }
 
 	    lib$es6$promise$enumerator$$Enumerator.prototype._enumerate = function() {
 	      var length  = this.length;
