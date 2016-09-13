@@ -1473,7 +1473,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	  proto.getConversations = function getConversations(since, quantity, onComplete) {
 	    var params = {
 	      'monkeyId': this.session.id,
-	      'qty': quantity.toString()
+	      'qty': quantity.toString(),
+	      'syncTimestamp': this.session.lastTimestamp
 	    };
 
 	    if (since != null) {
