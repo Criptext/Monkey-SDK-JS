@@ -26,6 +26,7 @@ require('offline-js');
 const zlib = require('zlib');
 
 const MESSAGE_EVENT = 'Message';
+const MESSAGE_SYNC_EVENT = 'MessageSync';
 const MESSAGE_FAIL_EVENT = 'MessageFail';
 const MESSAGE_UNSEND_EVENT = 'MessageUnsend';
 const ACKNOWLEDGE_EVENT = 'Acknowledge';
@@ -567,22 +568,22 @@ require('es6-promise').polyfill();
   proto.processMultipleMessages = function processMultipleMessages(messages){
     messages.map(function(message){
       let msg = new MOKMessage(this.enums.ProtocolCommand.MESSAGE, message);
-      this.processMOKProtocolMessage(msg);
+      this.processMOKProtocolMessage(msg, MESSAGE_SYNC_EVENT);
     }.bind(this));
   }
 
-  proto.processMOKProtocolMessage = function processMOKProtocolMessage(message){
+  proto.processMOKProtocolMessage = function processMOKProtocolMessage(message, messageEventName){
     Log.m(this.session.debug, "===========================");
     Log.m(this.session.debug, "MONKEY - Message in process: "+message.id+" type: "+message.protocolType);
     Log.m(this.session.debug, "===========================");
 
     switch(message.protocolType){
       case this.enums.MessageType.TEXT:{
-        this.incomingMessage(message);
+        this.incomingMessage(message, messageEventName);
         break;
       }
       case this.enums.MessageType.FILE:{
-        this.fileReceived(message);
+        this.fileReceived(message, messageEventName);
         break;
       }
       case this.enums.MessageType.TEMP_NOTE:{
@@ -653,7 +654,7 @@ require('es6-promise').polyfill();
     }
   }
 
-  proto.incomingMessage = function incomingMessage(message){
+  proto.incomingMessage = function incomingMessage(message, messageEventName){
     this.decryptMessage(message, function(error, decryptedMessage){
       let currentTimestamp = this.session.lastTimestamp;
 
@@ -667,7 +668,7 @@ require('es6-promise').polyfill();
 
       switch (decryptedMessage.protocolCommand){
         case this.enums.ProtocolCommand.MESSAGE:{
-          this._getEmitter().emit(MESSAGE_EVENT, decryptedMessage);
+          this._getEmitter().emit(messageEventName, decryptedMessage);
           break;
         }
         case this.enums.ProtocolCommand.PUBLISH:{
@@ -754,7 +755,7 @@ require('es6-promise').polyfill();
     Push.close(tag);
   }
 
-  proto.fileReceived = function fileReceived(message){
+  proto.fileReceived = function fileReceived(message, messageEventName){
     if (message.id > 0 && message.datetimeCreation > this.session.lastTimestamp) {
       this.session.lastTimestamp = Math.trunc(message.datetimeCreation);
       if (this.session.autoSave) {
@@ -762,7 +763,7 @@ require('es6-promise').polyfill();
       }
     }
 
-    this._getEmitter().emit(MESSAGE_EVENT, message);
+    this._getEmitter().emit(messageEventName, message);
   }
 
   proto.processMOKProtocolACK = function processMOKProtocolACK(message){
@@ -936,11 +937,11 @@ require('es6-promise').polyfill();
           if (!watchdog.didRespondSync) {
             return;
           }
-          this.processMOKProtocolMessage(msg);
+          this.processMOKProtocolMessage(msg, MESSAGE_EVENT);
           break;
         }
         case this.enums.ProtocolCommand.PUBLISH:{
-          this.processMOKProtocolMessage(msg);
+          this.processMOKProtocolMessage(msg, MESSAGE_EVENT);
           break;
         }
         case this.enums.ProtocolCommand.ACK:{
