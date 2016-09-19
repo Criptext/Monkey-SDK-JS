@@ -908,6 +908,19 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }
 	  };
 
+	  proto.unsend = function unsend(messageId, conversationId) {
+	    if (!messageId) {
+	      return;
+	    }
+
+	    var args = {
+	      id: messageId,
+	      rid: conversationId
+	    };
+
+	    this.sendCommand(this.enums.ProtocolCommand.DELETE, args);
+	  };
+
 	  proto.requestMessagesSinceTimestamp = function requestMessagesSinceTimestamp(lastTimestamp, quantity, withGroups) {
 	    // if (this.socketConnection == null) {
 	    //
@@ -1770,6 +1783,19 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	      return callback(null, respObj.data);
 	    }.bind(this));
+	  };
+
+	  proto.getMessageReadBy = function getMessageReadBy(message, callback) {
+
+	    callback = typeof callback === "function" ? callback : function () {};
+	    apiconnector.basicRequest('GET', '/message/' + message.id + '/readby', {}, false, function (err, respObj) {
+	      if (err) {
+	        Log.m(this.session.debug, 'Monkey - error retrieving members read by');
+	        callback(err);
+	      }
+
+	      return callback(null, respObj);
+	    });
 	  };
 
 	  proto.editUserInfo = function editUserInfo(newParams, callback) {
