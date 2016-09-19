@@ -844,14 +844,14 @@ require('es6-promise').polyfill();
     }
   }
 
-  proto.unsend = function unsend(messageId, conversationId){
-    if(!messageId){
+  proto.unsend = function unsend(message){
+    if(!message || message.senderId != this.session.id){
       return;
     }
 
     let args = {
-      id : messageId,
-      rid : conversationId
+      id : message.id,
+      rid : message.recipientId
     }
 
     this.sendCommand(this.enums.ProtocolCommand.DELETE, args);
