@@ -608,14 +608,14 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	  proto.getPendingMessages = function getPendingMessages(timestamp) {
 	    var finalTimestamp = timestamp || this.session.lastTimestamp;
-	    this.requestMessagesSinceTimestamp(Math.trunc(finalTimestamp), 15, false);
+	    this.requestMessagesSinceTimestamp(Math.trunc(finalTimestamp), 15);
 	  };
 
 	  proto.processSyncMessages = function processSyncMessages(messages, remaining) {
 	    this.processMultipleMessages(messages);
 
 	    if (remaining > 0) {
-	      this.requestMessagesSinceTimestamp(this.session.lastTimestamp, 15, false);
+	      this.requestMessagesSinceTimestamp(this.session.lastTimestamp, 15);
 	    }
 	  };
 
@@ -921,28 +921,33 @@ return /******/ (function(modules) { // webpackBootstrap
 	    this.sendCommand(this.enums.ProtocolCommand.DELETE, args);
 	  };
 
-	  proto.requestMessagesSinceTimestamp = function requestMessagesSinceTimestamp(lastTimestamp, quantity, withGroups) {
-	    // if (this.socketConnection == null) {
-	    //
-	    // }
+	  proto.requestMessagesSinceTimestamp = function requestMessagesSinceTimestamp(lastTimestamp, quantity) {
+
 	    var args = {
 	      since: lastTimestamp || 0,
 	      qty: quantity
 	    };
 
-	    if (withGroups === true) {
-	      args.groups = 1;
-	    }
+	    var url = '/user/messages/' + this.session.id + "/" + lastTimestamp + "/" + quantity;
 
-	    watchdog.startWatchingSync(function () {
-	      this.socketConnection.onclose = function () {};
-	      this.socketConnection.close();
-	      setTimeout(function () {
-	        this.startConnection();
-	      }.bind(this), 5000);
+	    apiconnector.basicRequest('GET', url, null, false, function (err, respObj) {
+	      if (err) {
+	        setTimeout(function () {
+	          this.requestMessagesSinceTimestamp(lastTimestamp, quantity);
+	        }.bind(this), 2000);
+	        return;
+	      }
+
+	      if (!respObj || !respObj.data) {
+	        return;
+	      }
+
+	      var data = respObj.data;
+
+	      if (data.messages.length > 0) {
+	        this.processSyncMessages(data.messages, data.remaining);
+	      }
 	    }.bind(this));
-
-	    this.sendCommand(this.enums.ProtocolCommand.SYNC, args);
 	  };
 
 	  proto.startConnection = function startConnection() {
@@ -1038,34 +1043,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	              msg.text = jsonres.args.messages;
 
 	              this._getEmitter().emit(GROUP_LIST_EVENT, { groups: msg.text.split(',') });
-	            }
-
-	            break;
-	          }
-	        case this.enums.ProtocolCommand.SYNC:
-	          {
-	            //notify watchdog
-	            switch (jsonres.args.type) {
-	              case this.enums.SyncType.HISTORY:
-	                {
-	                  var arrayMessages = jsonres.args.messages;
-	                  var remaining = jsonres.args.remaining_messages;
-
-	                  watchdog.didRespondSync = true;
-
-	                  this.processSyncMessages(arrayMessages, remaining);
-
-	                  break;
-	                }
-	              case this.enums.SyncType.GROUPS:
-	                {
-	                  msg.protocolCommand = this.enums.ProtocolCommand.GET;
-	                  msg.protocolType = this.enums.MessageType.NOTIF;
-	                  //monkeyType = MOKGroupsJoined;
-	                  msg.text = jsonres.args.messages;
-	                  this._getEmitter().emit(GROUP_LIST_EVENT, { groups: msg.text.split(',') });
-	                  break;
-	                }
 	            }
 
 	            break;
