@@ -932,6 +932,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	    apiconnector.basicRequest('GET', url, null, false, function (err, respObj) {
 	      if (err) {
+	        Log.m(this.session.debug, 'Monkey - Sync - Error... ' + err);
 	        setTimeout(function () {
 	          this.requestMessagesSinceTimestamp(lastTimestamp, quantity);
 	        }.bind(this), 2000);
@@ -939,6 +940,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	      }
 
 	      if (!respObj || !respObj.data) {
+	        Log.m(this.session.debug, 'Monkey - Sync - Empty Response');
 	        return;
 	      }
 
@@ -1762,17 +1764,17 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }.bind(this));
 	  };
 
-	  proto.getMessageReadBy = function getMessageReadBy(message, callback) {
+	  proto.getMessageReadBy = function getMessageReadBy(messageId, callback) {
 
 	    callback = typeof callback === "function" ? callback : function () {};
-	    apiconnector.basicRequest('GET', '/message/' + message.id + '/readby', {}, false, function (err, respObj) {
+	    apiconnector.basicRequest('GET', '/message/' + messageId + '/readby', {}, false, function (err, respObj) {
 	      if (err) {
-	        Log.m(this.session.debug, 'Monkey - error retrieving members read by');
-	        callback(err);
+	        Log.m(this.session.debug, 'Monkey - error retrieving members read by...' + err);
+	        return callback(err);
 	      }
 
 	      return callback(null, respObj);
-	    });
+	    }.bind(this));
 	  };
 
 	  proto.editUserInfo = function editUserInfo(newParams, callback) {
