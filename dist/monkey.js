@@ -923,12 +923,12 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	  proto.requestMessagesSinceTimestamp = function requestMessagesSinceTimestamp(lastTimestamp, quantity) {
 
-	    var args = {
-	      since: lastTimestamp || 0,
-	      qty: quantity
-	    };
+	    if (!this.session || !this.session.id) {
+	      Log.m(this.session.debug, 'Monkey - Sync - No Session');
+	      return;
+	    }
 
-	    var url = '/user/messages/' + this.session.id + "/" + lastTimestamp + "/" + quantity;
+	    var url = '/user/messages/' + this.session.id + "/" + (lastTimestamp || 0) + "/" + (quantity || 15);
 
 	    apiconnector.basicRequest('GET', url, null, false, function (err, respObj) {
 	      if (err) {
