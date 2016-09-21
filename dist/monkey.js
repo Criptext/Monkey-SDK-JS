@@ -928,11 +928,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	      return;
 	    }
 
-	    var args = {
-	      since: lastTimestamp || 0,
-	      qty: quantity || 15
-	    };
-
 	    var url = '/user/messages/' + this.session.id + "/" + (lastTimestamp || 0) + "/" + (quantity || 15);
 
 	    apiconnector.basicRequest('GET', url, null, false, function (err, respObj) {
