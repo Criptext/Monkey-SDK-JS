@@ -860,15 +860,15 @@ require('es6-promise').polyfill();
 
   proto.requestMessagesSinceTimestamp = function requestMessagesSinceTimestamp(lastTimestamp, quantity){
 
-    let args={
-      since: lastTimestamp || 0,
-      qty: quantity
-    };
-
-    if(!this.session.id || !lastTimestamp || !quantity){
-      Log.m(this.session.debug, 'Monkey - Sync - Invalid Params');
+    if(!this.session || !this.session.id){
+      Log.m(this.session.debug, 'Monkey - Sync - No Session');
       return;
     }
+
+    let args={
+      since: lastTimestamp || 0,
+      qty: quantity || 15
+    };
 
     let url = '/user/messages/' + this.session.id + "/" + lastTimestamp + "/" + quantity;
 
