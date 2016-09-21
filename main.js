@@ -865,6 +865,11 @@ require('es6-promise').polyfill();
       qty: quantity
     };
 
+    if(!this.session.id || !lastTimestamp || !quantity){
+      Log.m(this.session.debug, 'Monkey - Sync - Invalid Params');
+      return;
+    }
+
     let url = '/user/messages/' + this.session.id + "/" + lastTimestamp + "/" + quantity;
 
     apiconnector.basicRequest('GET', url, null, false, function(err,respObj){

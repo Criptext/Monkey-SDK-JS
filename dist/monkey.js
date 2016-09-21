@@ -928,6 +928,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	      qty: quantity
 	    };
 
+	    if (!this.session.id || !lastTimestamp || !quantity) {
+	      Log.m(this.session.debug, 'Monkey - Sync - Invalid Params');
+	      return;
+	    }
+
 	    var url = '/user/messages/' + this.session.id + "/" + lastTimestamp + "/" + quantity;
 
 	    apiconnector.basicRequest('GET', url, null, false, function (err, respObj) {
