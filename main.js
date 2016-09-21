@@ -870,7 +870,7 @@ require('es6-promise').polyfill();
       qty: quantity || 15
     };
 
-    let url = '/user/messages/' + this.session.id + "/" + lastTimestamp + "/" + quantity;
+    let url = '/user/messages/' + this.session.id + "/" + (lastTimestamp || 0) + "/" + (quantity || 15);
 
     apiconnector.basicRequest('GET', url, null, false, function(err,respObj){
       if(err){

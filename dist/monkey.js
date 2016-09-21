@@ -933,7 +933,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	      qty: quantity || 15
 	    };
 
-	    var url = '/user/messages/' + this.session.id + "/" + lastTimestamp + "/" + quantity;
+	    var url = '/user/messages/' + this.session.id + "/" + (lastTimestamp || 0) + "/" + (quantity || 15);
 
 	    apiconnector.basicRequest('GET', url, null, false, function (err, respObj) {
 	      if (err) {
