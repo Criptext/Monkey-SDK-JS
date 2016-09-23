@@ -562,6 +562,8 @@ require('es6-promise').polyfill();
 
     if (remaining > 0) {
       this.requestMessagesSinceTimestamp(this.session.lastTimestamp, 15);
+    }else if(this.status!=this.enums.Status.ONLINE){
+      this.startConnection();
     }
   }
 
@@ -885,6 +887,8 @@ require('es6-promise').polyfill();
 
       if(data.messages.length > 0){
         this.processSyncMessages(data.messages, data.remaining)
+      }else if(this.status!=this.enums.Status.ONLINE){
+        this.startConnection();
       }
 
     }.bind(this));
@@ -1012,6 +1016,7 @@ require('es6-promise').polyfill();
       //reset watchdog state
       watchdog.didRespondSync = true;
       //check if the web server disconnected me
+      console.log(evt);
       if (evt.wasClean) {
         Log.m(this.session.debug, 'Monkey - Websocket closed - Connection closed... '+ evt);
         this.socketConnection = null;
