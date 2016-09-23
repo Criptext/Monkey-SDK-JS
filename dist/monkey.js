@@ -616,6 +616,8 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	    if (remaining > 0) {
 	      this.requestMessagesSinceTimestamp(this.session.lastTimestamp, 15);
+	    } else if (this.status != this.enums.Status.ONLINE) {
+	      this.startConnection();
 	    }
 	  };
 
@@ -948,6 +950,8 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	      if (data.messages.length > 0) {
 	        this.processSyncMessages(data.messages, data.remaining);
+	      } else if (this.status != this.enums.Status.ONLINE) {
+	        this.startConnection();
 	      }
 	    }.bind(this));
 	  };
@@ -1079,6 +1083,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	      //reset watchdog state
 	      watchdog.didRespondSync = true;
 	      //check if the web server disconnected me
+	      Log.m(this.session.debug, 'Monkey - Websocket closed... ' + evt);
 	      if (evt.wasClean) {
 	        Log.m(this.session.debug, 'Monkey - Websocket closed - Connection closed... ' + evt);
 	        this.socketConnection = null;
@@ -4330,6 +4335,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	      //it came from the socket
 	      this.id = args.id;
 	      this.oldId = this.props.old_id;
+	    }
+
+	    if (args.status) {
+	      this.status = args.status;
 	    }
 
 	    this.encryptedText = args.msg;
