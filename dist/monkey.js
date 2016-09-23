@@ -1083,7 +1083,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	      //reset watchdog state
 	      watchdog.didRespondSync = true;
 	      //check if the web server disconnected me
-	      console.log(evt);
+	      Log.m(this.session.debug, 'Monkey - Websocket closed... ' + evt);
 	      if (evt.wasClean) {
 	        Log.m(this.session.debug, 'Monkey - Websocket closed - Connection closed... ' + evt);
 	        this.socketConnection = null;
