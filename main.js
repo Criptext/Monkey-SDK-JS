@@ -431,6 +431,10 @@ require('es6-promise').polyfill();
       callback(error, message);
     });
 
+    if (this.session.autoSave) {
+      db.storeMessage(mokMessage);
+    }
+
     return mokMessage;
   }
 
@@ -483,6 +487,10 @@ require('es6-promise').polyfill();
       }.bind(this)],function(error, message){
       callback(error, message);
     });
+
+    if (this.session.autoSave) {
+      db.storeMessage(mokMessage);
+    }
 
     return mokMessage;
   }
@@ -554,16 +562,18 @@ require('es6-promise').polyfill();
 
   proto.getPendingMessages = function getPendingMessages(timestamp){
     let finalTimestamp = timestamp || this.session.lastTimestamp;
-    this.requestMessagesSinceTimestamp(Math.trunc(finalTimestamp), 15);
+    this.requestMessagesSinceTimestamp(Math.trunc(finalTimestamp), 50);
   }
 
   proto.processSyncMessages = function processSyncMessages(messages, remaining){
     this.processMultipleMessages(messages);
 
     if (remaining > 0) {
-      this.requestMessagesSinceTimestamp(this.session.lastTimestamp, 15);
+      this.requestMessagesSinceTimestamp(this.session.lastTimestamp, 50);
     }else if(this.status!=this.enums.Status.ONLINE){
       this.startConnection();
+    }else{
+      this._getEmitter().emit(STATUS_CHANGE_EVENT, this.status);
     }
   }
 
@@ -867,7 +877,9 @@ require('es6-promise').polyfill();
       return;
     }
 
-    let url = '/user/messages/' + this.session.id + "/" + (lastTimestamp || 0) + "/" + (quantity || 15);
+    let url = '/user/messages/' + this.session.id + "/" + (lastTimestamp || 0) + "/" + (quantity || 50);
+
+    this._getEmitter().emit(STATUS_CHANGE_EVENT, this.enums.Status.SYNCING);
 
     apiconnector.basicRequest('GET', url, null, false, function(err,respObj){
       if(err){
@@ -889,6 +901,8 @@ require('es6-promise').polyfill();
         this.processSyncMessages(data.messages, data.remaining)
       }else if(this.status!=this.enums.Status.ONLINE){
         this.startConnection();
+      }else{
+        this._getEmitter().emit(STATUS_CHANGE_EVENT, this.status);
       }
 
     }.bind(this));

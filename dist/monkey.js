@@ -488,6 +488,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	      callback(error, message);
 	    });
 
+	    if (this.session.autoSave) {
+	      db.storeMessage(mokMessage);
+	    }
+
 	    return mokMessage;
 	  };
 
@@ -538,6 +542,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }.bind(this)], function (error, message) {
 	      callback(error, message);
 	    });
+
+	    if (this.session.autoSave) {
+	      db.storeMessage(mokMessage);
+	    }
 
 	    return mokMessage;
 	  };
@@ -608,16 +616,18 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	  proto.getPendingMessages = function getPendingMessages(timestamp) {
 	    var finalTimestamp = timestamp || this.session.lastTimestamp;
-	    this.requestMessagesSinceTimestamp(Math.trunc(finalTimestamp), 15);
+	    this.requestMessagesSinceTimestamp(Math.trunc(finalTimestamp), 50);
 	  };
 
 	  proto.processSyncMessages = function processSyncMessages(messages, remaining) {
 	    this.processMultipleMessages(messages);
 
 	    if (remaining > 0) {
-	      this.requestMessagesSinceTimestamp(this.session.lastTimestamp, 15);
+	      this.requestMessagesSinceTimestamp(this.session.lastTimestamp, 50);
 	    } else if (this.status != this.enums.Status.ONLINE) {
 	      this.startConnection();
+	    } else {
+	      this._getEmitter().emit(STATUS_CHANGE_EVENT, this.status);
 	    }
 	  };
 
@@ -930,7 +940,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	      return;
 	    }
 
-	    var url = '/user/messages/' + this.session.id + "/" + (lastTimestamp || 0) + "/" + (quantity || 15);
+	    var url = '/user/messages/' + this.session.id + "/" + (lastTimestamp || 0) + "/" + (quantity || 50);
+
+	    this._getEmitter().emit(STATUS_CHANGE_EVENT, this.enums.Status.SYNCING);
 
 	    apiconnector.basicRequest('GET', url, null, false, function (err, respObj) {
 	      if (err) {
@@ -952,6 +964,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	        this.processSyncMessages(data.messages, data.remaining);
 	      } else if (this.status != this.enums.Status.ONLINE) {
 	        this.startConnection();
+	      } else {
+	        this._getEmitter().emit(STATUS_CHANGE_EVENT, this.status);
 	      }
 	    }.bind(this));
 	  };
@@ -4186,7 +4200,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	    OFFLINE: 0,
 	    LOGOUT: 1,
 	    CONNECTING: 2,
-	    ONLINE: 3
+	    ONLINE: 3,
+	    SYNCING: 4
 	  };
 
 	  proto.ProtocolCommand = {

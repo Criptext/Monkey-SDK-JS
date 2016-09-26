@@ -18,7 +18,8 @@
     OFFLINE:0,
     LOGOUT:1,
     CONNECTING:2,
-    ONLINE:3
+    ONLINE:3,
+    SYNCING:4
   }
 
   proto.ProtocolCommand = {
