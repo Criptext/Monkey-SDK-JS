@@ -896,7 +896,7 @@ require('es6-promise').polyfill();
       if(err){
         Log.m(this.session.debug, 'Monkey - Sync - Error... '+ err);
         setTimeout(function(){
-          this.requestMessagesSinceTimestamp(lastTimestamp, quantity, showSync);
+          this.requestMessagesSinceTimestamp(lastTimestamp, quantity, dontShowSync);
         }.bind(this), 2000 );
         return;
       }
