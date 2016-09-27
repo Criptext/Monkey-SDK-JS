@@ -426,6 +426,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	    args.id = message.id;
 	    args.oldId = message.oldId;
 
+	    delete args['push'];
+
 	    this.sendCommand(this.enums.ProtocolCommand.MESSAGE, args);
 
 	    return message;
@@ -614,16 +616,16 @@ return /******/ (function(modules) { // webpackBootstrap
 	    return message;
 	  };
 
-	  proto.getPendingMessages = function getPendingMessages(timestamp) {
+	  proto.getPendingMessages = function getPendingMessages(timestamp, showSync) {
 	    var finalTimestamp = timestamp || this.session.lastTimestamp;
-	    this.requestMessagesSinceTimestamp(Math.trunc(finalTimestamp), 50);
+	    this.requestMessagesSinceTimestamp(Math.trunc(finalTimestamp), 50, showSync);
 	  };
 
-	  proto.processSyncMessages = function processSyncMessages(messages, remaining) {
+	  proto.processSyncMessages = function processSyncMessages(messages, remaining, showSync) {
 	    this.processMultipleMessages(messages);
 
 	    if (remaining > 0) {
-	      this.requestMessagesSinceTimestamp(this.session.lastTimestamp, 50);
+	      this.requestMessagesSinceTimestamp(this.session.lastTimestamp, 50, showSync);
 	    } else if (this.status != this.enums.Status.ONLINE) {
 	      this.startConnection();
 	    } else {
@@ -863,11 +865,18 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	      //if message doesn't exists locally, sync messages
 	      if (storedMessage == null || storedMessage === "") {
-	        this.getPendingMessages();
+	        this.getPendingMessages(null, true);
 	      } else {
 
 	        storedMessage.id = message.id;
-	        db.deleteMessageById(message.oldId);
+	        if (parseInt(message.props.status) === 52) {
+	          db.deleteMessageById(message.id);
+	        } else {
+	          db.deleteMessageById(message.oldId);
+	          if (message.senderId.indexOf("G:") <= -1) {
+	            db.storeMessage(message);
+	          }
+	        }
 	      }
 	    }
 
@@ -933,7 +942,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    this.sendCommand(this.enums.ProtocolCommand.DELETE, args);
 	  };
 
-	  proto.requestMessagesSinceTimestamp = function requestMessagesSinceTimestamp(lastTimestamp, quantity) {
+	  proto.requestMessagesSinceTimestamp = function requestMessagesSinceTimestamp(lastTimestamp, quantity, dontShowSync) {
 
 	    if (!this.session || !this.session.id) {
 	      Log.m(this.session.debug, 'Monkey - Sync - No Session');
@@ -942,13 +951,15 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	    var url = '/user/messages/' + this.session.id + "/" + (lastTimestamp || 0) + "/" + (quantity || 50);
 
-	    this._getEmitter().emit(STATUS_CHANGE_EVENT, this.enums.Status.SYNCING);
+	    if (typeof dontShowSync != "boolean" || !dontShowSync) {
+	      this._getEmitter().emit(STATUS_CHANGE_EVENT, this.enums.Status.SYNCING);
+	    }
 
 	    apiconnector.basicRequest('GET', url, null, false, function (err, respObj) {
 	      if (err) {
 	        Log.m(this.session.debug, 'Monkey - Sync - Error... ' + err);
 	        setTimeout(function () {
-	          this.requestMessagesSinceTimestamp(lastTimestamp, quantity);
+	          this.requestMessagesSinceTimestamp(lastTimestamp, quantity, showSync);
 	        }.bind(this), 2000);
 	        return;
 	      }
@@ -964,7 +975,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        this.processSyncMessages(data.messages, data.remaining);
 	      } else if (this.status != this.enums.Status.ONLINE) {
 	        this.startConnection();
-	      } else {
+	      } else if (typeof dontShowSync != "boolean" || !dontShowSync) {
 	        this._getEmitter().emit(STATUS_CHANGE_EVENT, this.status);
 	      }
 	    }.bind(this));
