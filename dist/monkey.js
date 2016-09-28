@@ -855,7 +855,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	      message.readByUser = true;
 	    }
 
-	    if (message.id !== "0") {
+	    if (message.id !== "0" && message.protocolType < 3) {
 	      var storedMessage = db.getMessageById(message.oldId);
 
 	      //if message was already sent, then look for it with the other id

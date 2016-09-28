@@ -789,7 +789,7 @@ require('es6-promise').polyfill();
       message.readByUser = true;
     }
 
-    if(message.id !== "0"){
+    if(message.id !== "0" && message.protocolType < 3){
       let storedMessage = db.getMessageById(message.oldId);
 
       //if message was already sent, then look for it with the other id
