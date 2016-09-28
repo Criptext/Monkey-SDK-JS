@@ -998,7 +998,11 @@ require('es6-promise').polyfill();
         case this.enums.ProtocolCommand.ACK:{
           //msg.protocolCommand = ProtocolCommand.ACK;
           //msg.monkeyType = set status value from props
-          this.processMOKProtocolACK(msg);
+          if(msg.protocolType == this.enums.ProtocolCommand.DELETE){
+            this._getEmitter().emit(MESSAGE_UNSEND_EVENT, {id: msg.id, senderId: msg.senderId, recipientId: msg.recipientId});
+          }else{
+            this.processMOKProtocolACK(msg);
+          }
           break;
         }
         case this.enums.ProtocolCommand.GET:{
