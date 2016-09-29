@@ -140,6 +140,8 @@ require('es6-promise').polyfill();
 
     if (shouldExpireSession) {
       this.session.expireSession = 1;
+    } else{
+      this.session.expireSession = 0;
     }
 
     this.session.autoSave = autoSave || true;
