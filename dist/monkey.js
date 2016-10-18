@@ -200,6 +200,8 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	    if (shouldExpireSession) {
 	      this.session.expireSession = 1;
+	    } else {
+	      this.session.expireSession = 0;
 	    }
 
 	    this.session.autoSave = autoSave || true;
@@ -732,7 +734,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	  };
 
 	  proto.incomingMessage = function incomingMessage(message, messageEventName) {
-	    this.decryptMessage(message, function (error, decryptedMessage) {
+	    this.decryptMessage(message, false, function (error, decryptedMessage) {
 	      var currentTimestamp = this.session.lastTimestamp;
 
 	      if (decryptedMessage.id > 0 && decryptedMessage.datetimeCreation > this.session.lastTimestamp) {
@@ -763,7 +765,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }.bind(this));
 	  };
 
-	  proto.decryptMessage = function decryptMessage(message, callback) {
+	  proto.decryptMessage = function decryptMessage(message, secondTime, callback) {
 
 	    callback = typeof callback === "function" ? callback : function () {};
 
@@ -774,23 +776,30 @@ return /******/ (function(modules) { // webpackBootstrap
 	        Log.m(this.session.debug, "===========================");
 	        Log.m(this.session.debug, "MONKEY - Fail decrypting: " + message.id + " type: " + message.protocolType);
 	        Log.m(this.session.debug, "===========================");
+
+	        if (secondTime) {
+	          return callback("Fail to fetch keys to decrypt message", message);
+	        }
 	        //get keys
 	        this.getAESkeyFromUser(message.senderId, message, function (response) {
 	          if (response == null) {
 	            return callback("Fail to fetch keys to decrypt message", message);
 	          }
-	          this.decryptMessage(message, callback);
+	          this.decryptMessage(message, true, callback);
 	        }.bind(this));
 	        return;
 	      }
 
 	      if (message.text == null || message.text === "") {
+	        if (secondTime) {
+	          return callback("Fail to fetch keys to decrypt message", message);
+	        }
 	        //get keys
 	        this.getAESkeyFromUser(message.senderId, message, function (response) {
 	          if (response == null) {
 	            return callback("Fail to fetch keys to decrypt message", message);
 	          }
-	          this.decryptMessage(message, callback);
+	          this.decryptMessage(message, true, callback);
 	        }.bind(this));
 	        return;
 	      }
@@ -1153,7 +1162,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	      //same keys
 	      if (oldParamKeys.key === newAESkey && oldParamKeys.iv === newIv) {
-	        return callback(null);
+	        return callback(pendingMessage);
 	      }
 
 	      //this.keyStore[respObj.data.session_to] = {key:newParamKeys[0],iv:newParamKeys[1]};
