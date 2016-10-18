@@ -19,6 +19,7 @@ const NodeRSA = require('node-rsa');
 const CryptoJS = require('node-cryptojs-aes').CryptoJS;
 const async = require('async');
 const Push = require('push.js');
+const escape = require('jsesc');
 
 /* global Offline */
 require('offline-js');
@@ -671,7 +672,7 @@ require('es6-promise').polyfill();
   }
 
   proto.incomingMessage = function incomingMessage(message, messageEventName){
-    this.decryptMessage(message, function(error, decryptedMessage){
+    this.decryptMessage(message, false, function(error, decryptedMessage){
       let currentTimestamp = this.session.lastTimestamp;
 
       if (decryptedMessage.id > 0 && decryptedMessage.datetimeCreation > this.session.lastTimestamp) {
@@ -700,7 +701,7 @@ require('es6-promise').polyfill();
     }.bind(this));
   }
 
-  proto.decryptMessage = function decryptMessage(message, callback){
+  proto.decryptMessage = function decryptMessage(message, secondTime, callback){
 
     callback = typeof callback === "function" ? callback : function () { };
 
@@ -712,23 +713,30 @@ require('es6-promise').polyfill();
         Log.m(this.session.debug, "===========================");
         Log.m(this.session.debug, "MONKEY - Fail decrypting: "+message.id+" type: "+message.protocolType);
         Log.m(this.session.debug, "===========================");
+        
+        if(secondTime){
+          return callback("Fail to fetch keys to decrypt message", message);
+        }
         //get keys
         this.getAESkeyFromUser(message.senderId, message, function(response){
           if (response == null) {
             return callback("Fail to fetch keys to decrypt message", message);
           }
-          this.decryptMessage(message, callback);
+          this.decryptMessage(message, true, callback);
         }.bind(this));
         return;
       }
 
       if (message.text == null || message.text === "") {
+        if(secondTime){
+          return callback("Fail to fetch keys to decrypt message", message);
+        }
         //get keys
         this.getAESkeyFromUser(message.senderId, message, function(response){
           if (response == null) {
             return callback("Fail to fetch keys to decrypt message", message);
           }
-          this.decryptMessage(message, callback);
+          this.decryptMessage(message, true, callback);
         }.bind(this));
         return;
       }
@@ -1088,7 +1096,7 @@ require('es6-promise').polyfill();
 
       //same keys
       if (oldParamKeys.key === newAESkey && oldParamKeys.iv === newIv) {
-        return callback(null);
+        return callback(pendingMessage);
       }
 
       //this.keyStore[respObj.data.session_to] = {key:newParamKeys[0],iv:newParamKeys[1]};
@@ -1954,7 +1962,13 @@ require('es6-promise').polyfill();
     };
 
     if (defaultText) {
-      localizedPush.text = defaultText;
+      localizedPush.text = escape(defaultText, {
+        quotes: "single",
+        wrap: true,
+        escapeEverything: false,
+        json: false,
+        es6: false
+      });
     }
     /* eslint-enable comma-dangle */
     return localizedPush;
