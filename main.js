@@ -19,7 +19,6 @@ const NodeRSA = require('node-rsa');
 const CryptoJS = require('node-cryptojs-aes').CryptoJS;
 const async = require('async');
 const Push = require('push.js');
-const escape = require('jsesc');
 
 /* global Offline */
 require('offline-js');
@@ -1962,13 +1961,7 @@ require('es6-promise').polyfill();
     };
 
     if (defaultText) {
-      localizedPush.text = escape(defaultText, {
-        quotes: "single",
-        wrap: true,
-        escapeEverything: false,
-        json: false,
-        es6: false
-      });
+      localizedPush.text = defaultText;
     }
     /* eslint-enable comma-dangle */
     return localizedPush;
