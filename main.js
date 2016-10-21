@@ -1180,7 +1180,7 @@ require('es6-promise').polyfill();
     return encryptedData.toString();
   }
 
-  proto.decryptBulkMessages = function decryptBulkMessages(messages, decryptedMessages, onComplete){
+  proto.decryptBulkMessages = function decryptBulkMessages(messages, secondTime, decryptedMessages, onComplete){
     onComplete = typeof onComplete === "function" ? onComplete : function () { };
     if(!(typeof messages !== "undefined" && messages != null && messages.length > 0)){
       return onComplete(decryptedMessages);
@@ -1197,24 +1197,37 @@ require('es6-promise').polyfill();
         Log.m(this.session.debug, "MONKEY - Fail decrypting: "+message.id+" type: "+message.protocolType);
         Log.m(this.session.debug, "===========================");
         //get keys
+        if(secondTime){
+          message.text = "Unable to decrypt";
+          decryptedMessages.push(message);
+          this.decryptBulkMessages(messages, false, decryptedMessages, onComplete);
+          return;
+        }
         this.getAESkeyFromUser(message.senderId, message, function(response){
           if (response != null) {
             messages.unshift(message);
           }
 
-          this.decryptBulkMessages(messages, decryptedMessages, onComplete);
+          this.decryptBulkMessages(messages, true, decryptedMessages, onComplete);
         }.bind(this));
         return;
       }
 
       if (message.text == null || message.text === "") {
+        if(secondTime){
+          message.text = "Unable to decrypt";
+          decryptedMessages.push(message);
+          this.decryptBulkMessages(messages, false, decryptedMessages, onComplete);
+          return;
+        }
+
         //get keys
         this.getAESkeyFromUser(message.senderId, message, function(response){
           if (response != null) {
             messages.unshift(message);
           }
 
-          this.decryptBulkMessages(messages, decryptedMessages, onComplete);
+          this.decryptBulkMessages(messages, true, decryptedMessages, onComplete);
         }.bind(this));
         return;
       }
@@ -1229,7 +1242,7 @@ require('es6-promise').polyfill();
 
     decryptedMessages.push(message);
 
-    this.decryptBulkMessages(messages, decryptedMessages, onComplete);
+    this.decryptBulkMessages(messages, false, decryptedMessages, onComplete);
   }
 
   proto.decryptDownloadedFile = function decryptDownloadedFile(fileData, message, callback){
@@ -1574,7 +1587,7 @@ require('es6-promise').polyfill();
         return result;
       }.bind(this),[]);
 
-      this.decryptBulkMessages(messagesArray, [], function(decryptedMessages){
+      this.decryptBulkMessages(messagesArray, false, [], function(decryptedMessages){
         onComplete(null, decryptedMessages);
       }.bind(this));
     }.bind(this));
