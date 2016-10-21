@@ -73,6 +73,11 @@ module.exports = class MOKMessage{
         this.buildAcknowledge(this.props);
         break;
       }
+      case 207:{
+        if(this.id == 0 && this.props && this.props.message_id){
+          this.id = this.props.message_id
+        }
+      }
       default:{
         break;
       }
