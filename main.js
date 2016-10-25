@@ -1053,20 +1053,11 @@ require('es6-promise').polyfill();
     {
       //reset watchdog state
       watchdog.didRespondSync = true;
-      //check if the web server disconnected me
-      Log.m(this.session.debug, 'Monkey - Websocket closed... '+ evt);
-      if (evt.wasClean) {
-        Log.m(this.session.debug, 'Monkey - Websocket closed - Connection closed... '+ evt);
-        this.socketConnection = null;
-        this.status=this.enums.Status.LOGOUT;
-      }else{
-        //web server crashed, reconnect
-        Log.m(this.session.debug, 'Monkey - Websocket closed - Reconnecting... '+ evt);
-        this.status=this.enums.Status.OFFLINE;
-        setTimeout(function(){
-          this.startConnection()
-        }.bind(this), 2000 );
-      }
+      Log.m(this.session.debug, 'Monkey - Websocket closed - Reconnecting... '+ evt);
+      this.status=this.enums.Status.OFFLINE;
+      setTimeout(function(){
+        this.startConnection()
+      }.bind(this), 2000 );
       this._getEmitter().emit(STATUS_CHANGE_EVENT, this.status);
       this._getEmitter().emit(DISCONNECT_EVENT, this.status);
     }.bind(this);
@@ -1959,6 +1950,7 @@ require('es6-promise').polyfill();
 
   proto.generateLocalizedPush = function generateLocalizedPush (locKey, locArgs, defaultText, sound){
     /* eslint-disable comma-dangle */
+    locArgs[0] = escape(locArgs[0]).replace(/%u([A-F0-9]{4})|%([A-F0-9]{2})/g, function(_, u, x) { return "\\u" + (u || '00' + x).toLowerCase() });
     let localizedPush = {
       "iosData": {
         "alert": {
@@ -1974,7 +1966,7 @@ require('es6-promise').polyfill();
     };
 
     if (defaultText) {
-      localizedPush.text = defaultText;
+      localizedPush.text = escape(defaultText).replace(/%u([A-F0-9]{4})|%([A-F0-9]{2})/g, function(_, u, x) { return "\\u" + (u || '00' + x).toLowerCase() });
     }
     /* eslint-enable comma-dangle */
     return localizedPush;
