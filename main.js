@@ -19,7 +19,6 @@ const NodeRSA = require('node-rsa');
 const CryptoJS = require('node-cryptojs-aes').CryptoJS;
 const async = require('async');
 const Push = require('push.js');
-const jsesc = require('jsesc');
 
 /* global Offline */
 require('offline-js');
