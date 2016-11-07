@@ -565,6 +565,11 @@ require('es6-promise').polyfill();
   };
 
   proto.getPendingMessages = function getPendingMessages(timestamp, showSync){
+
+    //default to false
+    if(typeof showSync !== "boolean"){
+      showSync = false;
+    }
     let finalTimestamp = timestamp || this.session.lastTimestamp;
     this.requestMessagesSinceTimestamp(Math.trunc(finalTimestamp), 50, showSync);
   }
@@ -574,7 +579,7 @@ require('es6-promise').polyfill();
 
     if (remaining > 0) {
       this.requestMessagesSinceTimestamp(this.session.lastTimestamp, 50, showSync);
-    }else if(this.status!=this.enums.Status.ONLINE){
+    }else if(this.status!==this.enums.Status.ONLINE){
       this.startConnection();
     }else{
       this._getEmitter().emit(STATUS_CHANGE_EVENT, this.status);
@@ -712,7 +717,7 @@ require('es6-promise').polyfill();
         Log.m(this.session.debug, "===========================");
         Log.m(this.session.debug, "MONKEY - Fail decrypting: "+message.id+" type: "+message.protocolType);
         Log.m(this.session.debug, "===========================");
-        
+
         if(secondTime){
           return callback("Fail to fetch keys to decrypt message", message);
         }
@@ -816,7 +821,7 @@ require('es6-promise').polyfill();
           db.deleteMessageById(message.id);
         }else{
           db.deleteMessageById(message.oldId);
-          if (message.senderId.indexOf("G:") <= -1) { 
+          if (message.senderId.indexOf("G:") <= -1) {
             db.storeMessage(message);
           }
         }
@@ -875,7 +880,7 @@ require('es6-promise').polyfill();
   }
 
   proto.unsend = function unsend(message){
-    if(!message || message.senderId != this.session.id){
+    if(!message || message.senderId !== this.session.id){
       return;
     }
 
@@ -888,7 +893,7 @@ require('es6-promise').polyfill();
 
   }
 
-  proto.requestMessagesSinceTimestamp = function requestMessagesSinceTimestamp(lastTimestamp, quantity, dontShowSync){
+  proto.requestMessagesSinceTimestamp = function requestMessagesSinceTimestamp(lastTimestamp, quantity, showSync){
 
     if(!this.session || !this.session.id){
       Log.m(this.session.debug, 'Monkey - Sync - No Session');
@@ -897,7 +902,7 @@ require('es6-promise').polyfill();
 
     let url = '/user/messages/' + this.session.id + "/" + (lastTimestamp || 0) + "/" + (quantity || 50);
 
-    if(typeof dontShowSync != "boolean" ||  !dontShowSync){
+    if(showSync){
       this._getEmitter().emit(STATUS_CHANGE_EVENT, this.enums.Status.SYNCING);
     }
 
@@ -905,7 +910,7 @@ require('es6-promise').polyfill();
       if(err){
         Log.m(this.session.debug, 'Monkey - Sync - Error... '+ err);
         setTimeout(function(){
-          this.requestMessagesSinceTimestamp(lastTimestamp, quantity, dontShowSync);
+          this.requestMessagesSinceTimestamp(lastTimestamp, quantity, showSync);
         }.bind(this), 2000 );
         return;
       }
@@ -918,10 +923,10 @@ require('es6-promise').polyfill();
       let data = respObj.data;
 
       if(data.messages.length > 0){
-        this.processSyncMessages(data.messages, data.remaining)
-      }else if(this.status!=this.enums.Status.ONLINE){
+        this.processSyncMessages(data.messages, data.remaining, showSync)
+      }else if(this.status!==this.enums.Status.ONLINE){
         this.startConnection();
-      }else if(typeof dontShowSync != "boolean" ||  !dontShowSync){
+      }else if(showSync){
         this._getEmitter().emit(STATUS_CHANGE_EVENT, this.status);
       }
 
@@ -1007,7 +1012,7 @@ require('es6-promise').polyfill();
         case this.enums.ProtocolCommand.ACK:{
           //msg.protocolCommand = ProtocolCommand.ACK;
           //msg.monkeyType = set status value from props
-          if(msg.protocolType == this.enums.ProtocolCommand.DELETE){
+          if(msg.protocolType === this.enums.ProtocolCommand.DELETE){
             this._getEmitter().emit(MESSAGE_UNSEND_EVENT, {id: msg.id, senderId: msg.senderId, recipientId: msg.recipientId});
           }else{
             this.processMOKProtocolACK(msg);
