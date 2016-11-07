@@ -243,7 +243,7 @@ require('es6-promise').polyfill();
     return args;
   }
 
-  proto.sendCommand = function sendCommand(command, args){
+  proto._sendCommand = function _sendCommand(command, args){
 
     let storedMonkeyId = db.getMonkeyId();
 
@@ -276,13 +276,13 @@ require('es6-promise').polyfill();
   }
 
   proto.sendOpenToUser = function sendOpenToUser(monkeyId){
-    this.sendCommand(this.enums.ProtocolCommand.OPEN, {rid: monkeyId});
+    this._sendCommand(this.enums.ProtocolCommand.OPEN, {rid: monkeyId});
   }
 
   proto.openConversation = alias('sendOpenToUser');
 
   proto.closeConversation = function closeConversation(monkeyId){
-    this.sendCommand(this.enums.ProtocolCommand.CLOSE, {rid: monkeyId});
+    this._sendCommand(this.enums.ProtocolCommand.CLOSE, {rid: monkeyId});
   }
 
   proto.sendMessage = function sendMessage(text, recipientMonkeyId, optionalParams, optionalPush){
@@ -325,7 +325,7 @@ require('es6-promise').polyfill();
       db.storeMessage(message);
     }
 
-    this.sendCommand(this.enums.ProtocolCommand.MESSAGE, args);
+    this._sendCommand(this.enums.ProtocolCommand.MESSAGE, args);
 
     watchdog.messageInTransit(function(){
       this.socketConnection.onclose = function(){};
@@ -351,7 +351,7 @@ require('es6-promise').polyfill();
     args.id = message.id;
     args.oldId = message.oldId;
 
-    this.sendCommand(this.enums.ProtocolCommand.MESSAGE, args);
+    this._sendCommand(this.enums.ProtocolCommand.MESSAGE, args);
 
     return message;
   }
@@ -371,7 +371,7 @@ require('es6-promise').polyfill();
 
     delete args['push'];
 
-    this.sendCommand(this.enums.ProtocolCommand.MESSAGE, args);
+    this._sendCommand(this.enums.ProtocolCommand.MESSAGE, args);
 
     return message;
   }
@@ -571,14 +571,14 @@ require('es6-promise').polyfill();
       showSync = false;
     }
     let finalTimestamp = timestamp || this.session.lastTimestamp;
-    this.requestMessagesSinceTimestamp(Math.trunc(finalTimestamp), 50, showSync);
+    this._requestMessagesSinceTimestamp(Math.trunc(finalTimestamp), 50, showSync);
   }
 
-  proto.processSyncMessages = function processSyncMessages(messages, remaining, showSync){
-    this.processMultipleMessages(messages);
+  proto._processSyncMessages = function _processSyncMessages(messages, remaining, showSync){
+    this._processMultipleMessages(messages);
 
     if (remaining > 0) {
-      this.requestMessagesSinceTimestamp(this.session.lastTimestamp, 50, showSync);
+      this._requestMessagesSinceTimestamp(this.session.lastTimestamp, 50, showSync);
     }else if(this.status!==this.enums.Status.ONLINE){
       this.startConnection();
     }else{
@@ -586,25 +586,25 @@ require('es6-promise').polyfill();
     }
   }
 
-  proto.processMultipleMessages = function processMultipleMessages(messages){
+  proto._processMultipleMessages = function _processMultipleMessages(messages){
     messages.map(function(message){
       let msg = new MOKMessage(this.enums.ProtocolCommand.MESSAGE, message);
-      this.processMOKProtocolMessage(msg, MESSAGE_SYNC_EVENT);
+      this._processMOKProtocolMessage(msg, MESSAGE_SYNC_EVENT);
     }.bind(this));
   }
 
-  proto.processMOKProtocolMessage = function processMOKProtocolMessage(message, messageEventName){
+  proto._processMOKProtocolMessage = function _processMOKProtocolMessage(message, messageEventName){
     Log.m(this.session.debug, "===========================");
     Log.m(this.session.debug, "MONKEY - Message in process: "+message.id+" type: "+message.protocolType);
     Log.m(this.session.debug, "===========================");
 
     switch(message.protocolType){
       case this.enums.MessageType.TEXT:{
-        this.incomingMessage(message, messageEventName);
+        this._incomingMessage(message, messageEventName);
         break;
       }
       case this.enums.MessageType.FILE:{
-        this.fileReceived(message, messageEventName);
+        this._fileReceived(message, messageEventName);
         break;
       }
       case this.enums.MessageType.TEMP_NOTE:{
@@ -627,7 +627,7 @@ require('es6-promise').polyfill();
 
         //check for group notifications
         if (message.props != null && message.props.monkey_action != null) {
-          this.dispatchGroupNotification(message);
+          this._dispatchGroupNotification(message);
           return;
         }
 
@@ -637,7 +637,7 @@ require('es6-promise').polyfill();
     }
   }
 
-  proto.dispatchGroupNotification = function dispatchGroupNotification(message){
+  proto._dispatchGroupNotification = function _dispatchGroupNotification(message){
     let paramsGroup;
     switch (message.props.monkey_action) {
       case this.enums.GroupAction.CREATE:{
@@ -675,8 +675,8 @@ require('es6-promise').polyfill();
     }
   }
 
-  proto.incomingMessage = function incomingMessage(message, messageEventName){
-    this.decryptMessage(message, false, function(error, decryptedMessage){
+  proto._incomingMessage = function _incomingMessage(message, messageEventName){
+    this._decryptMessage(message, false, function(error, decryptedMessage){
       let currentTimestamp = this.session.lastTimestamp;
 
       if (decryptedMessage.id > 0 && decryptedMessage.datetimeCreation > this.session.lastTimestamp) {
@@ -705,13 +705,13 @@ require('es6-promise').polyfill();
     }.bind(this));
   }
 
-  proto.decryptMessage = function decryptMessage(message, secondTime, callback){
+  proto._decryptMessage = function _decryptMessage(message, secondTime, callback){
 
     callback = typeof callback === "function" ? callback : function () { };
 
     if (message.isEncrypted()) {
       try{
-        message.text = this.aesDecryptIncomingMessage(message);
+        message.text = this._aesDecryptIncomingMessage(message);
       }
       catch(error){
         Log.m(this.session.debug, "===========================");
@@ -722,11 +722,11 @@ require('es6-promise').polyfill();
           return callback("Fail to fetch keys to decrypt message", message);
         }
         //get keys
-        this.getAESkeyFromUser(message.senderId, message, function(response){
+        this._getAESkeyFromUser(message.senderId, message, function(response){
           if (response == null) {
             return callback("Fail to fetch keys to decrypt message", message);
           }
-          this.decryptMessage(message, true, callback);
+          this._decryptMessage(message, true, callback);
         }.bind(this));
         return;
       }
@@ -736,11 +736,11 @@ require('es6-promise').polyfill();
           return callback("Fail to fetch keys to decrypt message", message);
         }
         //get keys
-        this.getAESkeyFromUser(message.senderId, message, function(response){
+        this._getAESkeyFromUser(message.senderId, message, function(response){
           if (response == null) {
             return callback("Fail to fetch keys to decrypt message", message);
           }
-          this.decryptMessage(message, true, callback);
+          this._decryptMessage(message, true, callback);
         }.bind(this));
         return;
       }
@@ -783,7 +783,7 @@ require('es6-promise').polyfill();
     Push.close(tag);
   }
 
-  proto.fileReceived = function fileReceived(message, messageEventName){
+  proto._fileReceived = function _fileReceived(message, messageEventName){
     if (message.id > 0 && message.datetimeCreation > this.session.lastTimestamp) {
       this.session.lastTimestamp = Math.trunc(message.datetimeCreation);
       if (this.session.autoSave) {
@@ -794,7 +794,7 @@ require('es6-promise').polyfill();
     this._getEmitter().emit(messageEventName, message);
   }
 
-  proto.processMOKProtocolACK = function processMOKProtocolACK(message){
+  proto._processMOKProtocolACK = function _processMOKProtocolACK(message){
     Log.m(this.session.debug, "===========================");
     Log.m(this.session.debug, "MONKEY - ACK in process");
     Log.m(this.session.debug, "===========================");
@@ -859,7 +859,7 @@ require('es6-promise').polyfill();
 
     for (let i = 0; i < arrayMessages.length; i++) {
       let msg = arrayMessages[i];
-      this.sendCommand(msg.protocolCommand, msg.args);
+      this._sendCommand(msg.protocolCommand, msg.args);
     }
 
     //set watchdog
@@ -889,11 +889,11 @@ require('es6-promise').polyfill();
       rid : message.recipientId
     }
 
-    this.sendCommand(this.enums.ProtocolCommand.DELETE, args);
+    this._sendCommand(this.enums.ProtocolCommand.DELETE, args);
 
   }
 
-  proto.requestMessagesSinceTimestamp = function requestMessagesSinceTimestamp(lastTimestamp, quantity, showSync){
+  proto._requestMessagesSinceTimestamp = function _requestMessagesSinceTimestamp(lastTimestamp, quantity, showSync){
 
     if(!this.session || !this.session.id){
       Log.m(this.session.debug, 'Monkey - Sync - No Session');
@@ -910,7 +910,7 @@ require('es6-promise').polyfill();
       if(err){
         Log.m(this.session.debug, 'Monkey - Sync - Error... '+ err);
         setTimeout(function(){
-          this.requestMessagesSinceTimestamp(lastTimestamp, quantity, showSync);
+          this._requestMessagesSinceTimestamp(lastTimestamp, quantity, showSync);
         }.bind(this), 2000 );
         return;
       }
@@ -923,7 +923,7 @@ require('es6-promise').polyfill();
       let data = respObj.data;
 
       if(data.messages.length > 0){
-        this.processSyncMessages(data.messages, data.remaining, showSync)
+        this._processSyncMessages(data.messages, data.remaining, showSync)
       }else if(this.status!==this.enums.Status.ONLINE){
         this.startConnection();
       }else if(showSync){
@@ -967,7 +967,7 @@ require('es6-promise').polyfill();
       this.session.user.monkeyId = this.session.id;
       this._getEmitter().emit(CONNECT_EVENT, this.session.user);
 
-      this.sendCommand(this.enums.ProtocolCommand.SET, {online:1});
+      this._sendCommand(this.enums.ProtocolCommand.SET, {online:1});
 
       this.resendPendingMessages();
 
@@ -1002,11 +1002,11 @@ require('es6-promise').polyfill();
           if (!watchdog.didRespondSync) {
             return;
           }
-          this.processMOKProtocolMessage(msg, MESSAGE_EVENT);
+          this._processMOKProtocolMessage(msg, MESSAGE_EVENT);
           break;
         }
         case this.enums.ProtocolCommand.PUBLISH:{
-          this.processMOKProtocolMessage(msg, MESSAGE_EVENT);
+          this._processMOKProtocolMessage(msg, MESSAGE_EVENT);
           break;
         }
         case this.enums.ProtocolCommand.ACK:{
@@ -1015,7 +1015,7 @@ require('es6-promise').polyfill();
           if(msg.protocolType === this.enums.ProtocolCommand.DELETE){
             this._getEmitter().emit(MESSAGE_UNSEND_EVENT, {id: msg.id, senderId: msg.senderId, recipientId: msg.recipientId});
           }else{
-            this.processMOKProtocolACK(msg);
+            this._processMOKProtocolACK(msg);
           }
           break;
         }
@@ -1072,7 +1072,7 @@ require('es6-promise').polyfill();
   * Security
   */
 
-  proto.getAESkeyFromUser = function getAESkeyFromUser(monkeyId, pendingMessage, callback){
+  proto._getAESkeyFromUser = function _getAESkeyFromUser(monkeyId, pendingMessage, callback){
 
     callback = typeof callback === "function" ? callback : function () { };
     apiconnector.basicRequest('POST', '/user/key/exchange',{ monkey_id:this.session.id, user_to:monkeyId}, false, function(err,respObj){
@@ -1085,7 +1085,7 @@ require('es6-promise').polyfill();
       let oldParamKeys = monkeyKeystore.getData(monkeyId, this.session.myKey, this.session.myIv);
 
       Log.m(this.session.debug, 'Monkey - Received new aes keys');
-      let newParamKeys = this.aesDecrypt(respObj.data.convKey, this.session.id).split(":");
+      let newParamKeys = this._aesDecrypt(respObj.data.convKey, this.session.id).split(":");
       let newAESkey = newParamKeys[0];
       let newIv = newParamKeys[1];
 
@@ -1101,7 +1101,7 @@ require('es6-promise').polyfill();
     }.bind(this));
   }
 
-  proto.requestEncryptedTextForMessage = function requestEncryptedTextForMessage(message, callback){
+  proto._requestEncryptedTextForMessage = function _requestEncryptedTextForMessage(message, callback){
 
     callback = typeof callback === "function" ? callback : function () { };
     apiconnector.basicRequest('GET', '/message/'+message.id+'/open/secure',{}, false, function(err,respObj){
@@ -1115,9 +1115,9 @@ require('es6-promise').polyfill();
 
       //check if it's a group
       if (message.recipientId.indexOf("G:") >-1) {
-        message.encryptedText = this.aesDecrypt(message.encryptedText, message.senderId);
+        message.encryptedText = this._aesDecrypt(message.encryptedText, message.senderId);
       }else{
-        message.encryptedText = this.aesDecrypt(message.encryptedText, this.session.id);
+        message.encryptedText = this._aesDecrypt(message.encryptedText, this.session.id);
       }
 
       if (message.encryptedText == null) {
@@ -1135,11 +1135,11 @@ require('es6-promise').polyfill();
     }.bind(this));
   }
 
-  proto.aesDecryptIncomingMessage = function aesDecryptIncomingMessage(message){
-    return this.aesDecrypt(message.encryptedText, message.senderId);
+  proto._aesDecryptIncomingMessage = function _aesDecryptIncomingMessage(message){
+    return this._aesDecrypt(message.encryptedText, message.senderId);
   }
 
-  proto.aesDecrypt = function aesDecrypt(dataToDecrypt, monkeyId){
+  proto._aesDecrypt = function _aesDecrypt(dataToDecrypt, monkeyId){
     //var aesObj = this.keyStore[monkeyId];
     let aesObj = monkeyKeystore.getData(monkeyId, this.session.myKey, this.session.myIv);
     let aesKey = CryptoJS.enc.Base64.parse(aesObj.key);
@@ -1152,7 +1152,7 @@ require('es6-promise').polyfill();
 
   proto.decryptText = alias('aesDecrypt');
 
-  proto.decryptFile = function decryptFile (fileToDecrypt, monkeyId) {
+  proto._decryptFile = function _decryptFile(fileToDecrypt, monkeyId) {
     //var aesObj = this.keyStore[monkeyId];
     let aesObj = monkeyKeystore.getData(monkeyId, this.session.myKey, this.session.myIv);
 
@@ -1176,7 +1176,7 @@ require('es6-promise').polyfill();
     return encryptedData.toString();
   }
 
-  proto.decryptBulkMessages = function decryptBulkMessages(messages, secondTime, decryptedMessages, onComplete){
+  proto._decryptBulkMessages = function _decryptBulkMessages(messages, secondTime, decryptedMessages, onComplete){
     onComplete = typeof onComplete === "function" ? onComplete : function () { };
     if(!(typeof messages !== "undefined" && messages != null && messages.length > 0)){
       return onComplete(decryptedMessages);
@@ -1186,7 +1186,7 @@ require('es6-promise').polyfill();
 
     if (message.isEncrypted() && message.protocolType !== this.enums.MessageType.FILE) {
       try{
-        message.text = this.aesDecryptIncomingMessage(message);
+        message.text = this._aesDecryptIncomingMessage(message);
       }
       catch(error){
         Log.m(this.session.debug, "===========================");
@@ -1196,15 +1196,15 @@ require('es6-promise').polyfill();
         if(secondTime){
           message.text = "Unable to decrypt";
           decryptedMessages.push(message);
-          this.decryptBulkMessages(messages, false, decryptedMessages, onComplete);
+          this._decryptBulkMessages(messages, false, decryptedMessages, onComplete);
           return;
         }
-        this.getAESkeyFromUser(message.senderId, message, function(response){
+        this._getAESkeyFromUser(message.senderId, message, function(response){
           if (response != null) {
             messages.unshift(message);
           }
 
-          this.decryptBulkMessages(messages, true, decryptedMessages, onComplete);
+          this._decryptBulkMessages(messages, true, decryptedMessages, onComplete);
         }.bind(this));
         return;
       }
@@ -1213,17 +1213,17 @@ require('es6-promise').polyfill();
         if(secondTime){
           message.text = "Unable to decrypt";
           decryptedMessages.push(message);
-          this.decryptBulkMessages(messages, false, decryptedMessages, onComplete);
+          this._decryptBulkMessages(messages, false, decryptedMessages, onComplete);
           return;
         }
 
         //get keys
-        this.getAESkeyFromUser(message.senderId, message, function(response){
+        this._getAESkeyFromUser(message.senderId, message, function(response){
           if (response != null) {
             messages.unshift(message);
           }
 
-          this.decryptBulkMessages(messages, true, decryptedMessages, onComplete);
+          this._decryptBulkMessages(messages, true, decryptedMessages, onComplete);
         }.bind(this));
         return;
       }
@@ -1238,7 +1238,7 @@ require('es6-promise').polyfill();
 
     decryptedMessages.push(message);
 
-    this.decryptBulkMessages(messages, false, decryptedMessages, onComplete);
+    this._decryptBulkMessages(messages, false, decryptedMessages, onComplete);
   }
 
   proto.decryptDownloadedFile = function decryptDownloadedFile(fileData, message, callback){
@@ -1252,9 +1252,9 @@ require('es6-promise').polyfill();
 
         //temporal fix for media sent from web
         if (message.props.device === "web") {
-          decryptedData = this.aesDecrypt(fileData, message.senderId);
+          decryptedData = this._aesDecrypt(fileData, message.senderId);
         }else{
-          decryptedData = this.decryptFile(fileData, message.senderId);
+          decryptedData = this._decryptFile(fileData, message.senderId);
         }
 
         Log.m(this.session.debug, "Monkey - decrypted file size: " + decryptedData.length);
@@ -1264,7 +1264,7 @@ require('es6-promise').polyfill();
         Log.m(this.session.debug, "MONKEY - Fail decrypting: "+message.id+" type: "+message.protocolType);
         Log.m(this.session.debug, "===========================");
         //get keys
-        this.getAESkeyFromUser(message.senderId, message, function(response){
+        this._getAESkeyFromUser(message.senderId, message, function(response){
           if (response != null) {
             this.decryptDownloadedFile(fileData, message, callback);
           }else{
@@ -1276,7 +1276,7 @@ require('es6-promise').polyfill();
 
       if (decryptedData == null) {
         //get keys
-        this.getAESkeyFromUser(message.senderId, message, function(response){
+        this._getAESkeyFromUser(message.senderId, message, function(response){
           if (response != null) {
             this.decryptDownloadedFile(fileData, message, callback);
             return;
@@ -1469,12 +1469,12 @@ require('es6-promise').polyfill();
       }
       Log.m(this.session.debug, 'Monkey - GET ALL CONVERSATIONS');
 
-      this.processConversationList(respObj.data.conversations, onComplete);
+      this._processConversationList(respObj.data.conversations, onComplete);
     }.bind(this));
   }
 
   //deprecated, use for testing purposes only
-  proto.getAllConversations = function getAllConversations (onComplete) {
+  proto._getAllConversations = function _getAllConversations (onComplete) {
 
     apiconnector.basicRequest('GET', '/user/'+this.session.id+'/conversations',{}, false, function(err,respObj){
       if (err) {
@@ -1484,11 +1484,11 @@ require('es6-promise').polyfill();
       }
       Log.m(this.session.debug, 'Monkey - GET ALL CONVERSATIONS');
 
-      this.processConversationList(respObj.data.conversations, onComplete);
+      this._processConversationList(respObj.data.conversations, onComplete);
     }.bind(this));
   }
 
-  proto.processConversationList = function processConversationList(conversations, onComplete){
+  proto._processConversationList = function _processConversationList(conversations, onComplete){
 
     async.each(conversations, function(conversation, callback) {
       if(conversation.last_message == null || Object.keys(conversation.last_message).length === 0){
@@ -1502,7 +1502,7 @@ require('es6-promise').polyfill();
 
       if (message.isEncrypted() && message.protocolType !== this.enums.MessageType.FILE) {
         try{
-          message.text = this.aesDecryptIncomingMessage(message);
+          message.text = this._aesDecryptIncomingMessage(message);
           if(message.text == null || message.text === ""){
             throw "Fail decrypt";
           }
@@ -1514,9 +1514,9 @@ require('es6-promise').polyfill();
           Log.m(this.session.debug, "MONKEY - Fail decrypting: "+message.id+" type: "+message.protocolType);
           Log.m(this.session.debug, "===========================");
           //get keys
-          this.getAESkeyFromUser(message.senderId, message, function(response){
+          this._getAESkeyFromUser(message.senderId, message, function(response){
             if (response != null) {
-              message.text = this.aesDecryptIncomingMessage(message);
+              message.text = this._aesDecryptIncomingMessage(message);
               return callback(null);
             }
             else{
@@ -1527,9 +1527,9 @@ require('es6-promise').polyfill();
 
         if (!gotError && (message.text == null || message.text === "")) {
           //get keys
-          this.getAESkeyFromUser(message.senderId, message, function(response){
+          this._getAESkeyFromUser(message.senderId, message, function(response){
             if (response != null) {
-              message.text = this.aesDecryptIncomingMessage(message);
+              message.text = this._aesDecryptIncomingMessage(message);
               return callback(null);
             }
             else{
@@ -1583,7 +1583,7 @@ require('es6-promise').polyfill();
         return result;
       }.bind(this),[]);
 
-      this.decryptBulkMessages(messagesArray, false, [], function(decryptedMessages){
+      this._decryptBulkMessages(messagesArray, false, [], function(decryptedMessages){
         onComplete(null, decryptedMessages);
       }.bind(this));
     }.bind(this));
