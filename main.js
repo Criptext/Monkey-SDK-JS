@@ -580,8 +580,9 @@ require('es6-promise').polyfill();
 
     //default to false
     if(typeof showSync !== "boolean"){
-      showSync = false;
+      showSync = true;
     }
+
     let finalTimestamp = timestamp || this.session.lastTimestamp;
     this._requestMessagesSinceTimestamp(Math.trunc(finalTimestamp), 50, showSync);
   }
@@ -825,7 +826,7 @@ require('es6-promise').polyfill();
 
       //if message doesn't exists locally, sync messages
       if( storedMessage == null || storedMessage === "" ) {
-        this.getPendingMessages(null, true);
+        this.getPendingMessages(null, false);
       }else{
 
         storedMessage.id = message.id;
