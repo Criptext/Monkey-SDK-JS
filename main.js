@@ -188,6 +188,9 @@ require('es6-promise').polyfill();
       this._getEmitter().emit(DISCONNECT_EVENT, this.status);
     }.bind(this));
 
+    //start sending ping
+    this.ping();
+
     let storedMonkeyId = db.getMonkeyId();
 
     if (storedMonkeyId != null && storedMonkeyId === userObj.monkeyId) {
@@ -196,8 +199,6 @@ require('es6-promise').polyfill();
       this.startConnection();
       return callback(null, user);
     }
-
-
 
     this.session.user = userObj || {};
     this.session.id = this.session.user.monkeyId;
@@ -208,6 +209,17 @@ require('es6-promise').polyfill();
     500);
 
     return this;
+  }
+
+  proto.ping = function ping(){
+    if(this.status===this.enums.Status.ONLINE){
+      this._sendCommand(this.enums.ProtocolCommand.PING, {});
+    }
+
+    setTimeout(function(){
+      this.ping();
+    }.bind(this),
+    15000);
   }
 
   /*
@@ -829,7 +841,7 @@ require('es6-promise').polyfill();
 
     }
 
-    let ackParams = {};
+    let ackParams = {"senderId": message.senderId};
 
     if (message.protocolType === this.enums.ProtocolCommand.OPEN) {
       ackParams.lastOpenMe = message.props.last_open_me;
@@ -845,7 +857,6 @@ require('es6-promise').polyfill();
 
     ackParams.newId = message.props.new_id;
     ackParams.oldId = message.props.old_id;
-    ackParams.senderId = message.senderId;
     ackParams.recipientId = message.recipientId;
     ackParams.conversationId = message.conversationId(this.session.user.monkeyId);
     ackParams.status = message.props.status
@@ -997,6 +1008,10 @@ require('es6-promise').polyfill();
 
       let msg = new MOKMessage(jsonres.cmd, jsonres.args);
       switch (parseInt(jsonres.cmd)){
+        case this.enums.ProtocolCommand.PING:{
+          //do nothing
+          break;
+        }
         case this.enums.ProtocolCommand.MESSAGE:{
           //check if sync is in process, discard any messages if so
           if (!watchdog.didRespondSync) {

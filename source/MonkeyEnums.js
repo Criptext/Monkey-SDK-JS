@@ -23,6 +23,7 @@
   }
 
   proto.ProtocolCommand = {
+    PING:100,
     MESSAGE:200,
     GET:201,
     TRANSACTION:202,
