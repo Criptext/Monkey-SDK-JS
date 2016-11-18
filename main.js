@@ -188,15 +188,14 @@ require('es6-promise').polyfill();
       this._getEmitter().emit(DISCONNECT_EVENT, this.status);
     }.bind(this));
 
-    //start sending ping
-    this.ping();
-
     let storedMonkeyId = db.getMonkeyId();
 
     if (storedMonkeyId != null && storedMonkeyId === userObj.monkeyId) {
       let user = this.getUser();
 
       this.startConnection();
+      //start sending ping
+      this.ping();
       return callback(null, user);
     }
 
@@ -1410,6 +1409,8 @@ require('es6-promise').polyfill();
         monkeyKeystore.storeData(this.session.id, this.session.myKey+":"+this.session.myIv, this.session.myKey, this.session.myIv);
 
         this.startConnection();
+        //start sending ping
+        this.ping();
 
         callback(null, this.session.user);
         return;
@@ -1450,6 +1451,8 @@ require('es6-promise').polyfill();
         db.storeUser(respObj.data.monkeyId, this.session);
 
         this.startConnection();
+        //start sending ping
+        this.ping();
         callback(null, this.session.user);
       }.bind(this));
     }.bind(this));
