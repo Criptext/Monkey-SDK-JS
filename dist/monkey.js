@@ -96,6 +96,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	var GROUP_ADD_EVENT = 'GroupAdd';
 	var GROUP_REMOVE_EVENT = 'GroupRemove';
 	var GROUP_LIST_EVENT = 'GroupList';
+	var GROUP_INFO_UPDATE_EVENT = 'GroupInfoUpdate';
 
 	var CHANNEL_SUBSCRIBE_EVENT = 'ChannelSubscribe';
 	var CHANNEL_MESSAGE_EVENT = 'ChannelMessage';
@@ -107,7 +108,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	var DISCONNECT_EVENT = 'Disconnect';
 
 	var CONVERSATION_OPEN_EVENT = 'ConversationOpen';
-	var CONVERSATION_STATUS_CHANGE_EVENT = 'ConversationStatusChange';
+	var CONVERSATION_STATUS_CHANGE_EVENT = 'ConversationStatusChange'; //status referes to online / last seen
 	var CONVERSATION_CLOSE_EVENT = 'ConversationClose';
 
 	var EXIT_EVENT = 'Exit';
@@ -742,6 +743,14 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	          this._getEmitter().emit(GROUP_REMOVE_EVENT, paramsGroup);
 	          break;
+	        }
+	      case this.enums.GroupAction.INFO_UPDATE:
+	        {
+	          paramsGroup = {
+	            'id': message.recipientId,
+	            'info': message.props.info
+	          };
+	          this._getEmitter().emit(GROUP_INFO_UPDATE_EVENT, paramsGroup);
 	        }
 	      default:
 	        {
@@ -4540,7 +4549,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	    CREATE: 1,
 	    DELETE: 2,
 	    NEW_MEMBER: 3,
-	    REMOVE_MEMBER: 4
+	    REMOVE_MEMBER: 4,
+	    INFO_UPDATE: 5
 	  };
 
 	  /**
