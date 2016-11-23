@@ -36,6 +36,7 @@ const GROUP_CREATE_EVENT = 'GroupCreate';
 const GROUP_ADD_EVENT = 'GroupAdd';
 const GROUP_REMOVE_EVENT = 'GroupRemove';
 const GROUP_LIST_EVENT = 'GroupList';
+const GROUP_INFO_UPDATE_EVENT = 'GroupInfoUpdate';
 
 const CHANNEL_SUBSCRIBE_EVENT = 'ChannelSubscribe';
 const CHANNEL_MESSAGE_EVENT = 'ChannelMessage';
@@ -47,7 +48,7 @@ const CONNECT_EVENT = 'Connect';
 const DISCONNECT_EVENT = 'Disconnect';
 
 const CONVERSATION_OPEN_EVENT = 'ConversationOpen';
-const CONVERSATION_STATUS_CHANGE_EVENT = 'ConversationStatusChange';
+const CONVERSATION_STATUS_CHANGE_EVENT = 'ConversationStatusChange'; //status referes to online / last seen
 const CONVERSATION_CLOSE_EVENT = 'ConversationClose';
 
 const EXIT_EVENT = 'Exit';
@@ -679,6 +680,13 @@ require('es6-promise').polyfill();
 
         this._getEmitter().emit(GROUP_REMOVE_EVENT, paramsGroup);
         break;
+      }
+      case this.enums.GroupAction.INFO_UPDATE:{
+        paramsGroup = {
+          'id': message.recipientId,
+          'info': message.props.info
+        };
+        this._getEmitter().emit(GROUP_INFO_UPDATE_EVENT, paramsGroup);
       }
       default:{
         this._getEmitter().emit(NOTIFICATION_EVENT, message);

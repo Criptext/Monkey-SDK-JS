@@ -68,7 +68,8 @@
     CREATE:1,
     DELETE:2,
     NEW_MEMBER:3,
-    REMOVE_MEMBER:4
+    REMOVE_MEMBER:4,
+    INFO_UPDATE:5
   }
 
   /**
