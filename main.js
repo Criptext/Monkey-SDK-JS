@@ -1774,7 +1774,7 @@ require('es6-promise').polyfill();
 
   proto.editGroupInfo = function editGroupInfo(groupId, newInfo, callback){
     callback = typeof callback === "function" ? callback : function () { };
-    apiconnector.basicRequest('POST', '/group/update',{ group_id:groupId, info:newInfo }, false, function(err,respObj){
+    apiconnector.basicRequest('POST', '/group/update',{ groupId:groupId, info:newInfo }, false, function(err,respObj){
       if(err){
         Log.m(this.session.debug, 'Monkey - error updating group: '+err);
         return callback(err);
