@@ -340,8 +340,12 @@ require('es6-promise').polyfill();
     this._sendCommand(this.enums.ProtocolCommand.MESSAGE, args);
 
     watchdog.messageInTransit(function(){
-      this.socketConnection.onclose = function(){};
-      this.socketConnection.close();
+      if (this.socketConnection != null){
+        this.socketConnection.onclose = function(){};
+        this.socketConnection.close();
+        this.socketConnection = null;
+      }
+
       setTimeout(function(){
         this.startConnection()
       }.bind(this), 5000);
@@ -884,8 +888,12 @@ require('es6-promise').polyfill();
     //set watchdog
     if (arrayMessages.length > 0) {
       watchdog.messageInTransit(function(){
-        this.socketConnection.onclose = function(){};
-        this.socketConnection.close();
+        if (this.socketConnection != null) {
+          this.socketConnection.onclose = function(){};
+          this.socketConnection.close();
+          this.socketConnection = null;
+        }
+
         setTimeout(function(){
           this.startConnection();
         }.bind(this), 5000);
