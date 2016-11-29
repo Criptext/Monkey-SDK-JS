@@ -207,7 +207,7 @@ require('es6-promise').polyfill();
     this.session.id = this.session.user.monkeyId;
 
     setTimeout(function(){
-      this.requestSession(zlibcallback);
+      this.requestSession(callback);
     }.bind(this),
     500);
 
