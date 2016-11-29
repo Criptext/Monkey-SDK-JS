@@ -167,7 +167,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	  };
 
 	  proto.status = 0;
-
+	  proto.internet = true;
+	  proto.aliveCounter = 3;
 	  proto.exchangeKeys = 0;
 
 	  proto.session = {
@@ -221,34 +222,39 @@ return /******/ (function(modules) { // webpackBootstrap
 	    //setup socketConnection
 	    this.socketConnection = null;
 
-	    Offline.options = { checks: { xhr: { url: 'https://query.yahooapis.com/v1/public/yql?q=select%20*%20from%20html%20where%20url=www.google.com&format=json' } } };
+	    /*Offline.options = {checks: {xhr: {url: 'https://query.yahooapis.com/v1/public/yql?q=select%20*%20from%20html%20where%20url=www.google.com&format=json'}}};
 	    //setup offline events
 	    Offline.on('confirmed-up', function () {
-	      var storedMonkeyId = db.getMonkeyId();
-
-	      //if no user logged in, do nothing
+	      let storedMonkeyId = db.getMonkeyId();
+	       //if no user logged in, do nothing
 	      if (storedMonkeyId == null || storedMonkeyId === '') {
 	        return;
 	      }
-
-	      if (this.socketConnection == null && storedMonkeyId != null && storedMonkeyId !== '') {
+	       if (this.socketConnection == null && storedMonkeyId != null && storedMonkeyId !== '') {
 	        this.startConnection();
 	        return;
 	      }
 	    }.bind(this));
-
-	    Offline.on('confirmed-down', function () {
+	     Offline.on('confirmed-down', function () {
 	      if (this.socketConnection != null) {
-	        this.socketConnection.onclose = function () {};
+	        this.socketConnection.onclose = function(){};
 	        this.socketConnection.close();
 	        this.socketConnection = null;
 	      }
-
-	      this.status = this.enums.Status.OFFLINE;
+	       this.status=this.enums.Status.OFFLINE;
 	      this._getEmitter().emit(STATUS_CHANGE_EVENT, this.status);
 	      this._getEmitter().emit(DISCONNECT_EVENT, this.status);
-	    }.bind(this));
+	    }.bind(this));*/
 
+<<<<<<< HEAD
+=======
+	    //start sending ping
+	    /*setInterval(function(){ 
+	      this.checkConnectivity() 
+	    }.bind(this), 1000);*/
+	    this.ping();
+
+>>>>>>> check connection status with pongs
 	    var storedMonkeyId = db.getMonkeyId();
 
 	    if (storedMonkeyId != null && storedMonkeyId === userObj.monkeyId) {
@@ -264,20 +270,65 @@ return /******/ (function(modules) { // webpackBootstrap
 	    this.session.id = this.session.user.monkeyId;
 
 	    setTimeout(function () {
-	      this.requestSession(callback);
+	      this.requestSession(zlibcallback);
 	    }.bind(this), 500);
 
 	    return this;
 	  };
 
 	  proto.ping = function ping() {
-	    if (this.status === this.enums.Status.ONLINE) {
-	      this._sendCommand(this.enums.ProtocolCommand.PING, {});
+	    if (this.aliveCounter > 0) {
+	      if (this.status === this.enums.Status.ONLINE) {
+	        this._sendCommand(this.enums.ProtocolCommand.PING, {});
+	      }
+	      this.aliveCounter--;
+	      setTimeout(function () {
+	        this.ping();
+	      }.bind(this), 15000);
+	    } else {
+	      this.internet = false;
+	      this.checkConnectivity();
 	    }
+	  };
 
-	    setTimeout(function () {
-	      this.ping();
-	    }.bind(this), 15000);
+	  proto.checkConnectivity = function checkConnectivity() {
+	    if (!this.internet) {
+	      var xhr = new (window.ActiveXObject || XMLHttpRequest)("Microsoft.XMLHTTP");
+
+	      xhr.open("GET", "https://query.yahooapis.com/v1/public/yql?q=select%20*%20from%20html%20where%20url%3D%22www.google.com%22&format=json", true);
+
+	      xhr.onerror = function (e) {
+	        if (this.socketConnection != null) {
+	          this.socketConnection.onclose = function () {};
+	          this.socketConnection.close();
+	          this.socketConnection = null;
+	        }
+
+	        this.status = this.enums.Status.OFFLINE;
+	        this._getEmitter().emit(STATUS_CHANGE_EVENT, this.status);
+	        this._getEmitter().emit(DISCONNECT_EVENT, this.status);
+
+	        setTimeout(this.checkConnectivity.bind(this), 5000);
+	      }.bind(this);
+
+	      xhr.onload = function (e) {
+	        this.internet = true;
+	        this.aliveCounter = 3;
+	        var storedMonkeyId = db.getMonkeyId();
+	        this.ping();
+	        //if no user logged in, do nothing
+	        if (storedMonkeyId == null || storedMonkeyId === '') {
+	          return;
+	        }
+
+	        if (this.socketConnection == null && storedMonkeyId != null && storedMonkeyId !== '') {
+	          this.startConnection();
+	          return;
+	        }
+	      }.bind(this);
+
+	      xhr.send();
+	    }
 	  };
 
 	  /*
@@ -1056,6 +1107,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        this.session.user = {};
 	      }
 	      this.session.user.monkeyId = this.session.id;
+	      this.aliveCounter = 3;
 	      this._getEmitter().emit(CONNECT_EVENT, this.session.user);
 
 	      this._sendCommand(this.enums.ProtocolCommand.SET, { online: 1 });
@@ -1089,7 +1141,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	      switch (parseInt(jsonres.cmd)) {
 	        case this.enums.ProtocolCommand.PING:
 	          {
-	            //do nothing
+	            this.aliveCounter = 3;
 	            break;
 	          }
 	        case this.enums.ProtocolCommand.MESSAGE:
