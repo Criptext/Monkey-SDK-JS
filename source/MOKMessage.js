@@ -61,8 +61,8 @@ module.exports = class MOKMessage{
       this.oldId = this.props.old_id;
     }
 
-    if(args.status){
-      this.status = args.status;
+    if(args.read_by){
+      this.readBy = args.read_by;
     }
 
     this.encryptedText = args.msg;
