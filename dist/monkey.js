@@ -935,7 +935,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	    Log.m(this.session.debug, "MONKEY - ACK in process");
 	    Log.m(this.session.debug, "===========================");
 
-	    if (parseInt(message.props.status) === 52) {
+	    if (parseInt(message.props.status) === 52 && message.senderId.includes("G:")) {
+	      message.readByUser = message.props.read_by ? message.props.read_by : false;
+	    } else if (parseInt(message.props.status) === 52) {
 	      message.readByUser = true;
 	    }
 
@@ -983,6 +985,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	    ackParams.recipientId = message.recipientId;
 	    ackParams.conversationId = message.conversationId(this.session.user.monkeyId);
 	    ackParams.status = message.props.status;
+	    if (message.readByUser) {
+	      ackParams.readByUser = message.readByUser;
+	    }
 
 	    this._getEmitter().emit(ACKNOWLEDGE_EVENT, ackParams);
 	  };
@@ -4475,8 +4480,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	      this.oldId = this.props.old_id;
 	    }
 
-	    if (args.status) {
-	      this.status = args.status;
+	    if (args.read_by) {
+	      this.readBy = args.read_by;
 	    }
 
 	    this.encryptedText = args.msg;

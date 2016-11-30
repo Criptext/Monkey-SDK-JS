@@ -873,7 +873,9 @@ require('es6-promise').polyfill();
     Log.m(this.session.debug, "MONKEY - ACK in process");
     Log.m(this.session.debug, "===========================");
 
-    if(parseInt(message.props.status) === 52){
+    if(parseInt(message.props.status) === 52 && message.senderId.includes("G:")){
+      message.readByUser = message.props.read_by ? message.props.read_by : false;
+    }else if(parseInt(message.props.status) === 52){
       message.readByUser = true;
     }
 
@@ -921,7 +923,10 @@ require('es6-promise').polyfill();
     ackParams.oldId = message.props.old_id;
     ackParams.recipientId = message.recipientId;
     ackParams.conversationId = message.conversationId(this.session.user.monkeyId);
-    ackParams.status = message.props.status
+    ackParams.status = message.props.status;
+    if(message.readByUser){
+      ackParams.readByUser = message.readByUser;
+    }
 
     this._getEmitter().emit(ACKNOWLEDGE_EVENT, ackParams);
 
