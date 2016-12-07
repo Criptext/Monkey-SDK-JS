@@ -147,13 +147,12 @@ require('es6-promise').polyfill();
     }
 
     this.session.autoSave = autoSave || true;
-    this.domainUrl = 'monkey.criptext.com';
+    this.domainUrl = 'secure.criptext.com';
     this.session.ignore = ignoreHook;
 
     if (isStaging) {
       this.session.debug = true;
       this.session.stage = true;
-      this.domainUrl = 'monkey.criptext.com'
     }
 
     //this.keyStore={};
@@ -264,7 +263,7 @@ require('es6-promise').polyfill();
         if (this.socketConnection == null && storedMonkeyId != null && storedMonkeyId !== '') {
           this.startConnection();
           return;
-        }  
+        }
       }.bind(this)
 
       xhr.send();
