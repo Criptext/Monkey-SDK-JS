@@ -309,6 +309,10 @@ require('es6-promise').polyfill();
 
     let storedMonkeyId = db.getMonkeyId();
 
+    if(!this.socketConnection){
+      return;
+    }
+
     if (storedMonkeyId == null || storedMonkeyId === '') {
       this.socketConnection.onclose = function(){};
       this.socketConnection.close();
