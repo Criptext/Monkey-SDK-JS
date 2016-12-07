@@ -20,9 +20,6 @@ const CryptoJS = require('node-cryptojs-aes').CryptoJS;
 const async = require('async');
 const Push = require('push.js');
 
-/* global Offline */
-require('offline-js');
-
 const zlib = require('zlib');
 
 const MESSAGE_EVENT = 'Message';
@@ -161,34 +158,6 @@ require('es6-promise').polyfill();
     //setup socketConnection
     this.socketConnection= null
 
-    /*Offline.options = {checks: {xhr: {url: 'https://query.yahooapis.com/v1/public/yql?q=select%20*%20from%20html%20where%20url=www.google.com&format=json'}}};
-    //setup offline events
-    Offline.on('confirmed-up', function () {
-      let storedMonkeyId = db.getMonkeyId();
-
-      //if no user logged in, do nothing
-      if (storedMonkeyId == null || storedMonkeyId === '') {
-        return;
-      }
-
-      if (this.socketConnection == null && storedMonkeyId != null && storedMonkeyId !== '') {
-        this.startConnection();
-        return;
-      }
-    }.bind(this));
-
-    Offline.on('confirmed-down', function () {
-      if (this.socketConnection != null) {
-        this.socketConnection.onclose = function(){};
-        this.socketConnection.close();
-        this.socketConnection = null;
-      }
-
-      this.status=this.enums.Status.OFFLINE;
-      this._getEmitter().emit(STATUS_CHANGE_EVENT, this.status);
-      this._getEmitter().emit(DISCONNECT_EVENT, this.status);
-    }.bind(this));*/
-
     this.ping();
 
     let storedMonkeyId = db.getMonkeyId();
@@ -233,8 +202,7 @@ require('es6-promise').polyfill();
   proto.checkConnectivity = function checkConnectivity(){
     if(!this.internet){
       var xhr = new ( window.ActiveXObject || XMLHttpRequest )( "Microsoft.XMLHTTP" );
-
-      xhr.open( "GET", "https://query.yahooapis.com/v1/public/yql?q=select%20*%20from%20html%20where%20url%3D%22www.google.com%22&format=json", true);
+      xhr.open( "GET", "https://" + this.domainUrl + "/ping" , true);
 
       xhr.onerror = function (e){
         if (this.socketConnection != null) {
