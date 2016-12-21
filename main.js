@@ -223,15 +223,8 @@ require('es6-promise').polyfill();
         this.aliveCounter = 3
         let storedMonkeyId = db.getMonkeyId();
         this.ping();
-        //if no user logged in, do nothing
-        if (storedMonkeyId == null || storedMonkeyId === '') {
-          return;
-        }
-
-        if (this.socketConnection == null && storedMonkeyId != null && storedMonkeyId !== '') {
-          this.startConnection();
-          return;
-        }
+        this.startConnection();
+        
       }.bind(this)
 
       xhr.send();
