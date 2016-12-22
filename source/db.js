@@ -4,21 +4,27 @@
 module.exports = (function() {
 
   let db = {};
+  let prefix = "";
   const store = require('../libs/store.js');
 
   //SETTERS
+  db.setPrefix = function(pref){
+    if(pref){
+      prefix = pref + "_";
+    }
+  }
 
   db.storeMessage = function(mokmessage){
-    store.set("message_"+mokmessage.id, mokmessage);
+    store.set(prefix + "message_"+mokmessage.id, mokmessage);
   }
 
   db.storeMonkeyId = function(monkey_id){
-    store.set("monkey_id", monkey_id);
+    store.set(prefix + "monkey_id", monkey_id);
   }
 
   db.storeUser = function(monkey_id, userObj){
-    store.set("monkey_id", monkey_id);
-    store.set("user_"+monkey_id, userObj);
+    store.set(prefix +"monkey_id", monkey_id);
+    store.set(prefix + "user_"+monkey_id, userObj);
   }
 
   //UPDATERS
@@ -94,7 +100,7 @@ module.exports = (function() {
   //GETTERS
 
   db.getMessageById = function(id){
-    return store.get("message_"+id, "");
+    return store.get(prefix + "message_"+id, "");
   }
 
   db.getAllStoredMessages = function(){
@@ -102,7 +108,7 @@ module.exports = (function() {
     let arrayMessages = [];
 
     store.forEach(function(key, val) {
-      if(key.indexOf("message_") !== -1){
+      if(key.indexOf(prefix + "message_") !== -1){
         arrayMessages.push(val);
       }
     });
@@ -114,7 +120,7 @@ module.exports = (function() {
     let arrayMessages = [];
 
     store.forEach(function(key, val) {
-      if(key.indexOf("message_-") !== -1){
+      if(key.indexOf(prefix + "message_-") !== -1){
         arrayMessages.push(val);
       }
     });
@@ -144,7 +150,7 @@ module.exports = (function() {
 
     let arrayMessages = [];
     store.forEach(function(key, val) {
-      if(key.indexOf("message_-") !== -1){
+      if(key.indexOf(prefix + "message_-") !== -1){
         arrayMessages.push(val);
       }
     });
@@ -168,17 +174,17 @@ module.exports = (function() {
   }
 
   db.getMonkeyId = function(){
-    return store.get("monkey_id", null);
+    return store.get(prefix + "monkey_id", null);
   }
 
   db.getUser = function(monkey_id){
-    return store.get("user_"+monkey_id, null);
+    return store.get(prefix + "user_"+monkey_id, null);
   }
 
   //DELETERS
 
   db.deleteMessageById = function(id){
-    store.remove("message_"+id);
+    store.remove(prefix + "message_"+id);
   }
 
   db.deleteStoredMessagesOfConversation = function(myId, id) {
@@ -196,11 +202,11 @@ module.exports = (function() {
   }
 
   db.clear = function(monkeyId){
-    store.remove("monkey_id");
-    store.remove("user_"+monkeyId);
+    store.remove(prefix + "monkey_id");
+    store.remove(prefix + "user_"+monkeyId);
 
     store.forEach(function(key, val) {
-      if(key.indexOf("message_-") !== -1){
+      if(key.indexOf(prefix + "message_") !== -1){
         store.remove(key);
       }
     });
