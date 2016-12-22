@@ -2079,6 +2079,10 @@ require('es6-promise').polyfill();
     return extension;
   }
 
+  proto.setPrefix = function(prefix){
+    db.setPrefix(prefix);
+  }
+
   /**
   * Alias of addListener
   */
