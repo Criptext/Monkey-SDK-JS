@@ -4669,6 +4669,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	      }
 	    }
 
+	    if (this.params === "") {
+	      this.params = {};
+	    }
+
 	    //parse message id
 	    if (args.id == null) {
 	      //didn't come from the socket
