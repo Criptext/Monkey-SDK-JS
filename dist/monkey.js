@@ -2140,6 +2140,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	    return extension;
 	  };
 
+	  proto.setPrefix = function (prefix) {
+	    db.setPrefix(prefix);
+	  };
+
 	  /**
 	  * Alias of addListener
 	  */
@@ -8717,21 +8721,27 @@ return /******/ (function(modules) { // webpackBootstrap
 	module.exports = function () {
 
 	  var db = {};
+	  var prefix = "";
 	  var store = __webpack_require__(9);
 
 	  //SETTERS
+	  db.setPrefix = function (pref) {
+	    if (pref) {
+	      prefix = pref + "_";
+	    }
+	  };
 
 	  db.storeMessage = function (mokmessage) {
-	    store.set("message_" + mokmessage.id, mokmessage);
+	    store.set(prefix + "message_" + mokmessage.id, mokmessage);
 	  };
 
 	  db.storeMonkeyId = function (monkey_id) {
-	    store.set("monkey_id", monkey_id);
+	    store.set(prefix + "monkey_id", monkey_id);
 	  };
 
 	  db.storeUser = function (monkey_id, userObj) {
-	    store.set("monkey_id", monkey_id);
-	    store.set("user_" + monkey_id, userObj);
+	    store.set(prefix + "monkey_id", monkey_id);
+	    store.set(prefix + "user_" + monkey_id, userObj);
 	  };
 
 	  //UPDATERS
@@ -8804,7 +8814,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	  //GETTERS
 
 	  db.getMessageById = function (id) {
-	    return store.get("message_" + id, "");
+	    return store.get(prefix + "message_" + id, "");
 	  };
 
 	  db.getAllStoredMessages = function () {
@@ -8812,7 +8822,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    var arrayMessages = [];
 
 	    store.forEach(function (key, val) {
-	      if (key.indexOf("message_") !== -1) {
+	      if (key.indexOf(prefix + "message_") !== -1) {
 	        arrayMessages.push(val);
 	      }
 	    });
@@ -8824,7 +8834,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    var arrayMessages = [];
 
 	    store.forEach(function (key, val) {
-	      if (key.indexOf("message_-") !== -1) {
+	      if (key.indexOf(prefix + "message_-") !== -1) {
 	        arrayMessages.push(val);
 	      }
 	    });
@@ -8853,7 +8863,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	    var arrayMessages = [];
 	    store.forEach(function (key, val) {
-	      if (key.indexOf("message_-") !== -1) {
+	      if (key.indexOf(prefix + "message_-") !== -1) {
 	        arrayMessages.push(val);
 	      }
 	    });
@@ -8875,17 +8885,17 @@ return /******/ (function(modules) { // webpackBootstrap
 	  };
 
 	  db.getMonkeyId = function () {
-	    return store.get("monkey_id", null);
+	    return store.get(prefix + "monkey_id", null);
 	  };
 
 	  db.getUser = function (monkey_id) {
-	    return store.get("user_" + monkey_id, null);
+	    return store.get(prefix + "user_" + monkey_id, null);
 	  };
 
 	  //DELETERS
 
 	  db.deleteMessageById = function (id) {
-	    store.remove("message_" + id);
+	    store.remove(prefix + "message_" + id);
 	  };
 
 	  db.deleteStoredMessagesOfConversation = function (myId, id) {
@@ -8903,11 +8913,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	  };
 
 	  db.clear = function (monkeyId) {
-	    store.remove("monkey_id");
-	    store.remove("user_" + monkeyId);
+	    store.remove(prefix + "monkey_id");
+	    store.remove(prefix + "user_" + monkeyId);
 
 	    store.forEach(function (key, val) {
-	      if (key.indexOf("message_-") !== -1) {
+	      if (key.indexOf(prefix + "message_") !== -1) {
 	        store.remove(key);
 	      }
 	    });
