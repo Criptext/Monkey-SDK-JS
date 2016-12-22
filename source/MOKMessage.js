@@ -50,6 +50,10 @@ module.exports = class MOKMessage{
       }
     }
 
+    if (this.params === "") {
+      this.params = {};
+    }
+
     //parse message id
     if (args.id == null) {//didn't come from the socket
       this.id = this.generateRandomMessageId();
