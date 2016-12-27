@@ -7,17 +7,24 @@ module.exports = (function() {
 
   const store = require('../libs/store.js');
   const CryptoJS = require('node-cryptojs-aes').CryptoJS;
+  let prefix = "";
+
+  monkeyKeystore.setPrefix = function(pref){
+    if(pref){
+      prefix = pref + "_";
+    }
+  }
 
   monkeyKeystore.storeData = function(key, value, myaeskey, myaesiv){
-    store.set(key, this.aesEncrypt(value, myaeskey, myaesiv));
+    store.set(prefix + key, this.aesEncrypt(value, myaeskey, myaesiv));
   }
 
   monkeyKeystore.storeMessage = function(key, value){
-    store.set(key, value);
+    store.set(prefix + key, value);
   }
 
   monkeyKeystore.getData = function(key, myaeskey, myaesiv){
-    let encrypted = store.get(key, "");
+    let encrypted = store.get(prefix + key, "");
     if(encrypted.length === 0){
       return {key: "", iv: ""};
     }
@@ -31,7 +38,7 @@ module.exports = (function() {
   }
 
   monkeyKeystore.getMessage = function(key){
-    return store.get(key, "");
+    return store.get(prefix + key, "");
   }
 
   monkeyKeystore.aesEncrypt = function(dataToEncrypt, key, iv){

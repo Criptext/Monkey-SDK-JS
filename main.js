@@ -2081,6 +2081,7 @@ require('es6-promise').polyfill();
 
   proto.setPrefix = function(prefix){
     db.setPrefix(prefix);
+    monkeyKeystore.setPrefix(prefix);
   }
 
   /**
