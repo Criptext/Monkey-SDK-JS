@@ -2142,6 +2142,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	  proto.setPrefix = function (prefix) {
 	    db.setPrefix(prefix);
+	    monkeyKeystore.setPrefix(prefix);
 	  };
 
 	  /**
@@ -4823,17 +4824,24 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	  var store = __webpack_require__(9);
 	  var CryptoJS = __webpack_require__(10).CryptoJS;
+	  var prefix = "";
+
+	  monkeyKeystore.setPrefix = function (pref) {
+	    if (pref) {
+	      prefix = pref + "_";
+	    }
+	  };
 
 	  monkeyKeystore.storeData = function (key, value, myaeskey, myaesiv) {
-	    store.set(key, this.aesEncrypt(value, myaeskey, myaesiv));
+	    store.set(prefix + key, this.aesEncrypt(value, myaeskey, myaesiv));
 	  };
 
 	  monkeyKeystore.storeMessage = function (key, value) {
-	    store.set(key, value);
+	    store.set(prefix + key, value);
 	  };
 
 	  monkeyKeystore.getData = function (key, myaeskey, myaesiv) {
-	    var encrypted = store.get(key, "");
+	    var encrypted = store.get(prefix + key, "");
 	    if (encrypted.length === 0) {
 	      return { key: "", iv: "" };
 	    }
@@ -4847,7 +4855,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	  };
 
 	  monkeyKeystore.getMessage = function (key) {
-	    return store.get(key, "");
+	    return store.get(prefix + key, "");
 	  };
 
 	  monkeyKeystore.aesEncrypt = function (dataToEncrypt, key, iv) {
