@@ -88,18 +88,18 @@ feature of monkey.
       console.log(msg.isEncrypted());
     }
 
-    monkey.getConversations(null, 10, function(error, conversations){
-      if (error) {
-        console.log("error: "+error);
-        return;
-      }
-
-      for(var i = 0; i<conversations.length; i++){
-        var conversation = conversations[i];
-
-        console.log(conversation.last_message.datetimeCreation);
-      }
-    });
+    // monkey.getConversations(null, 10, function(error, conversations){
+    //   if (error) {
+    //     console.log("error: "+error);
+    //     return;
+    //   }
+    //
+    //   for(var i = 0; i<conversations.length; i++){
+    //     var conversation = conversations[i];
+    //
+    //     console.log(conversation.last_message.datetimeCreation);
+    //   }
+    // });
     // monkey.getConversationMessages(recipientMonkeyId, 10);
 
   });
@@ -181,8 +181,8 @@ feature of monkey.
     if (userObj.monkeyId == null && monkeyId) {
       userObj.monkeyId = monkeyId;
     }
-    // appKey, appSecret, userObj, ignoreHook, shouldExpireSession, isDebugging, autoSync, autoSave, callback
-    monkey.init("idkgwf6ghcmyfvvrxqiwwmi", "9da5bbc32210ed6501de82927056b8d2",userObj, null, false, true, true, true, function(error, success){
+    // appKey, appSecret, userObj, ignoreHook, shouldExpireSession, isDebugging, autoSync, autoSave, isSecure, callback
+    monkey.init("idkgwf6ghcmyfvvrxqiwwmi", "9da5bbc32210ed6501de82927056b8d2",userObj, null, false, true, true, true, true, function(error, success){
       console.log(success);
     });
 

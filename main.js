@@ -115,14 +115,15 @@ require('es6-promise').polyfill();
     expireSession: 0,
     debug: false,
     stage: false,
-    autoSave: true
+    autoSave: true,
+    isSecure: true
   }
 
   /*
   * Session stuff
   */
 
-  proto.init = function init(appKey, appSecret, userObj, ignoreHook, shouldExpireSession, isStaging, autoSync, autoSave, callback){
+  proto.init = function init(appKey, appSecret, userObj, ignoreHook, shouldExpireSession, isStaging, autoSync, autoSave, isSecure, callback){
     if (appKey == null || appSecret == null) {
       throw 'Monkey - To initialize Monkey, you must provide your App Id and App Secret';
     }
@@ -136,6 +137,7 @@ require('es6-promise').polyfill();
     this.appKey = appKey;
     this.appSecret = appSecret;
     this.autoSync = autoSync;
+    this.isSecure = isSecure;
 
     if (shouldExpireSession) {
       this.session.expireSession = 1;
@@ -144,7 +146,7 @@ require('es6-promise').polyfill();
     }
 
     this.session.autoSave = autoSave || true;
-    this.domainUrl = 'secure.criptext.com';
+    this.domainUrl = '35.165.188.149:8080';
     this.session.ignore = ignoreHook;
 
     if (isStaging) {
@@ -175,7 +177,13 @@ require('es6-promise').polyfill();
     this.session.id = this.session.user.monkeyId;
 
     setTimeout(function(){
-      this.requestSession(callback);
+      if (this.session.id == null && this.isSecure) {
+        this.requestSecureSession(callback);
+      } else if(this.session.id != null && this.isSecure){
+        this.requestSecureKey(callback);
+      } else {
+        this.requestSession(callback);
+      }
     }.bind(this),
     500);
 
@@ -202,7 +210,7 @@ require('es6-promise').polyfill();
   proto.checkConnectivity = function checkConnectivity(){
     if(!this.internet){
       var xhr = new ( window.ActiveXObject || XMLHttpRequest )( "Microsoft.XMLHTTP" );
-      xhr.open( "GET", "https://" + this.domainUrl + "/ping" , true);
+      xhr.open( "GET", "http://" + this.domainUrl + "/ping" , true);
 
       xhr.onerror = function (e){
         if (this.socketConnection != null) {
@@ -224,7 +232,6 @@ require('es6-promise').polyfill();
         let storedMonkeyId = db.getMonkeyId();
         this.ping();
         this.startConnection();
-        
       }.bind(this)
 
       xhr.send();
@@ -322,12 +329,12 @@ require('es6-promise').polyfill();
   proto.sendText = function sendText(text, recipientMonkeyId, shouldEncrypt, optionalParams, optionalPush){
     let props = {
       device: "web",
-      encr: shouldEncrypt? 1 : 0,
+      encr: (shouldEncrypt && this.isSecure)? 1 : 0,
       encoding: 'utf8'
     };
 
     //encode to base64 if not encrypted to preserve special characters
-    if (!shouldEncrypt) {
+    if (!shouldEncrypt || !this.isSecure) {
       text = new Buffer(text).toString('base64');
       props.encoding = 'base64';
     }
@@ -340,7 +347,7 @@ require('es6-promise').polyfill();
     args.id = message.id;
     args.oldId = message.oldId;
 
-    if (message.isEncrypted()) {
+    if (message.isEncrypted() && this.isSecure) {
       message.encryptedText = this.aesEncrypt(text, this.session.id);
       args.msg = message.encryptedText;
     }
@@ -550,7 +557,7 @@ require('es6-promise').polyfill();
     args.props = message.props;
     args.params = message.params;
 
-    if (message.isEncrypted()) {
+    if (message.isEncrypted() && this.isSecure) {
       fileData = this.aesEncrypt(fileData, this.session.id);
     }
 
@@ -748,6 +755,12 @@ require('es6-promise').polyfill();
     callback = typeof callback === "function" ? callback : function () { };
 
     if (message.isEncrypted()) {
+      if (!this.isSecure) {
+        Log.m(this.session.debug, "Monkey - Can't decrypt secure content with insecure user session");
+        message.text = "Can't decrypt secure content with insecure user session";
+        return callback(null, message);
+      }
+
       try{
         message.text = this._aesDecryptIncomingMessage(message);
       }
@@ -997,12 +1010,12 @@ require('es6-promise').polyfill();
     this._getEmitter().emit(STATUS_CHANGE_EVENT, this.status);
     let token=this.appKey+":"+this.appSecret;
 
-    if(this.session.stage){ //no ssl
+    // if(this.session.stage){ //no ssl
       this.socketConnection = new WebSocket('ws://'+this.domainUrl+'/websockets?monkey_id='+monkey_id+'&p='+token,'criptext-protocol');
-    }
-    else{
-      this.socketConnection = new WebSocket('wss://'+this.domainUrl+'/websockets?monkey_id='+monkey_id+'&p='+token,'criptext-protocol');
-    }
+    // }
+    // else{
+    //   this.socketConnection = new WebSocket('wss://'+this.domainUrl+'/websockets?monkey_id='+monkey_id+'&p='+token,'criptext-protocol');
+    // }
 
     this.socketConnection.onopen = function () {
       this.status=this.enums.Status.ONLINE;
@@ -1237,6 +1250,14 @@ require('es6-promise').polyfill();
     let message = messages.shift();
 
     if (message.isEncrypted() && message.protocolType !== this.enums.MessageType.FILE) {
+      if (!this.isSecure) {
+        Log.m(this.session.debug, "Monkey - Can't decrypt secure content with insecure user session");
+        message.text = "Can't decrypt secure content with insecure user session";
+        decryptedMessages.push(message);
+        this._decryptBulkMessages(messages, false, decryptedMessages, onComplete);
+        return;
+      }
+
       try{
         message.text = this._aesDecryptIncomingMessage(message);
       }
@@ -1296,7 +1317,12 @@ require('es6-promise').polyfill();
   proto.decryptDownloadedFile = function decryptDownloadedFile(fileData, message, callback){
 
     callback = typeof callback === "function" ? callback : function () { };
+
     if (message.isEncrypted()) {
+      if (!this.isSecure) {
+        Log.m(this.session.debug, "Monkey - Can't decrypt secure content with insecure user session");
+        return callback("Can't decrypt secure content with insecure user session");
+      }
       let decryptedData = null;
       try{
         let currentSize = fileData.length;
@@ -1401,56 +1427,73 @@ require('es6-promise').polyfill();
   * API CONNECTOR
   */
 
-  proto.requestSession = function requestSession(callback){
-    this.exchangeKeys = new NodeRSA({ b: 2048 }, {encryptionScheme: 'pkcs1'});
-    let isSync = false;
-    let endpoint = '/user/session';
-    let params={ user_info:this.session.user,monkey_id:this.session.id,expiring:this.session.expireSession};
+  proto.requestSecureKey = function requestSecureKey(callback){
+    let params={
+      user_info:this.session.user,
+      monkey_id:this.session.id,
+      expiring:this.session.expireSession
+    };
 
-    if (this.session.id != null) {
-      endpoint = '/user/key/sync';
-      isSync = true;
-      params.public_key = this.exchangeKeys.exportKey('public');
-    }
+    this.exchangeKeys = new NodeRSA({ b: 2048 }, {encryptionScheme: 'pkcs1'});
+    params.public_key = this.exchangeKeys.exportKey('public');
 
     this.status = this.enums.Status.HANDSHAKE;
     this._getEmitter().emit(STATUS_CHANGE_EVENT, this.status);
-    apiconnector.basicRequest('POST', endpoint, params, false, function(err,respObj){
+    apiconnector.basicRequest('POST', '/user/key/sync', params, false, function(err,respObj){
+      if(err){
+        Log.m(this.session.debug, 'Monkey - '+err);
+
+        //check if the user doesn't have generated keys
+        if (err.response.status === 403) {
+          return this.requestSecureSession(callback);
+        }
+        return callback(err);
+      }
+
+      Log.m(this.session.debug, 'Monkey - reusing Monkey ID : '+this.session.id);
+
+      if (respObj.data.info != null) {
+        this.session.user = respObj.data.info;
+      }
+
+      if (respObj.data.last_time_synced == null) {
+        respObj.data.last_time_synced = 0;
+      }
+
+      let decryptedAesKeys = this.exchangeKeys.decrypt(respObj.data.keys, 'utf8');
+
+      let myAesKeys=decryptedAesKeys.split(":");
+      this.session.myKey=myAesKeys[0];
+      this.session.myIv=myAesKeys[1];
+
+      this.session.lastTimestamp = Math.trunc(respObj.data.last_time_synced);
+
+      db.storeUser(this.session.id, this.session);
+
+      monkeyKeystore.storeData(this.session.id, this.session.myKey+":"+this.session.myIv, this.session.myKey, this.session.myIv);
+
+      this.startConnection();
+      //start sending ping
+      this.ping();
+
+      callback(null, this.session.user);
+    }.bind(this));
+  }
+
+  proto.requestSecureSession = function requestSecureSession(callback){
+    let params={
+      user_info:this.session.user,
+      monkey_id:this.session.id,
+      expiring:this.session.expireSession
+    };
+
+    this.status = this.enums.Status.HANDSHAKE;
+    this._getEmitter().emit(STATUS_CHANGE_EVENT, this.status);
+    apiconnector.basicRequest('POST', '/user/session', params, false, function(err,respObj){
 
       if(err){
         Log.m(this.session.debug, 'Monkey - '+err);
         return callback(err);
-      }
-
-      if (isSync) {
-        Log.m(this.session.debug, 'Monkey - reusing Monkey ID : '+this.session.id);
-
-        if (respObj.data.info != null) {
-          this.session.user = respObj.data.info;
-        }
-
-        if (respObj.data.last_time_synced == null) {
-          respObj.data.last_time_synced = 0;
-        }
-
-        let decryptedAesKeys = this.exchangeKeys.decrypt(respObj.data.keys, 'utf8');
-
-        let myAesKeys=decryptedAesKeys.split(":");
-        this.session.myKey=myAesKeys[0];
-        this.session.myIv=myAesKeys[1];
-
-        this.session.lastTimestamp = Math.trunc(respObj.data.last_time_synced);
-
-        db.storeUser(this.session.id, this.session);
-
-        monkeyKeystore.storeData(this.session.id, this.session.myKey+":"+this.session.myIv, this.session.myKey, this.session.myIv);
-
-        this.startConnection();
-        //start sending ping
-        this.ping();
-
-        callback(null, this.session.user);
-        return;
       }
 
       if (respObj.data.monkeyId == null) {
@@ -1493,7 +1536,36 @@ require('es6-promise').polyfill();
         callback(null, this.session.user);
       }.bind(this));
     }.bind(this));
-  }/// end of function requestSession
+  }/// end of function requestSecureSession
+
+  proto.requestSession = function requestSession(callback){
+
+    let params={
+      userInfo:this.session.user,
+      monkeyId:this.session.id,
+      expiring:this.session.expireSession
+    };
+
+    this.status = this.enums.Status.HANDSHAKE;
+    this._getEmitter().emit(STATUS_CHANGE_EVENT, this.status);
+    apiconnector.basicRequest('POST', '/user', params, false, function(err,respObj){
+
+      if(err){
+        Log.m(this.session.debug, 'Monkey - '+err);
+        return callback(err);
+      }
+
+      this.session.id = respObj.data.monkeyId;
+      this.session.user.monkeyId = respObj.data.monkeyId;
+
+      db.storeUser(respObj.data.monkeyId, this.session);
+
+      this.startConnection();
+      //start sending ping
+      this.ping();
+      callback(null, this.session.user);
+    }.bind(this));
+  }// end of function requestExistingSecureSession
 
   proto.subscribe = function subscribe(channel, callback){
 
@@ -1557,6 +1629,11 @@ require('es6-promise').polyfill();
       let gotError = false;
 
       if (message.isEncrypted() && message.protocolType !== this.enums.MessageType.FILE) {
+        if (!this.isSecure) {
+          Log.m(this.session.debug, "Monkey - Can't decrypt secure content with insecure user session");
+          message.text = "Can't decrypt secure content with insecure user session";
+          return callback(null);
+        }
         try{
           message.text = this._aesDecryptIncomingMessage(message);
           if(message.text == null || message.text === ""){
