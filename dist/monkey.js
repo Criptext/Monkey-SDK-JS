@@ -206,7 +206,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }
 
 	    this.session.autoSave = autoSave || true;
-	    this.domainUrl = '35.165.188.149:8080';
+	    this.domainUrl = 'secure.criptext.com';
 	    this.session.ignore = ignoreHook;
 
 	    if (isStaging) {
@@ -267,7 +267,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	  proto.checkConnectivity = function checkConnectivity() {
 	    if (!this.internet) {
 	      var xhr = new (window.ActiveXObject || XMLHttpRequest)("Microsoft.XMLHTTP");
-	      xhr.open("GET", "http://" + this.domainUrl + "/ping", true);
+	      xhr.open("GET", "https://" + this.domainUrl + "/ping", true);
 
 	      xhr.onerror = function (e) {
 	        if (this.socketConnection != null) {
@@ -1072,12 +1072,12 @@ return /******/ (function(modules) { // webpackBootstrap
 	    this._getEmitter().emit(STATUS_CHANGE_EVENT, this.status);
 	    var token = this.appKey + ":" + this.appSecret;
 
-	    // if(this.session.stage){ //no ssl
-	    this.socketConnection = new WebSocket('ws://' + this.domainUrl + '/websockets?monkey_id=' + monkey_id + '&p=' + token, 'criptext-protocol');
-	    // }
-	    // else{
-	    //   this.socketConnection = new WebSocket('wss://'+this.domainUrl+'/websockets?monkey_id='+monkey_id+'&p='+token,'criptext-protocol');
-	    // }
+	    if (this.session.stage) {
+	      //no ssl
+	      this.socketConnection = new WebSocket('ws://' + this.domainUrl + '/websockets?monkey_id=' + monkey_id + '&p=' + token, 'criptext-protocol');
+	    } else {
+	      this.socketConnection = new WebSocket('wss://' + this.domainUrl + '/websockets?monkey_id=' + monkey_id + '&p=' + token, 'criptext-protocol');
+	    }
 
 	    this.socketConnection.onopen = function () {
 	      this.status = this.enums.Status.ONLINE;
