@@ -543,7 +543,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	    var props = {
 	      device: "web",
-	      encr: 1,
+	      encr: this.isSecure ? 1 : 0,
 	      file_type: fileType,
 	      ext: this.mok_getFileExtension(fileName),
 	      filename: fileName,
