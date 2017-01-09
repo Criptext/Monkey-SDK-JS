@@ -4748,7 +4748,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	      }
 	    }
 
-	    if (this.params === "") {
+	    if (this.params === "" || this.params == null || typeof this.params === "undefined") {
 	      this.params = {};
 	    }
 
