@@ -1620,7 +1620,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	      }
 
 	      this.session.id = respObj.data.monkeyId;
-	      this.session.user.monkeyId = respObj.data.monkeyId;
+	      if (respObj.data.info != null) {
+	        this.session.user = respObj.data.info;
+	      }
 
 	      db.storeUser(respObj.data.monkeyId, this.session);
 
